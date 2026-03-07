@@ -1,0 +1,109 @@
+/**
+ * 安全辅助工具 - 提供防御性编程和错误处理的工具函数
+ * 用于提升代码稳定性，防止常见的运行时错误
+ */
+
+var SafetyHelper = {
+    safeCall: function(fn, defaultValue) {
+        if (typeof fn !== 'function') {
+            return defaultValue;
+        }
+        try {
+            var args = Array.prototype.slice.call(arguments, 2);
+            return fn.apply(null, args);
+        } catch (e) {
+            cc.error("SafeCall failed: " + e);
+            return defaultValue;
+        }
+    },
+
+    safeCallWithFallback: function(fn, defaultValue) {
+        if (typeof fn !== 'function') {
+            return defaultValue;
+        }
+        try {
+            var args = Array.prototype.slice.call(arguments, 2);
+            var result = fn.apply(null, args);
+            return result || defaultValue;
+        } catch (e) {
+            cc.error("SafeCallWithFallback failed: " + e);
+            return defaultValue;
+        }
+    },
+
+    preventDuplicate: function(context, flagName, fn) {
+        return function() {
+            if (context[flagName]) {
+                return;
+            }
+            context[flagName] = true;
+            try {
+                return fn.apply(context, arguments);
+            } finally {
+                context[flagName] = false;
+            }
+        };
+    },
+
+    safeCreateUI: function(createFn, errorMsg) {
+        try {
+            return createFn();
+        } catch (e) {
+            cc.error((errorMsg || "UI creation failed") + ": " + e);
+            return null;
+        }
+    },
+
+    hasMethod: function(obj, methodName) {
+        return obj && typeof obj[methodName] === 'function';
+    },
+
+    isEmpty: function(value) {
+        return value === undefined || value === null || value === "";
+    },
+
+    safeJSONParse: function(jsonText, defaultValue, context) {
+        if (this.isEmpty(jsonText)) {
+            return defaultValue;
+        }
+        try {
+            return JSON.parse(jsonText);
+        } catch (e) {
+            cc.error("safeJSONParse failed" + (context ? " [" + context + "]" : "") + ": " + e);
+            return defaultValue;
+        }
+    },
+
+    safeLoadSprite: function(spriteName, fallbackName) {
+        if (this.isEmpty(spriteName)) {
+            return fallbackName ? this.safeLoadSprite(fallbackName, null) : null;
+        }
+        try {
+            var sprite = autoSpriteFrameController.getSpriteFromSpriteName(spriteName);
+            if (sprite) {
+                return sprite;
+            }
+            return fallbackName ? this.safeLoadSprite(fallbackName, null) : null;
+        } catch (e) {
+            cc.error("safeLoadSprite failed: " + spriteName + ", " + e);
+            return fallbackName ? this.safeLoadSprite(fallbackName, null) : null;
+        }
+    }
+};
+
+// ErrorHandler别名（向后兼容）
+var ErrorHandler = {
+    logError: function(context, error, extraInfo) {
+        var errorMsg = error instanceof Error ? error.message : error;
+        var logMsg = "[ERROR] " + context + ": " + errorMsg;
+        if (extraInfo !== undefined) {
+            logMsg += " | " + JSON.stringify(extraInfo);
+        }
+        cc.error(logMsg);
+    },
+    safeExecute: function(fn, context, fallback) {
+        var args = Array.prototype.slice.call(arguments, 3);
+        args.unshift(fn, fallback);
+        return SafetyHelper.safeCall.apply(SafetyHelper, args);
+    }
+};
