@@ -523,14 +523,17 @@ var RestBuildAction = BuildAction.extend({
         this.index = 0;
     },
     updateConfig: function () {
+        return BuildActionEffectService.updateConfig(this);
         var level = this.getCurrentBuildLevel();
         level = level >= 0 ? level : 0;
         this.config = this.configs[level][this.index];
     },
     clickIcon: function () {
+        return BuildActionEffectService.showBuildActionDialog(this);
         uiUtil.showBuildActionDialog(this.bid, this.index);
     },
     clickAction1: function () {
+        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1096});
         if (!uiUtil.checkVigour())
             return;
         this.updateConfig();
@@ -557,6 +560,15 @@ var RestBuildAction = BuildAction.extend({
         this._sendUpdageSignal();
     },
     _getUpdateViewInfo: function () {
+        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
+            iconIndex: 0,
+            actionTextId: 1014,
+            progressHintIds: {
+                1: 1016,
+                2: 1017,
+                default: 1015
+            }
+        });
         this.updateConfig();
         var iconName = "#build_action_" + this.id + "_0" + ".png";
 
@@ -609,14 +621,17 @@ var DrinkBuildAction = BuildAction.extend({
         this.index = 1;
     },
     updateConfig: function () {
+        return BuildActionEffectService.updateConfig(this);
         var level = this.getCurrentBuildLevel();
         level = level >= 0 ? level : 0;
         this.config = this.configs[level][this.index];
     },
     clickIcon: function () {
+        return BuildActionEffectService.showBuildActionDialog(this);
         uiUtil.showBuildActionDialog(this.bid, this.index);
     },
     clickAction1: function () {
+        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1309});
         if (!uiUtil.checkVigour())
             return;
         this.updateConfig();
@@ -643,6 +658,15 @@ var DrinkBuildAction = BuildAction.extend({
         this._sendUpdageSignal();
     },
     _getUpdateViewInfo: function () {
+        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
+            iconIndex: 1,
+            actionTextId: 1308,
+            progressHintIds: {
+                1: 1306,
+                2: 1307,
+                default: 1305
+            }
+        });
         this.updateConfig();
         var iconName = "#build_action_" + this.id + "_1" + ".png";
 
@@ -695,14 +719,17 @@ var DrinkTeaBuildAction = BuildAction.extend({
         this.index = 2;
     },
     updateConfig: function () {
+        return BuildActionEffectService.updateConfig(this);
         var level = this.getCurrentBuildLevel();
         level = level >= 0 ? level : 0;
         this.config = this.configs[level][this.index];
     },
     clickIcon: function () {
+        return BuildActionEffectService.showBuildActionDialog(this);
         uiUtil.showBuildActionDialog(this.bid, this.index);
     },
     clickAction1: function () {
+        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1336});
         if (!uiUtil.checkVigour())
             return;
         this.updateConfig();
@@ -729,6 +756,15 @@ var DrinkTeaBuildAction = BuildAction.extend({
         this._sendUpdageSignal();
     },
     _getUpdateViewInfo: function () {
+        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
+            iconIndex: 0,
+            actionTextId: 1335,
+            progressHintIds: {
+                1: 1337,
+                2: 1338,
+                default: 1339
+            }
+        });
         this.updateConfig();
         var iconName = "#build_action_" + this.id + "_0" + ".png";
 

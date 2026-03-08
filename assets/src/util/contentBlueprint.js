@@ -21,6 +21,20 @@ var ContentBlueprint = {
         }
         return TalentConfigTable[id] || null;
     },
+    _getSiteConfig: function (id) {
+        id = this._normalizeId(id);
+        if (id === null || typeof siteConfig === "undefined" || !siteConfig) {
+            return null;
+        }
+        return siteConfig[id] || null;
+    },
+    _getNpcConfig: function (id) {
+        id = this._normalizeId(id);
+        if (id === null || typeof npcConfig === "undefined" || !npcConfig) {
+            return null;
+        }
+        return npcConfig[id] || null;
+    },
     _getStringValue: function (stringId) {
         if (stringId === undefined
             || stringId === null
@@ -111,6 +125,88 @@ var ContentBlueprint = {
                 || !itemConfig[itemId]) {
                 return false;
             }
+        }
+        return true;
+    },
+    _isFiniteNumber: function (value) {
+        return value !== null && value !== undefined && value !== "" && isFinite(Number(value));
+    },
+    _hasValidCoordinate: function (coordinate) {
+        return !!coordinate
+            && this._isFiniteNumber(coordinate.x)
+            && this._isFiniteNumber(coordinate.y);
+    },
+    _hasValidDifficultyRange: function (difficulty) {
+        if (!Array.isArray(difficulty) || difficulty.length !== 2) {
+            return false;
+        }
+        var minDifficulty = Number(difficulty[0]);
+        var maxDifficulty = Number(difficulty[1]);
+        return isFinite(minDifficulty)
+            && isFinite(maxDifficulty)
+            && minDifficulty >= 1
+            && maxDifficulty >= minDifficulty;
+    },
+    _hasResolvableItemId: function (itemId) {
+        if (itemId === undefined || itemId === null || typeof itemConfig === "undefined" || !itemConfig) {
+            return false;
+        }
+        var itemIdStr = "" + itemId;
+        if (itemIdStr.indexOf("*") !== -1) {
+            return typeof utils !== "undefined"
+                && utils
+                && typeof utils.getRandomItemId === "function"
+                && !!utils.getRandomItemId(itemIdStr);
+        }
+        var normalizedItemId = this._normalizeId(itemIdStr);
+        return normalizedItemId !== null && !!itemConfig[normalizedItemId];
+    },
+    _hasValidSiteItemList: function (list, countFieldName) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            if (!item || !ContentBlueprint._hasResolvableItemId(item.itemId)) {
+                return false;
+            }
+            if (!ContentBlueprint._isFiniteNumber(item[countFieldName]) || Number(item[countFieldName]) < 0) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidSiteIdList: function (list) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._getSiteConfig(list[i])) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidNpcIdList: function (list) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._getNpcConfig(list[i])) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidSiteUnlockValue: function (unlockValue) {
+        if (!unlockValue || typeof unlockValue !== "object") {
+            return false;
+        }
+        if (unlockValue.site !== undefined && !ContentBlueprint._hasValidSiteIdList(unlockValue.site)) {
+            return false;
+        }
+        if (unlockValue.npc !== undefined && !ContentBlueprint._hasValidNpcIdList(unlockValue.npc)) {
+            return false;
         }
         return true;
     },
@@ -391,6 +487,117 @@ var ContentBlueprint = {
                 required: true,
                 validator: function (id) {
                     return ContentBlueprint._hasStringText(id, "des");
+                }
+            }
+        ]
+    },
+    site: {
+        fields: [
+            {
+                name: "绔欑偣閰嶇疆",
+                file: "data/siteConfig.js",
+                required: true,
+                validator: function (id) {
+                    return !!ContentBlueprint._getSiteConfig(id);
+                }
+            },
+            {
+                name: "绔欑偣鍚嶇О鏂囨",
+                file: "data/string/string_zh.js / string_en.js",
+                required: true,
+                validator: function (id) {
+                    return ContentBlueprint._hasStringText("site_" + id, "name");
+                }
+            },
+            {
+                name: "绔欑偣鎻忚堪鏂囨",
+                file: "data/string/string_zh.js / string_en.js",
+                required: true,
+                validator: function (id) {
+                    return ContentBlueprint._hasStringText("site_" + id, "des");
+                }
+            },
+            {
+                name: "绔欑偣鍧愭爣閰嶇疆",
+                file: "data/siteConfig.js",
+                required: true,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    return !!config && ContentBlueprint._hasValidCoordinate(config.coordinate);
+                }
+            },
+            {
+                name: "绔欑偣鎴樻枟/宸ヤ綔鎴块棿閰嶇疆",
+                file: "data/siteConfig.js",
+                required: true,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    return !!config
+                        && ContentBlueprint._isFiniteNumber(config.battleRoom)
+                        && Number(config.battleRoom) >= 0
+                        && ContentBlueprint._isFiniteNumber(config.workRoom)
+                        && Number(config.workRoom) >= 0
+                        && ContentBlueprint._hasValidDifficultyRange(config.difficulty)
+                        && ContentBlueprint._isFiniteNumber(config.produceValue)
+                        && Number(config.produceValue) >= 0;
+                }
+            },
+            {
+                name: "绔欑偣鎺夎惤姹犻厤缃",
+                file: "data/siteConfig.js",
+                required: true,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    return !!config && ContentBlueprint._hasValidSiteItemList(config.produceList, "weight");
+                }
+            },
+            {
+                name: "绔欑偣鍥哄畾鎺夎惤閰嶇疆",
+                file: "data/siteConfig.js",
+                required: false,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    if (!config || config.fixedProduceList === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidSiteItemList(config.fixedProduceList, "num");
+                }
+            },
+            {
+                name: "绔欑偣瑙ｉ攣閰嶇疆",
+                file: "data/siteConfig.js",
+                required: false,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    if (!config || config.unlockValue === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidSiteUnlockValue(config.unlockValue);
+                }
+            },
+            {
+                name: "绔欑偣瀵嗗閰嶇疆",
+                file: "data/siteConfig.js / data/secretRooms.js",
+                required: false,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    if (!config || config.secretRoomsId === undefined || config.secretRoomsId === null) {
+                        return true;
+                    }
+                    return typeof secretRooms !== "undefined"
+                        && secretRooms
+                        && !!secretRooms[parseInt(config.secretRoomsId)];
+                }
+            },
+            {
+                name: "绔欑偣闃插尽閰嶇疆",
+                file: "data/siteConfig.js",
+                required: false,
+                validator: function (id) {
+                    var config = ContentBlueprint._getSiteConfig(id);
+                    return !config
+                        || config.def === undefined
+                        || (ContentBlueprint._isFiniteNumber(config.def) && Number(config.def) >= 0);
                 }
             }
         ]

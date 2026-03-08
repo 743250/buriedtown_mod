@@ -25,7 +25,7 @@ var BossSiteNode = BottomFrameNode.extend({
         this.btnList = {};
         var self = this;
         bossSubSiteIds.forEach(function (siteId) {
-            var config = utils.clone(siteConfig[siteId]);
+            var config = SiteConfigService.getSiteConfig(siteId, "bossSiteNode._init");
             var pos = config.coordinate;
             var btn = new ButtonAtSite("boss_sub_site_" + siteId + ".png");
             btn.setClickListener(self, self.onClickSite);

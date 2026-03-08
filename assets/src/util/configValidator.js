@@ -54,6 +54,9 @@ var ConfigValidator = {
     validateItem: function (id) {
         return this.validate("item", id);
     },
+    validateSite: function (id) {
+        return this.validate("site", id);
+    },
     validateMany: function (type, ids) {
         var self = this;
         var normalizedIds = Array.isArray(ids) ? ids : [];
@@ -71,6 +74,9 @@ var ConfigValidator = {
     },
     validateItems: function (ids) {
         return this.validateMany("item", ids);
+    },
+    validateSites: function (ids) {
+        return this.validateMany("site", ids);
     },
     buildReport: function (type, results) {
         var report = {

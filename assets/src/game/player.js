@@ -1,18 +1,3 @@
-var AttrChangeDirection = {
-    hp: 1,
-    spirit: 1,
-    starve: 1,
-    vigour: 1,
-    injury: -1,
-    infect: -1,
-    temperature: 1
-};
-
-var AttrNegativeTypeMap = {
-    infect: true,
-    injury: true
-};
-
 // Runtime fallback: some script packs may miss constants.js in load order.
 var PlayerAttrRuntime = (typeof PlayerAttr !== "undefined" && PlayerAttr) ? PlayerAttr : {
     HP_INIT: 240,
@@ -321,107 +306,35 @@ var Player = cc.Class.extend({
     },
 
     isAttrChangeGood: function (key, value) {
-        var direction = AttrChangeDirection[key];
-        if (direction === 1) {
-            return value >= 0;
-        }
-        if (direction === -1) {
-            return value < 0;
-        }
+        return PlayerAttrService.isAttrChangeGood(key, value);
     },
 
     _getBlockedBuffInfoByAttr: function (key) {
-        switch (key) {
-            case "infect":
-                return {
-                    buffType: BuffItemEffectType.ITEM_1107022,
-                    logMsg: "ITEM_1107022 effect infect"
-                };
-            case "starve":
-                return {
-                    buffType: BuffItemEffectType.ITEM_1107042,
-                    logMsg: "ITEM_1107042 effect starve"
-                };
-            case "vigour":
-                return {
-                    buffType: BuffItemEffectType.ITEM_1107032,
-                    logMsg: "ITEM_1107032 effect vigour"
-                };
-            default:
-                return null;
-        }
+        return PlayerAttrService.getBlockedBuffInfoByAttr(key);
     },
 
     _isAttrChangeBlockedByBuff: function (key, value) {
-        if (this.isAttrChangeGood(key, value)) {
-            return false;
-        }
-        var blockedBuffInfo = this._getBlockedBuffInfoByAttr(key);
-        if (!blockedBuffInfo) {
-            return false;
-        }
-        if (!this.buffManager.isBuffEffect(blockedBuffInfo.buffType)) {
-            return false;
-        }
-        cc.d(blockedBuffInfo.logMsg);
-        return true;
+        return PlayerAttrService.isAttrChangeBlockedByBuff(this, key, value);
     },
 
     _normalizeAttrChangeValue: function (key, value) {
-        if (key === "infect" && value > 0) {
-            return SafetyHelper.safeCall(IAPPackage.getInfectIncreaseEffect, value, value);
-        }
-        return value;
+        return PlayerAttrService.normalizeAttrChangeValue(key, value);
     },
 
     _applyAttrChangeValue: function (key, value) {
-        var beforeRangeInfo = this.getAttrRangeInfo(key, this[key]);
-        this[key] += memoryUtil.changeEncode(value);
-        var currentVal = AttrHelperRuntime.get(this, key);
-        var maxVal = AttrHelperRuntime.get(this, key + "Max");
-        this[key] = memoryUtil.encode(cc.clampf(currentVal, 0, maxVal));
-        var afterRangeInfo = this.getAttrRangeInfo(key, this[key]);
-
-        return {
-            beforeRangeInfo: beforeRangeInfo,
-            afterRangeInfo: afterRangeInfo,
-            currentVal: AttrHelperRuntime.get(this, key)
-        };
+        return PlayerAttrService.applyAttrChangeValue(this, key, value);
     },
 
     _playAttrRangeTransitionEffect: function (key, isLevelUp) {
-        if (AttrNegativeTypeMap[key]) {
-            audioManager.playEffect(isLevelUp ? audioManager.sound.BAD_EFFECT : audioManager.sound.GOOD_EFFECT);
-        } else {
-            audioManager.playEffect(isLevelUp ? audioManager.sound.GOOD_EFFECT : audioManager.sound.BAD_EFFECT);
-        }
+        PlayerAttrService.playAttrRangeTransitionEffect(key, isLevelUp);
     },
 
     _emitAttrRangeTransition: function (key, beforeRangeInfo, afterRangeInfo) {
-        if (!beforeRangeInfo || !afterRangeInfo) {
-            cc.e(key + " is not in range " + this[key]);
-            return;
-        }
-
-        var transition = afterRangeInfo.id - beforeRangeInfo.id;
-        if (transition === 0) {
-            return;
-        }
-
-        var suffix = transition > 0 ? "_up" : "_down";
-        cc.e(key + suffix + " " + (afterRangeInfo.id - 1));
-        this.log.addMsg(stringUtil.getString(key + suffix)[afterRangeInfo.id - 1]);
-        this._playAttrRangeTransitionEffect(key, transition > 0);
+        PlayerAttrService.emitAttrRangeTransition(this, key, beforeRangeInfo, afterRangeInfo);
     },
 
     _onAttrChanged: function (key) {
-        if (key === "injury") {
-            this.updateHpMax();
-        }
-        if (key === "hp" && memoryUtil.decode(this.hp) == 0 && this === player) {
-            //die
-            this.die();
-        }
+        PlayerAttrService.onAttrChanged(this, key);
     },
 
     isAttrMax: function (key) {
@@ -433,19 +346,7 @@ var Player = cc.Class.extend({
     },
 
     changeAttr: function (key, value) {
-        if (this._isAttrChangeBlockedByBuff(key, value)) {
-            return;
-        }
-
-        value = this._normalizeAttrChangeValue(key, value);
-        var changeInfo = this._applyAttrChangeValue(key, value);
-
-        cc.i("changeAttr " + key + " value:" + value + " after:" + changeInfo.currentVal);
-        if (this === player) {
-            utils.emitter.emit(key + "_change", value);
-        }
-        this._emitAttrRangeTransition(key, changeInfo.beforeRangeInfo, changeInfo.afterRangeInfo);
-        this._onAttrChanged(key);
+        PlayerAttrService.changeAttr(this, key, value);
     },
     changeHp: function (value) {
         this.changeAttr("hp", value);
@@ -476,27 +377,19 @@ var Player = cc.Class.extend({
     },
 
     updateHpMax: function () {
-        var hpBuffEffect = 0;
-        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107012)) {
-            hpBuffEffect = this.buffManager.getBuffValue();
-        }
-        var newHpMax = AttrHelperRuntime.get(this, 'hpMaxOrigin') + hpBuffEffect - AttrHelperRuntime.get(this, 'injury');
-        this.hpMax = memoryUtil.encode(newHpMax);
-        this.hp = memoryUtil.encode(Math.min(AttrHelperRuntime.get(this, 'hp'), newHpMax));
+        PlayerAttrService.updateHpMax(this);
     },
 
     _getHourlyStarveChange: function (changeConfig) {
-        return RoleRuntimeService.getHourlyStarveChange(this.roleType, changeConfig);
+        return PlayerAttrService.getHourlyStarveChange(this, changeConfig);
     },
 
     _getHourlyVigourChange: function (changeConfig) {
-        if (cc.timer.getStage() === "day") {
-            return this.isAtHome() ? changeConfig[2][0] : changeConfig[3][0];
-        }
-        return this.isAtHome() ? changeConfig[4][0] : changeConfig[5][0];
+        return PlayerAttrService.getHourlyVigourChange(this, changeConfig);
     },
 
     _applySleepRecoveryByHour: function () {
+        return PlayerAttrService.applySleepRecoveryByHour(this);
         var bedLevel = player.room.getBuildLevel(9);
         var bedRate = buildActionConfig[9][bedLevel].rate;
 
@@ -515,11 +408,13 @@ var Player = cc.Class.extend({
     },
 
     _applyHourlyWeatherAttrChange: function () {
+        return PlayerAttrService.applyHourlyWeatherAttrChange(this);
         this.changeVigour(this.weather.getValue("vigour"));
         this.changeSpirit(this.weather.getValue("spirit"));
     },
 
     updateByTime: function () {
+        return PlayerAttrService.updateByTime(this);
 
         var c = this.config["changeByTime"];
 
@@ -539,6 +434,7 @@ var Player = cc.Class.extend({
     },
 
     _getRangeEffect: function (attr, value) {
+        return PlayerAttrService.getRangeEffect(this, attr, value);
         var attrRangeInfo = this.getAttrRangeInfo(attr, value);
         if (!attrRangeInfo) {
             return null;
@@ -547,6 +443,7 @@ var Player = cc.Class.extend({
     },
 
     _applyEffectMap: function (effectMap, opt) {
+        return PlayerAttrService.applyEffectMap(this, effectMap, opt);
         if (!effectMap) {
             return;
         }
@@ -574,6 +471,7 @@ var Player = cc.Class.extend({
     },
 
     updateStarve: function () {
+        return PlayerAttrService.updateStarve(this);
         if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107042)) {
             cc.d('ITEM_1107042 updateStarve');
             return;
@@ -584,6 +482,7 @@ var Player = cc.Class.extend({
     },
 
     updateInfect: function () {
+        return PlayerAttrService.updateInfect(this);
 
         if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107022)) {
             cc.d('ITEM_1107022 updateInfect');
@@ -617,6 +516,7 @@ var Player = cc.Class.extend({
     },
 
     updateVigour: function () {
+        return PlayerAttrService.updateVigour(this);
         if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107032)) {
             cc.d('ITEM_1107032 updateVigour ');
             return;
@@ -627,6 +527,7 @@ var Player = cc.Class.extend({
     },
 
     updateInjure: function () {
+        return PlayerAttrService.updateInjure(this);
 
         this._applyEffectMap(this._getRangeEffect("injury", this.injury), {
             canApply: function (attr) {
@@ -641,6 +542,7 @@ var Player = cc.Class.extend({
     },
 
     updateTemperature: function () {
+        return PlayerAttrService.updateTemperature(this);
 
         var c = this.config["temperature"];
 
@@ -655,12 +557,14 @@ var Player = cc.Class.extend({
     },
 
     updateTemperatureEffect: function () {
+        return PlayerAttrService.updateTemperatureEffect(this);
 
         this._applyEffectMap(this._getRangeEffect("temperature", this.temperature));
 
     },
 
     initTemperature: function () {
+        return PlayerAttrService.initTemperature(this);
         var c = this.config["temperature"];
         //季节因素
         var configBySeason = c[cc.timer.getSeason()];

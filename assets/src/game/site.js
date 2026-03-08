@@ -6,6 +6,7 @@
 if (typeof cc === "undefined" || !cc) {
     var cc = require("../test/testBattle");
     var SiteRoomGenerator = require("./SiteRoomGenerator");
+    var SiteConfigService = require("./SiteConfigService");
 }
 
 var BaseSite = cc.Class.extend({
@@ -152,7 +153,7 @@ var Site = BaseSite.extend({
         this._super();
 
         this.id = siteId;
-        this.config = utils.clone(siteConfig[this.id]);
+        this.config = SiteConfigService.getSiteConfig(this.id, "site.Site");
         this.pos = this.config.coordinate;
         this.storage = new Storage();
         this.step = 0;
@@ -348,7 +349,7 @@ var AdSite = Site.extend({
     ctor: function (siteId) {
         this.id = siteId;
         cc.log(this.id);
-        this.config = utils.clone(siteConfig[this.id]);
+        this.config = SiteConfigService.getSiteConfig(this.id, "site.AdSite");
         this.pos = this.config.coordinate;
         this.storage = new Storage();
         this.isActive = false;
@@ -393,7 +394,7 @@ var WorkSite = Site.extend({
     ctor: function (siteId) {
         this.id = siteId;
         cc.log(this.id);
-        this.config = utils.clone(siteConfig[this.id]);
+        this.config = SiteConfigService.getSiteConfig(this.id, "site.WorkSite");
         this.pos = this.config.coordinate;
         this.storage = new Storage();
         this.isActive = false;
@@ -459,7 +460,7 @@ var BossSite = Site.extend({
     ctor: function (siteId) {
         this.id = siteId;
         cc.log(this.id);
-        this.config = utils.clone(siteConfig[this.id]);
+        this.config = SiteConfigService.getSiteConfig(this.id, "site.BossSite");
         this.pos = this.config.coordinate;
         this.storage = new Storage();
         this.bossSubSiteIds = [301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312];
