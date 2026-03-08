@@ -8,16 +8,6 @@ var ShopNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
         this._shopStateListener = null;
-
-        //var subTitle = new cc.LabelTTF(cc.formatStr('(%s)', stringUtil.getString(1245)), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(330, 0));
-        //subTitle.anchorX = 1;
-        //subTitle.x = this.bgRect.width; //this.title.x + this.title.width / 2 + 10;
-        //subTitle.y = this.actionBarBaseHeight;
-        //subTitle.setColor(UITheme.colors.TEXT_ERROR);
-        //this.bg.addChild(subTitle);
-
-        //this.title.setPositionX(this.title.width / 2 + this.leftBtn.x + this.leftBtn.width / 2 + 10);
-
     },
     _init: function () {
         this.setName(Navigation.nodeName.SHOP_NODE);
@@ -38,7 +28,7 @@ var ShopNode = BottomFrameNode.extend({
         var NODE_HEIGHT = 249;
         var viewWidth = this.bgRect.width - 20;
         var viewHeight = this.contentTopLineHeight - 20;
-        var widthPadding = (viewWidth - 2 * NODE_WIDTH ) / 3;
+        var widthPadding = (viewWidth - 2 * NODE_WIDTH) / 3;
         var heightPadding = 5;
         var data = PurchaseService.getConsumablePurchaseIds
             ? PurchaseService.getConsumablePurchaseIds()
@@ -75,50 +65,25 @@ var ShopNode = BottomFrameNode.extend({
 
         self._refreshAllNodes();
     },
-
     _refreshPointsLabel: function () {
         if (!this.pointsLabel) {
             return;
         }
-        this.pointsLabel.setString("成就点: " + (Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0));
+        this.pointsLabel.setString(PurchaseUiHelper.getAchievementPointsText());
     },
-    _refreshAllNodes: function() {
-        for (var purchaseId in this.nodeMap) {
-            var payNode = this.nodeMap[purchaseId];
-            var shopState = PurchaseService.getShopUiState(Number(purchaseId));
-            if (shopState && typeof payNode.applyShopState === "function") {
-                payNode.applyShopState(shopState);
-            } else {
-                payNode.updateStatus();
-            }
-        }
+    _refreshAllNodes: function () {
+        PurchaseUiHelper.refreshPayNodeMap(this.nodeMap);
         this._refreshPointsLabel();
     },
     _bindShopStateListener: function () {
-        if (this._shopStateListener || typeof utils === "undefined" || !utils || !utils.emitter) {
-            return;
-        }
-        var self = this;
-        this._shopStateListener = function () {
-            self._refreshAllNodes();
-        };
-        utils.emitter.on(PurchaseService.getShopStateChangeEventName(), this._shopStateListener);
+        PurchaseUiHelper.bindShopStateListener(this, this._refreshAllNodes);
     },
     _unbindShopStateListener: function () {
-        if (!this._shopStateListener || typeof utils === "undefined" || !utils || !utils.emitter) {
-            this._shopStateListener = null;
-            return;
-        }
-        utils.emitter.off(PurchaseService.getShopStateChangeEventName(), this._shopStateListener);
-        this._shopStateListener = null;
+        PurchaseUiHelper.unbindShopStateListener(this);
     },
-
     onPayResult: function (result) {
-        if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
-            uiUtil.showTip("成就点不足!");
-        }
+        PurchaseUiHelper.showPurchaseFailedTip(result);
     },
-
     onClickLeftBtn: function () {
         this.back();
     },

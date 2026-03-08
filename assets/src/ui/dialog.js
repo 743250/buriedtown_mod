@@ -1114,9 +1114,11 @@ var PayDialog = DialogBig.extend({
             ) && purchaseId == 106) {
             strConfig.name = '靴子特惠';
         }
+        strConfig.name = PurchaseUiHelper.getPurchaseDisplayName(purchaseId, strConfig.name);
         var purchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
         var isExchangePurchase = PurchaseService.isExchangePurchase(purchaseId);
         var shopState = PurchaseService.getShopUiState(purchaseId);
+        var purchaseUiState = PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId, purchaseConfig, shopState);
         var talentDisplayInfo = uiUtil.getTalentDisplayInfo ? uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name) : null;
         var purchaseIconMeta = uiUtil.getPurchaseDisplayIconMeta
             ? uiUtil.getPurchaseDisplayIconMeta(purchaseId, purchaseConfig)
@@ -1142,7 +1144,7 @@ var PayDialog = DialogBig.extend({
         config.action.btn_2.target = null;
         config.action.btn_2.cb = cb;
 
-        var canResetUnlock = !!(shopState && shopState.canCancel);
+        var canResetUnlock = !!purchaseUiState.canCancel;
         if (canResetUnlock) {
             config.action.btn_1.txt = "关闭";
             config.action.btn_3 = {
@@ -1184,7 +1186,7 @@ var PayDialog = DialogBig.extend({
                         return false;
                     };
 
-                    if (refreshOwnerLayer(ownerLayer)) {
+                    if (PurchaseUiHelper.refreshShopOwnerLayer(ownerLayer, purchaseId, "reset_dialog_owner")) {
                         return;
                     }
 
@@ -1245,6 +1247,7 @@ var PayDialog = DialogBig.extend({
                 }
             }
         }
+        priceStr = purchaseUiState.priceText;
         var price = new cc.LabelTTF(priceStr, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
         price.anchorX = 1;
         price.setPosition(this.rightEdge, 20);
@@ -1252,20 +1255,8 @@ var PayDialog = DialogBig.extend({
         price.setName("price");
         price.setColor(UITheme.colors.TEXT_TITLE);
 
-        var canPurchase = shopState ? !!shopState.canBuy : true;
-        var shouldHideBuyButton = shopState ? !!shopState.shouldHideBuyButton : false;
-        if (!shopState) {
-            if (isExchangePurchase) {
-                var nextAchievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
-                var currentAchievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
-                shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
-                canPurchase = nextAchievementPrice !== null
-                    && nextAchievementPrice !== undefined
-                    && currentAchievementPoints >= nextAchievementPrice;
-            } else {
-                canPurchase = !PurchaseService.isUnlocked(purchaseId);
-            }
-        }
+        var canPurchase = purchaseUiState.canBuy;
+        var shouldHideBuyButton = purchaseUiState.shouldHideBuyButton;
         var btn2Node = this.actionNode.getChildByName("btn_2");
         if (btn2Node) {
             btn2Node.setEnabled(canPurchase);
@@ -1297,7 +1288,7 @@ var PayDialog = DialogBig.extend({
         offIcon.setName('offIcon');
         this.updateOffIcon();
 
-        if (purchaseId == 106) {
+        if (PurchaseUiHelper.shouldShowSaleIcon(purchaseId)) {
             var saleIcon = autoSpriteFrameController.getSpriteFromSpriteName('icon_sale.png');
             saleIcon.x = this.titleNode.width - 20;
             saleIcon.y = this.titleNode.height - 10;

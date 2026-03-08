@@ -58,15 +58,258 @@ var PurchaseUiHelper = {
         };
     },
 
+    isOperatorPromoPurchase: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (purchaseId !== 106
+            || typeof PurchaseAndroid === "undefined"
+            || !PurchaseAndroid) {
+            return false;
+        }
+
+        return PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
+            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
+            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
+            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI;
+    },
+
+    getPurchaseDisplayName: function (purchaseId, defaultName) {
+        if (this.isOperatorPromoPurchase(purchaseId)) {
+            return "\u95f7\u5b50\u7279\u60e0";
+        }
+        return defaultName || "";
+    },
+
+    shouldShowSaleIcon: function (purchaseId) {
+        return parseInt(purchaseId) === 106;
+    },
+
+    getAchievementPointsText: function () {
+        var points = 0;
+        if (typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.getAchievementPoints === "function") {
+            points = Medal.getAchievementPoints();
+        }
+        return "\u6210\u5c31\u70b9 " + points;
+    },
+
+    getPurchaseUiSnapshot: function (purchaseId, purchaseConfig, shopState) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)) {
+            return {
+                purchaseId: null,
+                purchaseConfig: null,
+                shopState: null,
+                isExchangePurchase: false,
+                priceText: "",
+                canBuy: false,
+                canCancel: false,
+                shouldHideBuyButton: false
+            };
+        }
+
+        var resolvedPurchaseConfig = purchaseConfig;
+        if (!resolvedPurchaseConfig
+            && typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getPurchaseConfig === "function") {
+            resolvedPurchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
+        }
+
+        var resolvedShopState = shopState;
+        if (resolvedShopState === undefined
+            && typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getShopUiState === "function") {
+            resolvedShopState = PurchaseService.getShopUiState(purchaseId);
+        }
+
+        var isExchangePurchase = typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isExchangePurchase === "function"
+            ? PurchaseService.isExchangePurchase(purchaseId)
+            : false;
+
+        var priceText = "";
+        if (resolvedShopState
+            && resolvedShopState.priceText !== undefined
+            && resolvedShopState.priceText !== null
+            && resolvedShopState.priceText !== "") {
+            priceText = resolvedShopState.priceText;
+        } else if (isExchangePurchase) {
+            var achievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
+            if (achievementPrice !== null && achievementPrice !== undefined) {
+                priceText = achievementPrice + " \u6210\u5c31\u70b9";
+            } else if (PurchaseService.isTalentPurchase(purchaseId)) {
+                priceText = "\u5df2\u6ee1\u7ea7";
+            } else {
+                priceText = "\u5df2\u8d2d";
+            }
+        } else if (resolvedPurchaseConfig) {
+            priceText = resolvedPurchaseConfig.productPriceStr;
+            if (!priceText) {
+                priceText = stringUtil.getString(1191, resolvedPurchaseConfig.price);
+            }
+        }
+
+        var canBuy = resolvedShopState ? !!resolvedShopState.canBuy : true;
+        var shouldHideBuyButton = resolvedShopState ? !!resolvedShopState.shouldHideBuyButton : false;
+        if (!resolvedShopState) {
+            if (isExchangePurchase) {
+                var nextAchievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
+                var currentAchievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
+                shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
+                canBuy = nextAchievementPrice !== null
+                    && nextAchievementPrice !== undefined
+                    && currentAchievementPoints >= nextAchievementPrice;
+            } else {
+                canBuy = !PurchaseService.isUnlocked(purchaseId);
+            }
+        }
+
+        return {
+            purchaseId: purchaseId,
+            purchaseConfig: resolvedPurchaseConfig,
+            shopState: resolvedShopState || null,
+            isExchangePurchase: isExchangePurchase,
+            priceText: priceText,
+            canBuy: canBuy,
+            canCancel: !!(resolvedShopState && resolvedShopState.canCancel),
+            shouldHideBuyButton: shouldHideBuyButton
+        };
+    },
+
+    applyPayNodeState: function (purchaseId, payNode, shopState) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId) || !payNode) {
+            return;
+        }
+
+        var snapshot = this.getPurchaseUiSnapshot(purchaseId, null, shopState);
+        var state = snapshot.shopState;
+
+        if (typeof payNode.applyShopState === "function") {
+            payNode.applyShopState(state || null);
+            return;
+        }
+
+        if (typeof payNode.updateStatus === "function") {
+            payNode.updateStatus(state || null);
+            if (state || typeof payNode.updatePrice !== "function") {
+                return;
+            }
+        } else if (state || typeof payNode.updatePrice !== "function") {
+            return;
+        }
+
+        if (snapshot.priceText !== undefined
+            && snapshot.priceText !== null
+            && snapshot.priceText !== "") {
+            payNode.updatePrice(snapshot.priceText);
+        }
+    },
+
+    refreshPayNodeMap: function (nodeMap) {
+        if (!nodeMap) {
+            return;
+        }
+
+        for (var purchaseId in nodeMap) {
+            if (!nodeMap.hasOwnProperty(purchaseId)) {
+                continue;
+            }
+            this.applyPayNodeState(purchaseId, nodeMap[purchaseId]);
+        }
+    },
+
+    bindShopStateListener: function (host, handler) {
+        if (!host
+            || host._shopStateListener
+            || typeof handler !== "function"
+            || typeof utils === "undefined"
+            || !utils
+            || !utils.emitter) {
+            return;
+        }
+
+        host._shopStateListener = function (changeInfo) {
+            handler.call(host, changeInfo);
+        };
+        utils.emitter.on(PurchaseService.getShopStateChangeEventName(), host._shopStateListener);
+    },
+
+    unbindShopStateListener: function (host) {
+        if (!host
+            || !host._shopStateListener
+            || typeof utils === "undefined"
+            || !utils
+            || !utils.emitter) {
+            if (host) {
+                host._shopStateListener = null;
+            }
+            return;
+        }
+
+        utils.emitter.off(PurchaseService.getShopStateChangeEventName(), host._shopStateListener);
+        host._shopStateListener = null;
+    },
+
+    refreshShopOwnerLayer: function (ownerLayer, purchaseId, reason) {
+        var refreshLayer = function (layer) {
+            if (!layer) {
+                return false;
+            }
+            if (typeof layer._onShopStateChanged === "function") {
+                layer._onShopStateChanged({
+                    purchaseId: purchaseId,
+                    reason: reason || ""
+                });
+                return true;
+            }
+            if (typeof layer._refreshAllPayNodes === "function") {
+                layer._refreshAllPayNodes();
+                if (typeof layer._refreshAllPayNodesDeferred === "function") {
+                    layer._refreshAllPayNodesDeferred();
+                }
+                return true;
+            }
+            if (typeof layer._refreshAllNodes === "function") {
+                layer._refreshAllNodes();
+                return true;
+            }
+            return false;
+        };
+
+        if (refreshLayer(ownerLayer)) {
+            return true;
+        }
+
+        var runningScene = cc.director.getRunningScene ? cc.director.getRunningScene() : null;
+        if (runningScene && typeof runningScene.getChildByName === "function") {
+            return refreshLayer(runningScene.getChildByName("keyEventLayer"));
+        }
+        return false;
+    },
+
+    showPurchaseFailedTip: function (result) {
+        if (!result || result.isSuccess) {
+            return false;
+        }
+
+        if (result.failedReason === PurchaseService.FAIL_REASON.ALREADY_UNLOCKED
+            || result.failedReason === PurchaseService.FAIL_REASON.MAX_LEVEL) {
+            uiUtil.showTip("\u5df2\u8d2d\u6216\u5df2\u6ee1\u7ea7");
+        } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
+            uiUtil.showTip("\u6210\u5c31\u70b9\u4e0d\u8db3");
+        } else {
+            uiUtil.showTip("\u8d2d\u4e70\u5931\u8d25");
+        }
+        return true;
+    },
+
     showPayDialog: function (purchaseId, cb, ownerLayer) {
         var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-        if ((PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
-                || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
-                || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
-                || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI
-            ) && purchaseId == 106) {
-            strConfig.name = "靴子特惠";
-        }
+        strConfig.name = this.getPurchaseDisplayName(purchaseId, strConfig.name);
         var purchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
         var talentDisplayInfo = uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name);
 

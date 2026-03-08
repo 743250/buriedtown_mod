@@ -1610,6 +1610,9 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
         ) && purchaseId == 106) {
         strConfig.name = '靴子特惠';
     }
+    if (typeof PurchaseUiHelper !== "undefined" && PurchaseUiHelper) {
+        strConfig.name = PurchaseUiHelper.getPurchaseDisplayName(purchaseId, strConfig.name);
+    }
     var displayBaseName = strConfig.name;
 
     var purchaseConfig = typeof PurchaseService !== "undefined" && PurchaseService
@@ -1704,7 +1707,9 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     node.addChild(offIcon);
     offIcon.setVisible(false);
 
-    if (purchaseId == 106) {
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && PurchaseUiHelper.shouldShowSaleIcon(purchaseId)) {
         var saleIcon = autoSpriteFrameController.getSpriteFromSpriteName('icon_sale.png');
         saleIcon.x = 45;
         saleIcon.y = 54;

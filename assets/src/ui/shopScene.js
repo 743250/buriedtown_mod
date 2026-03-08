@@ -1,7 +1,7 @@
 /**
  * User: Alex
  * Date: 15/1/5
- * Time: 下午4:07
+ * Time: 4:07 PM
  */
 var ShopLayer = cc.Layer.extend({
     ctor: function (opt) {
@@ -11,7 +11,7 @@ var ShopLayer = cc.Layer.extend({
 
         var keyboardListener = cc.EventListener.create({
             event: cc.EventListener.KEYBOARD,
-            onKeyReleased: function (keyCode, event) {
+            onKeyReleased: function (keyCode) {
                 if (keyCode == cc.KEY.back) {
                     cc.director.runScene(new MenuScene());
                 }
@@ -26,23 +26,10 @@ var ShopLayer = cc.Layer.extend({
         this._super();
     },
     _bindShopStateListener: function () {
-        if (this._shopStateListener || typeof utils === "undefined" || !utils || !utils.emitter) {
-            return;
-        }
-
-        var self = this;
-        this._shopStateListener = function (changeInfo) {
-            self._onShopStateChanged(changeInfo);
-        };
-        utils.emitter.on(PurchaseService.getShopStateChangeEventName(), this._shopStateListener);
+        PurchaseUiHelper.bindShopStateListener(this, this._onShopStateChanged);
     },
     _unbindShopStateListener: function () {
-        if (!this._shopStateListener || typeof utils === "undefined" || !utils || !utils.emitter) {
-            this._shopStateListener = null;
-            return;
-        }
-        utils.emitter.off(PurchaseService.getShopStateChangeEventName(), this._shopStateListener);
-        this._shopStateListener = null;
+        PurchaseUiHelper.unbindShopStateListener(this);
     },
     _onShopStateChanged: function (changeInfo) {
         var purchaseId = changeInfo && changeInfo.purchaseId;
@@ -57,51 +44,13 @@ var ShopLayer = cc.Layer.extend({
         if (!this.pointsLabel) {
             return;
         }
-        this.pointsLabel.setString("成就点: " + Medal.getAchievementPoints());
+        this.pointsLabel.setString(PurchaseUiHelper.getAchievementPointsText());
     },
     _updateNodePrice: function (purchaseId, payNode) {
-        if (!payNode) {
-            return;
-        }
-        var shopState = PurchaseService.getShopUiState(purchaseId);
-        if (shopState && typeof payNode.applyShopState === "function") {
-            payNode.applyShopState(shopState);
-            return;
-        }
-
-        var isExchangePurchase = PurchaseService.isExchangePurchase(purchaseId);
-        if (isExchangePurchase) {
-            var achievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
-            if (achievementPrice !== null && achievementPrice !== undefined) {
-                payNode.updatePrice(achievementPrice + " 成就点");
-            } else if (PurchaseService.isTalentPurchase(purchaseId)) {
-                payNode.updatePrice("已满级");
-            } else {
-                payNode.updatePrice("已购");
-            }
-            return;
-        }
-
-        var purchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
-        if (!purchaseConfig) {
-            return;
-        }
-        var priceStr = purchaseConfig.productPriceStr;
-        if (priceStr) {
-            payNode.updatePrice(priceStr);
-        } else {
-            payNode.updatePrice(stringUtil.getString(1191, purchaseConfig.price));
-        }
+        PurchaseUiHelper.applyPayNodeState(purchaseId, payNode);
     },
     _showExchangeFailedTip: function (result) {
-        if (result && (result.failedReason === PurchaseService.FAIL_REASON.ALREADY_UNLOCKED
-            || result.failedReason === PurchaseService.FAIL_REASON.MAX_LEVEL)) {
-            uiUtil.showTip("已购或已满级");
-        } else if (result && result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
-            uiUtil.showTip("成就点不足!");
-        } else {
-            uiUtil.showTip("购买失败");
-        }
+        PurchaseUiHelper.showPurchaseFailedTip(result);
     },
     _rebuildPayNodes: function () {
         if (!this.payContainer || !this.payData) {
@@ -237,7 +186,7 @@ var ShopLayer = cc.Layer.extend({
         this.addChild(btn1);
         btn1.setName("btn_1");
 
-        var btnTest = uiUtil.createCommonBtnWhite("测试+100", this, function () {
+        var btnTest = uiUtil.createCommonBtnWhite("\u6d4b\u8bd5+100", this, function () {
             Medal.addAchievementPoints(100);
             self._refreshPointsLabel();
         });
@@ -252,13 +201,12 @@ var ShopLayer = cc.Layer.extend({
                 uiUtil.dismissLoadingView();
                 if (result.result == 1) {
                     var purchaseId;
-                    if (result.productId == 'ipa_huozhe_nc6') {
+                    if (result.productId == "ipa_huozhe_nc6") {
                         purchaseId = 106;
                     } else {
                         purchaseId = productIdMap[result.productId].purchaseId;
                     }
                     PurchaseService.syncPurchasedUnlock(purchaseId);
-                    //CommonUtil.showCommonDialog(stringUtil.getString(1218), stringUtil.getString(1030));
                 } else {
                     CommonUtil.showCommonDialog(stringUtil.getString(1219), stringUtil.getString(1030));
                 }
@@ -289,7 +237,6 @@ var ShopLayer = cc.Layer.extend({
         });
         var hasSdkPurchases = nonExchangeData.length > 0;
         if (!hasSdkPurchases) {
-            // 当前商品全部走成就点购买，隐藏“恢复购买”按钮。
             btn2.setVisible(false);
             btn1.setPosition(cc.winSize.width / 3, buttonBaseY);
             btnTest.setPosition(cc.winSize.width / 3 * 2, buttonBaseY);
@@ -316,15 +263,9 @@ var ShopLayer = cc.Layer.extend({
         if (result.isSuccess) {
             return;
         }
-
-        if (result.isExchangePurchase) {
-            this._showExchangeFailedTip(result);
-        } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
-            uiUtil.showTip("成就点不足!");
-        }
+        this._showExchangeFailedTip(result);
     }
 });
-
 
 var ShopScene = BaseScene.extend({
     ctor: function (opt) {
