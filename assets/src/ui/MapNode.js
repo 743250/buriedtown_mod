@@ -179,7 +179,17 @@ var MapView = cc.ScrollView.extend({
         var newOffset = cc.pClamp(offset, cc.p(cc.winSize.width - this.getContentSize().width * scale, cc.winSize.height - this.getContentSize().height * scale), cc.p(0, 0));
         return newOffset;
     },
+    isRenderableEntity: function (baseSite) {
+        return !!(baseSite
+            && baseSite.pos
+            && isFinite(baseSite.pos.x)
+            && isFinite(baseSite.pos.y));
+    },
     createEntity: function (baseSite) {
+        if (!this.isRenderableEntity(baseSite)) {
+            cc.warn("[MapView] Skip invalid entity on world map: " + (baseSite && baseSite.id));
+            return;
+        }
         var n = new MapEntity(baseSite);
         this.addChild(n);
         this.entityList.push(n);

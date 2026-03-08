@@ -85,8 +85,14 @@ var ZiplineNetworkService = cc.Class.extend({
         this.links = sanitizedLinks;
         this.nextLinkId = this.links.length + 1;
     },
+    _hasValidMapPosition: function (entity) {
+        return !!(entity
+            && entity.pos
+            && isFinite(entity.pos.x)
+            && isFinite(entity.pos.y));
+    },
     isEligibleEntity: function (entity) {
-        if (!entity) {
+        if (!entity || !this._hasValidMapPosition(entity)) {
             return false;
         }
         if (entity instanceof NPC) {
@@ -140,6 +146,9 @@ var ZiplineNetworkService = cc.Class.extend({
             var startEntity = this.resolveEntity(link.startEntityKey, map);
             var endEntity = this.resolveEntity(link.endEntityKey, map);
             if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
+                continue;
+            }
+            if (!this._hasValidMapPosition(startEntity) || !this._hasValidMapPosition(endEntity)) {
                 continue;
             }
 

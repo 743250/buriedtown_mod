@@ -26,12 +26,12 @@ var Map = cc.Class.extend({
     restore: function (saveObj) {
         if (saveObj) {
             var self = this;
-            var npcSaveObj = saveObj.npcMap;
+            var npcSaveObj = saveObj.npcMap || [];
             npcSaveObj.forEach(function (npcId) {
                 self.npcMap[npcId] = true;
             });
 
-            var siteSaveObj = saveObj.siteMap;
+            var siteSaveObj = saveObj.siteMap || {};
             for (var siteId in siteSaveObj) {
                 var site;
                 if (siteId == AD_SITE) {
@@ -47,8 +47,8 @@ var Map = cc.Class.extend({
                 this.siteMap[siteId] = site;
             }
 
-            this.pos = saveObj.pos;
-            this.needDeleteSiteList = saveObj.needDeleteSiteList;
+            this.pos = saveObj.pos || (this.getSite(HOME_SITE) ? this.getSite(HOME_SITE).pos : cc.p(0, 0));
+            this.needDeleteSiteList = saveObj.needDeleteSiteList || [];
 
         } else {
             this.init();
@@ -61,10 +61,11 @@ var Map = cc.Class.extend({
         this.unlockSiteByRole(player.roleType);
 
         //根据角色决定家的位置
-        var homePos = player.npcManager.getNPC(player.roleType).pos;
-        this.getSite(100).pos = homePos;
+        var homeNpc = player.npcManager.getNPC(player.roleType);
+        var homePos = homeNpc && homeNpc.pos ? homeNpc.pos : this.getSite(HOME_SITE).pos;
+        this.getSite(HOME_SITE).pos = homePos;
         // 家的初始化位置
-        this.pos = this.getSite(100).pos;
+        this.pos = this.getSite(HOME_SITE).pos;
     },
 
     /**
@@ -77,11 +78,15 @@ var Map = cc.Class.extend({
 
     forEach: function (func) {
         for (var npcId in this.npcMap) {
-            func(player.npcManager.getNPC(npcId));
+            var npc = player.npcManager.getNPC(npcId);
+            if (npc) {
+                func(npc);
+            }
         }
         for (var siteId in this.siteMap) {
-            if (!this.siteMap[siteId].closed && siteId < 300) {
-                func(this.siteMap[siteId]);
+            var site = this.siteMap[siteId];
+            if (site && !site.closed && siteId < 300) {
+                func(site);
             }
         }
     },

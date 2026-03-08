@@ -248,7 +248,7 @@ var MapZiplineBuildController = cc.Class.extend({
             return true;
         }
 
-        player.log.addMsg(1360, startSite.getName() + " <-> " + baseSite.getName());
+        player.log.addMsg(1360, (startSite ? startSite.getName() : this.selectedEntityKey) + " <-> " + baseSite.getName());
         this.finishMode();
         Record.saveAll();
         return true;

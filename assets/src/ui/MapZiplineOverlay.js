@@ -7,6 +7,9 @@ var MapZiplineOverlay = cc.Node.extend({
         this.mapView = mapView;
         this.setName("ziplineOverlay");
     },
+    _isValidPoint: function (point) {
+        return !!(point && isFinite(point.x) && isFinite(point.y));
+    },
     refresh: function (network, map, buildState) {
         this.removeAllChildren(true);
 
@@ -20,6 +23,9 @@ var MapZiplineOverlay = cc.Node.extend({
         var dotColor = cc.color(244, 220, 126, 220);
 
         for (var i = 0; i < links.length; i++) {
+            if (!this._isValidPoint(links[i].startPos) || !this._isValidPoint(links[i].endPos)) {
+                continue;
+            }
             drawNode.drawSegment(links[i].startPos, links[i].endPos, 3, lineColor);
             drawNode.drawDot(links[i].startPos, 4, dotColor);
             drawNode.drawDot(links[i].endPos, 4, dotColor);
@@ -29,7 +35,7 @@ var MapZiplineOverlay = cc.Node.extend({
             var startSite = map.getEntityByKey
                 ? map.getEntityByKey(buildState.startEntityKey)
                 : null;
-            if (startSite && startSite.pos) {
+            if (startSite && this._isValidPoint(startSite.pos)) {
                 var selectedColor = buildState.mode === "remove"
                     ? cc.color(162, 32, 32, 220)
                     : cc.color(210, 78, 53, 220);

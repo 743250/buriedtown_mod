@@ -5,8 +5,8 @@ var NPC = BaseSite.extend({
     ctor: function (npcId) {
         this._super();
         this.id = npcId;
-        this.config = utils.clone(npcConfig[this.id]);
-        this.pos = this.config.coordinate;
+        this.config = utils.clone(npcConfig[this.id] || {});
+        this.pos = this.config.coordinate || this.pos;
 
         this.reputation = 0;
         this.reputation = memoryUtil.encode(this.reputation);
@@ -18,15 +18,18 @@ var NPC = BaseSite.extend({
 
         this.storage = new Storage();
 
-        this.dialogs = stringUtil.getString("npc_" + this.id).dialogs;
+        var npcString = stringUtil.getString("npc_" + this.id) || {};
+        this.dialogs = Array.isArray(npcString.dialogs) && npcString.dialogs.length
+            ? npcString.dialogs
+            : ["..."];
 
         //曾经到达过的最大声望
         this.maxRep = -1;
-        this.tradingInfo = this.config.trading;
-        this.needItemInfo = this.config.needItem;
-        this.favoriteList = this.config.favorite;
-        this.giftInfo = this.config.gift;
-        this.giftExtraInfo = this.config.gift_extra;
+        this.tradingInfo = this.config.trading || [];
+        this.needItemInfo = this.config.needItem || [];
+        this.favoriteList = this.config.favorite || [];
+        this.giftInfo = this.config.gift || [];
+        this.giftExtraInfo = this.config.gift_extra || [];
         this.needSendGiftList = {};
 
         this.isUnlocked = false;
@@ -295,10 +298,12 @@ var NPC = BaseSite.extend({
         return this.needHelpItems;
     },
     getName: function () {
-        return stringUtil.getString("npc_" + this.id).name;
+        var npcString = stringUtil.getString("npc_" + this.id) || {};
+        return npcString.name || ("NPC " + this.id);
     },
     getDes: function () {
-        return stringUtil.getString("npc_" + this.id).des;
+        var npcString = stringUtil.getString("npc_" + this.id) || {};
+        return npcString.des || "";
     },
     isReputationMax: function () {
         return this.reputation === this.reputationMax;
