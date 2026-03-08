@@ -680,14 +680,14 @@ var RandomBattleDialog = DialogBig.extend({
                 self.log.removeAllChildren();
                 self.actionNode.removeAllChildren();
 
-                if (sumRes.isDodge) {
+                if (sumRes.isDodge && sumRes.win) {
                     player.log.addMsg(1114);
                     self.dismiss();
                     if (self.cb) {
                         self.cb();
                     }
                 } else {
-                    if (sumRes.win) {
+                    if (!sumRes.isDodge && sumRes.win) {
                         player.log.addMsg(1115);
                     }
                     self.createBattleEndView(sumRes);
