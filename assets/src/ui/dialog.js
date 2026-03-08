@@ -687,7 +687,9 @@ var RandomBattleDialog = DialogBig.extend({
                         self.cb();
                     }
                 } else {
-                    player.log.addMsg(1115);
+                    if (sumRes.win) {
+                        player.log.addMsg(1115);
+                    }
                     self.createBattleEndView(sumRes);
                 }
             }, 2);
@@ -783,7 +785,13 @@ var RandomBattleDialog = DialogBig.extend({
     },
     createBattleEndView: function (sumRes) {
         var des = this.contentNode.getChildByName("des");
-        des.setString(stringUtil.getString(1082));
+        var desStringId;
+        if (sumRes && sumRes.win) {
+            desStringId = 1118;
+        } else {
+            desStringId = 1057;
+        }
+        des.setString(stringUtil.getString(desStringId));
 
         this.log.height += 10;
 

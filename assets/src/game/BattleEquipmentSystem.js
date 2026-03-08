@@ -10,6 +10,13 @@ var BattleEquipmentSystem = (function () {
         LINE_LENGTH: 6,
         BULLET_ID: 1305011
     };
+    var EQUIPMENT_KIND = {
+        BOMB: "bomb",
+        TRAP: "trap",
+        MELEE: "melee",
+        GUN: "gun",
+        ELECTRIC_GUN: "electric_gun"
+    };
 
     var weaponSoundConfig = {
         melee: {
@@ -65,6 +72,53 @@ var BattleEquipmentSystem = (function () {
         return adjustedPrecise;
     };
 
+    var getItemTypePrefix = function (itemId) {
+        var id = Number(itemId) || 0;
+        if (id <= 0) {
+            return 0;
+        }
+        return Math.floor(id / 1000);
+    };
+
+    var classifyEquipmentKind = function (itemId) {
+        var id = Number(itemId) || 0;
+        if (!id) {
+            return null;
+        }
+
+        if (id === Equipment.HAND) {
+            return EQUIPMENT_KIND.MELEE;
+        }
+        if (id === 1303022) {
+            return EQUIPMENT_KIND.TRAP;
+        }
+        if (id === 1303012 || id === 1303033 || id === 1303044) {
+            return EQUIPMENT_KIND.BOMB;
+        }
+        if (id === 1301071 || id === 1301082) {
+            return EQUIPMENT_KIND.ELECTRIC_GUN;
+        }
+
+        var itemInfo = itemConfig[id];
+        if (!itemInfo || !itemInfo.effect_weapon) {
+            return null;
+        }
+
+        var typePrefix = getItemTypePrefix(id);
+        if (typePrefix === 1302) {
+            return EQUIPMENT_KIND.MELEE;
+        }
+        if (typePrefix === 1301) {
+            return EQUIPMENT_KIND.GUN;
+        }
+
+        var bulletMax = Number(itemInfo.effect_weapon.bulletMax) || 0;
+        if (bulletMax > 0) {
+            return EQUIPMENT_KIND.GUN;
+        }
+        return EQUIPMENT_KIND.MELEE;
+    };
+
     var BattleEquipment = cc.Class.extend({
         ctor: function (id, battlePlayer) {
             this.id = id;
@@ -99,7 +153,9 @@ var BattleEquipmentSystem = (function () {
                 return;
             }
             cc.d(this.itemConfig.name + " action");
-            this.beforeCd();
+            if (this.beforeCd() === false) {
+                return;
+            }
             this.isInAtkCD = true;
             var self = this;
             var finishCooldown = function () {
@@ -109,11 +165,16 @@ var BattleEquipmentSystem = (function () {
                     self.afterCd();
                 }
             };
-            cc.director.getScheduler().scheduleCallbackForTarget(this, finishCooldown, this.attr.atkCD * player.vigourEffect(), 1);
+            var atkCD = Number(this.attr && this.attr.atkCD);
+            if (!(atkCD > 0)) {
+                atkCD = 0.1;
+            }
+            cc.director.getScheduler().scheduleCallbackForTarget(this, finishCooldown, atkCD * player.vigourEffect(), 1);
         },
         _action: function () {
         },
         beforeCd: function () {
+            return true;
         },
         afterCd: function () {
         },
@@ -133,7 +194,7 @@ var BattleEquipmentSystem = (function () {
         _action: function () {
             if (!this.isEnough()) {
                 console.log(this.id + " not enough");
-                return;
+                return false;
             }
             audioManager.playEffect(audioManager.sound.BOMB);
             this.battlePlayer.battle.recordToolUse();
@@ -157,6 +218,7 @@ var BattleEquipmentSystem = (function () {
                 this.deadMonsterNum = 0;
                 this.battlePlayer.battle.checkGameEnd();
             }
+            return true;
         },
         afterCd: function () {
             this._action();
@@ -167,7 +229,7 @@ var BattleEquipmentSystem = (function () {
         _action: function () {
             if (!this.isEnough()) {
                 console.log(this.id + " not enough");
-                return;
+                return false;
             }
             audioManager.playEffect(audioManager.sound.TRAP);
             this.battlePlayer.battle.recordToolUse();
@@ -175,6 +237,7 @@ var BattleEquipmentSystem = (function () {
             this.cost();
             this.battlePlayer.battle.processLog(stringUtil.getString(1050, this.itemConfig.name));
             this.battlePlayer.battle.processLog(stringUtil.getString(1055));
+            return true;
         },
         afterCd: function () {
             this._action();
@@ -197,10 +260,12 @@ var BattleEquipmentSystem = (function () {
 
                 var soundKey = weaponSoundConfig.melee[this.id] || "ATTACK_6";
                 this.playEffect(audioManager.sound[soundKey]);
+                return true;
             }
+            return false;
         },
         beforeCd: function () {
-            this._action();
+            return this._action();
         },
         getTarget: function () {
             return this.battlePlayer.battle.targetMon;
@@ -239,11 +304,13 @@ var BattleEquipmentSystem = (function () {
         },
         _action: function () {
             var monster = this.getTarget();
+            var attackTriggered = false;
             if (monster && this.isInRange(monster)) {
                 if (this.isEnough()) {
                     this.battlePlayer.battle.recordWeaponUse(1);
                     var soundKey = weaponSoundConfig.gun[this.id] || "ATTACK_4";
                     this.playEffect(audioManager.sound[soundKey]);
+                    attackTriggered = true;
                 }
                 this.atkTimes = 0;
                 for (var i = 0; i < this.attr.bulletMax; i++) {
@@ -256,6 +323,7 @@ var BattleEquipmentSystem = (function () {
                     }
                 }
             }
+            return attackTriggered || this.atkTimes > 0;
         },
         getHarm: function (monster) {
             var dtLineIndex = CONFIG.LINE_LENGTH - 1 - monster.line.index;
@@ -305,6 +373,7 @@ var BattleEquipmentSystem = (function () {
     var BattleElectricGun = BattleGun.extend({
         _action: function () {
             var monster = this.getTarget();
+            var attackTriggered = false;
             if (monster && this.isInRange(monster)) {
                 if (this.isEnough()) {
                     this.battlePlayer.battle.recordWeaponUse(1);
@@ -316,6 +385,7 @@ var BattleEquipmentSystem = (function () {
                         soundName = audioManager.sound.ATTACK_8;
                     }
                     this.playEffect(soundName);
+                    attackTriggered = true;
                 }
                 this.atkTimes = 0;
                 for (var i = 0; i < this.attr.bulletMax; i++) {
@@ -328,6 +398,7 @@ var BattleEquipmentSystem = (function () {
                     }
                 }
             }
+            return attackTriggered || this.atkTimes > 0;
         },
         cost: function () {
         },
@@ -346,34 +417,32 @@ var BattleEquipmentSystem = (function () {
         }
 
         var context = "BattleEquipmentSystem.createEquipment";
-        switch (Number(id)) {
-            case 1303012:
-            case 1303033:
-            case 1303044:
+        var normalizedId = Number(id);
+        var kind = classifyEquipmentKind(normalizedId);
+        switch (kind) {
+            case EQUIPMENT_KIND.BOMB:
                 return ErrorHandler.safeExecute(function () {
-                    return new BattleBomb(id, battlePlayer);
+                    return new BattleBomb(normalizedId, battlePlayer);
                 }, context, null);
-            case 1303022:
+            case EQUIPMENT_KIND.TRAP:
                 return ErrorHandler.safeExecute(function () {
-                    return new BattleTrap(id, battlePlayer);
+                    return new BattleTrap(normalizedId, battlePlayer);
                 }, context, null);
-            case 1302011:
-            case 1302021:
-            case 1302032:
-            case 1302043:
-            case Equipment.HAND:
+            case EQUIPMENT_KIND.MELEE:
                 return ErrorHandler.safeExecute(function () {
-                    return new BattleWeapon(id, battlePlayer);
+                    return new BattleWeapon(normalizedId, battlePlayer);
                 }, context, null);
-            case 1301071:
-            case 1301082:
+            case EQUIPMENT_KIND.ELECTRIC_GUN:
                 return ErrorHandler.safeExecute(function () {
-                    return new BattleElectricGun(id, battlePlayer);
+                    return new BattleElectricGun(normalizedId, battlePlayer);
+                }, context, null);
+            case EQUIPMENT_KIND.GUN:
+                return ErrorHandler.safeExecute(function () {
+                    return new BattleGun(normalizedId, battlePlayer);
                 }, context, null);
             default:
-                return ErrorHandler.safeExecute(function () {
-                    return new BattleGun(id, battlePlayer);
-                }, context, null);
+                cc.error("Unknown battle equipment id: " + id);
+                return null;
         }
     };
 
