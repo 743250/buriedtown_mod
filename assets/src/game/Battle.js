@@ -58,7 +58,8 @@ var Battle = cc.Class.extend({
         if (this.isDodge) {
             this.dodgeTime = 5;
             this.dodgePassTime = 0;
-            cc.director.getScheduler().scheduleCallbackForTarget(this, this.dodgeEnd, 0.1, cc.REPEAT_FOREVER);
+            this.dodgeTickInterval = 0.1;
+            cc.director.getScheduler().scheduleCallbackForTarget(this, this.dodgeEnd, this.dodgeTickInterval, cc.REPEAT_FOREVER);
         }
 
         this.player = new BattleActors.Player(this, BattleActors.createBattlePlayerSnapshot({
@@ -77,8 +78,12 @@ var Battle = cc.Class.extend({
         this.isBattleEnd = false;
     },
     dodgeEnd: function (dt) {
-        this.dodgePassTime += dt;
-        utils.emitter.emit("battleDodgePercentage", this.dodgePassTime / this.dodgeTime * 100);
+        // In battle dialogs the game timer may be paused, which can make scheduler dt 0/undefined.
+        // Fall back to the configured tick interval so dodge progress always advances.
+        var delta = (typeof dt === "number" && isFinite(dt) && dt > 0) ? dt : (this.dodgeTickInterval || 0.1);
+        this.dodgePassTime += delta;
+        var percentage = Math.min(this.dodgePassTime / this.dodgeTime * 100, 100);
+        utils.emitter.emit("battleDodgePercentage", percentage);
         if (this.dodgePassTime >= this.dodgeTime) {
 
             this.gameEnd(true);

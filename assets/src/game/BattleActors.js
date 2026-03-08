@@ -193,10 +193,17 @@ var BattleActors = (function () {
             this.weapon2 = BattleEquipmentSystem.createEquipment(playerObj.weapon2, this);
             this.equip = BattleEquipmentSystem.createEquipment(playerObj.equip, this);
         },
+        _safeActionStep: function (actionFn, stepName) {
+            try {
+                actionFn.call(this);
+            } catch (e) {
+                cc.error("BattlePlayer action step failed (" + stepName + "): " + e);
+            }
+        },
         action: function () {
-            this.useWeapon1();
-            this.useWeapon2();
-            this.useEquip();
+            this._safeActionStep(this.useWeapon1, "weapon1");
+            this._safeActionStep(this.useWeapon2, "weapon2");
+            this._safeActionStep(this.useEquip, "equip");
         },
         getPlayerDodgeRate: function () {
             return CombatResolver.normalizeRate(this.runtimeConfig && this.runtimeConfig.playerDodgeRate, 0);
