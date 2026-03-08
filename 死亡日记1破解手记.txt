@@ -1,0 +1,10 @@
+资源库： 使用了加密pvr.ccz。使用修复的UNTP和密钥可提取。
+untp build.plist -p B29B3886543224E471BDF6E39275C626
+
+数据库： 使用了SQLCipher (sqlite3_key)。可NOP (00BF)掉libcocos2djs.so的HEX位置(E0EB68-E0EB6B)取消加密，并在root目录下(data/data/com.locojoy.buriedtown/files/jsb.sqlite)用常见的sqlite编辑器修改。
+
+修复UNTP: https://github.com/qwerfd2/untp/
+
+sqlite3(存档)密钥(很难直接解密，放在这里等其他佬写脚本吧)： 1a2b3c4d5fberrytown
+
+图像素材经过加密，密钥 (B29B3886-543224E4-71BDF6E3-9275C626) 和编辑工具 (TexturePacker) 获取后操作相对简单 (此版本已去除加密)。游戏存档在root目录下使用了加密sqlite3数据库存储，密钥为 (1a2b3c4d5fberrytown)。

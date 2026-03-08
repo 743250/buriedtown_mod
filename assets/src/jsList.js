@@ -5,7 +5,6 @@ var jsList = [
     "src/util/safetyHelper.js",
     "src/util/iconHelper.js",
     "src/util/contentBlueprint.js",
-    "src/util/dependencyChecker.js",
     "src/util/configValidator.js",
     "src/util/resourceFallback.js",
     "src/util/uiTheme.js",

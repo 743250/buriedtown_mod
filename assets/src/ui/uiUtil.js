@@ -208,6 +208,12 @@ uiUtil.getDisplayItemId = function (itemId) {
     if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.getDisplayItemId) {
         itemId = WeaponCraftService.getDisplayItemId(itemId);
     }
+    if (typeof itemConfig !== "undefined" && itemConfig && itemConfig[itemId] && itemConfig[itemId].displayItemId !== undefined) {
+        var displayItemId = parseInt(itemConfig[itemId].displayItemId);
+        if (isFinite(displayItemId)) {
+            itemId = displayItemId;
+        }
+    }
     if (itemId === 1301091) return 1301011;
     return itemId;
 };
@@ -223,6 +229,7 @@ uiUtil.getDefaultSpriteName = function (type, withHash) {
             talent: "icon_iap_0.png",
             purchase: "icon_iap_101.png",
             item: "icon_item_1101051.png",
+            itemDetail: "dig_item_1101051.png",
             site: "site_1.png"
         };
         name = defaultMap[type] || "";
@@ -276,6 +283,14 @@ uiUtil.getItemIconFrameName = function (itemId, withHash) {
         return uiUtil.getDefaultSpriteName("item", withHash);
     }
     return (withHash ? "#icon_item_" : "icon_item_") + displayItemId + ".png";
+};
+
+uiUtil.getItemDetailFrameName = function (itemId, withHash) {
+    var displayItemId = uiUtil.getDisplayItemId(itemId);
+    if (!isFinite(displayItemId)) {
+        return uiUtil.getDefaultSpriteName("itemDetail", withHash);
+    }
+    return (withHash ? "#dig_item_" : "dig_item_") + displayItemId + ".png";
 };
 
 uiUtil.getCharacterPortraitSpriteByRoleType = function (roleType, fallbackName) {
@@ -776,7 +791,7 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
             if (iconBg.getChildByName("icon")) {
                 iconBg.removeChildByName("icon");
             }
-            var icon = autoSpriteFrameController.getSpriteFromSpriteName(newData.iconName);
+            var icon = uiUtil.getSpriteByNameSafe(newData.iconName, newData.iconFallbackName || null);
             icon.setName("icon");
             icon.setPosition(iconBg.getContentSize().width / 2, iconBg.getContentSize().height / 2);
             iconBg.addChild(icon);
@@ -878,10 +893,11 @@ uiUtil.showItemDialog = function (itemId, showOnly, source) {
         }
     }
     config.title.title = strConfig.title;
-    var displayItemId = uiUtil.getDisplayItemId(itemId);
-    config.title.icon = "#icon_item_" + displayItemId + ".png";
+    config.title.icon = uiUtil.getItemIconFrameName(itemId, true);
+    config.title.iconFallback = uiUtil.getDefaultSpriteName("item", true);
     config.content.des = strConfig.des;
-    config.content.dig_des = "#dig_item_" + displayItemId + ".png";
+    config.content.dig_des = uiUtil.getItemDetailFrameName(itemId, true);
+    config.content.dig_des_fallback = uiUtil.getDefaultSpriteName("itemDetail", true);
 
     var dialog = new DialogBig(config);
     var txt1 = dialog.titleNode.getChildByName("txt_1");
@@ -978,6 +994,18 @@ uiUtil.showBuildActionDialog = function (bid, index) {
         strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
         index=0;
     }
+    if (bid == 10 && index == 3) {
+        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
+        index=1;
+    }
+    if (bid == 10 && index == 4) {
+        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
+        index=1;
+    }
+    if (bid == 10 && index == 5) {
+        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
+        index=1;
+    }
     config.title.title = strConfig.title;
     config.title.icon = "#build_action_" + bid + "_" + index + ".png";
     config.content.des = strConfig.des;
@@ -999,10 +1027,11 @@ uiUtil.showItemSliderDialog = function (itemId, storage, cb) {
     config.action = metaConfig.action;
 
     config.title.title = strConfig.title;
-    var displayItemId = uiUtil.getDisplayItemId(itemId);
-    config.title.icon = "#icon_item_" + displayItemId + ".png";
+    config.title.icon = uiUtil.getItemIconFrameName(itemId, true);
+    config.title.iconFallback = uiUtil.getDefaultSpriteName("item", true);
     config.content.des = strConfig.des;
-    config.content.dig_des = "#dig_item_" + displayItemId + ".png";
+    config.content.dig_des = uiUtil.getItemDetailFrameName(itemId, true);
+    config.content.dig_des_fallback = uiUtil.getDefaultSpriteName("itemDetail", true);
     var totalNum = storage.getNumByItemId(itemId);
     config.title.title = stringUtil.getString(itemId).title;
     config.title.txt_1 = stringUtil.getString(1028, itemConfig[itemId].weight);
@@ -1219,10 +1248,10 @@ uiUtil.createEquipedItemIconList = function (dark) {
         if (itemId === Equipment.HAND) {
             name = "#icon_tab_hand.png";
         } else {
-            name = "#icon_item_" + uiUtil.getDisplayItemId(itemId) + ".png";
+            name = uiUtil.getItemIconFrameName(itemId, true);
         }
 
-        var icon = autoSpriteFrameController.getSpriteFromSpriteName(name);
+        var icon = uiUtil.getSpriteByNameSafe(name, itemId === Equipment.HAND ? "#icon_tab_hand.png" : uiUtil.getDefaultSpriteName("item", true));
         icon.setScale(scale);
         icon.setAnchorPoint(0, 0.5);
         icon.setPosition(x, 0);

@@ -710,6 +710,16 @@ var Player = cc.Class.extend({
                 this.log.addMsg(1095, itemName, storage.getNumByItemId(itemId));
                 this.buffManager.applyBuff(itemId);
                 return {result: true};
+            } else if (itemId == 1105061) {
+                storage.decreaseItem(itemId, 1);
+                this.log.addMsg(1374, itemName, storage.getNumByItemId(itemId));
+                this.itemEffect(item, {
+                    "spirit": 6,
+                    "spirit_chance": 1,
+                    "infect": 4,
+                    "infect_chance": 1
+                });
+                return {result: true};
             } else {
                 return {result: false, type: 2, msg: "this type can't use"};
             }

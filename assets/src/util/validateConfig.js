@@ -1,6 +1,6 @@
 /**
- * 配置验证脚本 - 用于验证现有物品配置完整性
- * 使用方法：在游戏中通过控制台运行此脚本
+ * Legacy in-game validation helper.
+ * Preferred CLI: node tools/validate-content.js weapon-links
  */
 
 // 验证所有武器类物品（1301xxx-1305xxx）

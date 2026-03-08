@@ -104,6 +104,10 @@ var Dialog = cc.Layer.extend({
         return SafetyHelper.safeLoadSprite(iconName, fallbackName || null);
     },
 
+    _loadContentSprite: function(spriteName, fallbackName) {
+        return SafetyHelper.safeLoadSprite(spriteName, fallbackName || null);
+    },
+
     _loadTitleIcon_old: function(iconName) {
         return autoSpriteFrameController.getSpriteFromSpriteName(iconName);
     },
@@ -315,11 +319,13 @@ var DialogGuide = DialogCommon.extend({
         this.rightEdge = this.bgNode.getContentSize().width - this.leftEdge;
         //this.rightEdge = 30;
         if (config.content.dig_des) {
-            var digDes = autoSpriteFrameController.getSpriteFromSpriteName(config.content.dig_des);
-            digDes.setAnchorPoint(0.5, 1);
-            digDes.setPosition(this.contentNode.getContentSize().width / 2, this.contentNode.getContentSize().height - 20);
-            this.contentNode.addChild(digDes);
-            digDes.setName("dig_des");
+            var digDes = this._loadContentSprite(config.content.dig_des, config.content.dig_des_fallback);
+            if (digDes) {
+                digDes.setAnchorPoint(0.5, 1);
+                digDes.setPosition(this.contentNode.getContentSize().width / 2, this.contentNode.getContentSize().height - 20);
+                this.contentNode.addChild(digDes);
+                digDes.setName("dig_des");
+            }
         }
 
         if (config.content.des) {
@@ -332,11 +338,14 @@ var DialogGuide = DialogCommon.extend({
         }
 
         if (isPicDown) {
-            des.setAnchorPoint(0.5, 1);
-            des.setPosition(this.contentNode.getContentSize().width / 2, this.contentNode.getContentSize().height - 20);
-
-            digDes.setAnchorPoint(0, 1);
-            digDes.setPosition(this.leftEdge, des ? this.contentNode.getContentSize().height - des.height * des.scale - 50 : this.contentNode.getContentSize().height - 20);
+            if (des) {
+                des.setAnchorPoint(0.5, 1);
+                des.setPosition(this.contentNode.getContentSize().width / 2, this.contentNode.getContentSize().height - 20);
+            }
+            if (digDes) {
+                digDes.setAnchorPoint(0, 1);
+                digDes.setPosition(this.leftEdge, des ? this.contentNode.getContentSize().height - des.height * des.scale - 50 : this.contentNode.getContentSize().height - 20);
+            }
         }
 
         if (config.content.log) {
@@ -399,11 +408,13 @@ var DialogBig = DialogCommon.extend({
         this._super(config);
 
         if (config.content.dig_des) {
-            var digDes = autoSpriteFrameController.getSpriteFromSpriteName(config.content.dig_des);
-            digDes.setAnchorPoint(0.5, 1)
-            digDes.setPosition(this.contentNode.getContentSize().width / 2, this.contentNode.getContentSize().height - 5);
-            this.contentNode.addChild(digDes);
-            digDes.setName("dig_des");
+            var digDes = this._loadContentSprite(config.content.dig_des, config.content.dig_des_fallback);
+            if (digDes) {
+                digDes.setAnchorPoint(0.5, 1)
+                digDes.setPosition(this.contentNode.getContentSize().width / 2, this.contentNode.getContentSize().height - 5);
+                this.contentNode.addChild(digDes);
+                digDes.setName("dig_des");
+            }
         }
 
         if (config.content.des) {

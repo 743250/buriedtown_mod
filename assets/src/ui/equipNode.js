@@ -50,7 +50,7 @@ var EquipNode = cc.Node.extend({
                     self.removeChildByName("icon_" + this.idx);
                 }
                 if (iconName) {
-                    var icon = autoSpriteFrameController.getSpriteFromSpriteName(iconName);
+                    var icon = uiUtil.getSpriteByNameSafe(iconName, self._getTabIconName(null, this.idx));
                     icon.setName("icon_" + this.idx);
                     icon.setPosition(this.getPosition());
                     self.addChild(icon, 10);
@@ -226,7 +226,7 @@ var EquipNode = cc.Node.extend({
                     itemInfo.effect_weapon = SafetyHelper.safeCallWithFallback(TalentService.applyElitePistolWeaponEffect, itemInfo.effect_weapon, itemId, itemInfo.effect_weapon);
                 }
             }
-            var icon = autoSpriteFrameController.getSpriteFromSpriteName(iconName);
+            var icon = uiUtil.getSpriteByNameSafe(iconName, null);
             icon.setAnchorPoint(0, 0.5);
             icon.setPosition(0, size.height / 2);
             node.addChild(icon);

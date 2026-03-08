@@ -293,7 +293,7 @@ var BuildNode = BottomFrameNode.extend({
                 }
                 var action1Disabled = upgradeInfo.buildUpgradeType === BuildUpgradeType.UPGRADABLE ? false : true;
                 //当建筑物中有任何不是本btn的活跃动作时,则不能使用
-                if (this.build.anyBtnActive() && this.build.activeBtnIndex !== -1) {
+                if (!this.build.canUseAction(-1)) {
                     action1Disabled = true;
                 }
                 if (this.build.isUpgrading) {

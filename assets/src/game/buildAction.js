@@ -12,6 +12,15 @@ var BuildAction = cc.Class.extend({
         this.bid = bid;
         this.id = this.bid;
     },
+    getActionKey: function () {
+        if (this.actionKey !== undefined && this.actionKey !== null) {
+            return this.actionKey;
+        }
+        if (this.index !== undefined && this.index !== null) {
+            return this.bid + ":" + this.index;
+        }
+        return this.id;
+    },
     getCurrentBuildLevel: function () {
         return player.room.getBuildLevel(this.bid);
     },
@@ -41,7 +50,7 @@ var BuildAction = cc.Class.extend({
             this.view.updateView({btnIdx: idx});
             this._updateStatus();
             var viewInfo = this._getUpdateViewInfo();
-            if (this.build.anyBtnActive() && this.build.activeBtnIndex !== this.idx) {
+            if (this.build.anyBtnActive() && !this.build.canUseAction(this.getActionKey())) {
                 viewInfo.action1Disabled = true;
             }
             this.view.updateView(viewInfo);
@@ -100,13 +109,13 @@ var BuildAction = cc.Class.extend({
     _beginActioning: function () {
         this._setLeftBtnEnabled(false);
         if (this.build) {
-            this.build.setActiveBtnIndex(this.idx);
+            this.build.setActiveBtnIndex(this.getActionKey());
         }
     },
     _finishActioning: function (opt) {
         opt = opt || {};
         if (opt.resetBuildBtn !== false && this.build) {
-            this.build.resetActiveBtnIndex();
+            this.build.resetActiveBtnIndex(this.getActionKey());
         }
         if (opt.enableLeftBtn !== false) {
             this._setLeftBtnEnabled(true);
@@ -186,6 +195,9 @@ var Formula = BuildAction.extend({
         var itemInfo = this.config.produce[0];
         var itemName = stringUtil.getString(itemInfo.itemId).title;
         if (this.step == 0) {
+            if (this.build && !this.build.canUseAction(this.getActionKey())) {
+                return;
+            }
             this._beginActioning();
 
 
@@ -219,7 +231,6 @@ var Formula = BuildAction.extend({
                     var producedItemInfo = produce[0] || itemInfo;
                     var producedItemName = stringUtil.getString(producedItemInfo.itemId).title;
                     player.log.addMsg(1090, producedItemInfo.num, producedItemName, player.storage.getNumByItemId(producedItemInfo.itemId));
-                    self.build.resetActiveBtnIndex();
 
                     if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
                         userGuide.step();
@@ -267,7 +278,7 @@ var Formula = BuildAction.extend({
         return stringUtil.getString(1008, Math.ceil(time / 60 / 60));
     },
     _getUpdateViewInfo: function () {
-        var iconName = "#icon_item_" + this.config.produce[0].itemId + ".png";
+        var iconName = uiUtil.getItemIconFrameName(this.config.produce[0].itemId, true);
 
         var action1Txt = (this.step == 1 || this.step == 2) ? stringUtil.getString(1003) : stringUtil.getString(1002, this.config["makeTime"]);
         var itemName = stringUtil.getString(this.config.produce[0].itemId).title;
@@ -301,6 +312,7 @@ var Formula = BuildAction.extend({
 
         var res = {
             iconName: iconName,
+            iconFallbackName: uiUtil.getDefaultSpriteName("item", true),
             hint: hint,
             hintColor: hintColor,
             items: items,
@@ -807,6 +819,37 @@ var DrinkTeaBuildAction = BuildAction.extend({
     }
 });
 
+var SmokeBuildAction = BuildAction.extend({
+    ctor: function (bid, level, actionIndex) {
+        this._super(bid);
+        this.level = level >= 0 ? level : 0;
+        cc.assert(this.level < buildActionConfig[this.id].length, "SmokeBuildAction buildActionConfig doesn't exist!");
+        this.configs = utils.clone(buildActionConfig[this.id]);
+        this.needBuild = {bid: this.id, level: 0};
+        this.index = actionIndex;
+    },
+    updateConfig: function () {
+        return BuildActionEffectService.updateConfig(this);
+    },
+    clickIcon: function () {
+        return BuildActionEffectService.showBuildActionDialog(this);
+    },
+    clickAction1: function () {
+        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1373});
+    },
+    _getUpdateViewInfo: function () {
+        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
+            iconIndex: 1,
+            actionTextId: 1370,
+            progressHintIds: {
+                1: 1371,
+                2: 1371,
+                default: 1371
+            }
+        });
+    }
+});
+
 var BedBuildActionType = {
     SLEEP_1_HOUR: 1,
     SLEEP_4_HOUR: 2,
@@ -820,6 +863,7 @@ var BedBuildAction = BuildAction.extend({
         cc.assert(this.level < buildActionConfig[this.id].length, "BedBuildAction buildActionConfig doesn't exist!");
         this.configs = utils.clone(buildActionConfig[this.id]);
         this.type = bedBuildActionType;
+        this.actionKey = this.bid + ":" + this.type;
         this.needBuild = {bid: this.id, level: 0};
     },
     updateConfig: function () {
@@ -958,7 +1002,7 @@ var BonfireBuildAction = BuildAction.extend({
             } else {
                 //中断回复后,并不需要build resetActiveBtnIndex
                 if (self.build) {
-                    self.build.resetActiveBtnIndex();
+                    self.build.resetActiveBtnIndex(self.getActionKey());
                 }
                 //燃料用尽刷新温度
                 player.updateTemperature();
@@ -970,7 +1014,7 @@ var BonfireBuildAction = BuildAction.extend({
         //燃料空的时候,注册timer
         if (this.fuel == 0) {
             this.addFuelTimer();
-            this.build.setActiveBtnIndex(this.idx);
+            this.build.setActiveBtnIndex(this.getActionKey());
         }
         this.fuel++;
 

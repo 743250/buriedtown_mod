@@ -17,6 +17,25 @@
 - `assets/src/ui`: 场景、节点、弹窗和交互
 - `assets/src/util`: 通用工具、容错、配置与资源辅助
 - `assets/src/data`: 配置和多语言文本
+- `tools`: 仓库级静态校验脚本
+
+## CLI 校验工具
+
+统一入口：
+
+```bash
+node tools/validate-content.js
+```
+
+常用命令：
+
+- `node tools/validate-content.js all --lang zh`
+- `node tools/validate-content.js item-ui --strict-text`
+- `node tools/validate-content.js weapon-links --lang zh`
+- `node tools/validate-content.js site-links --lang zh`
+- `node tools/validate-content.js checklist role 1 --lang zh`
+
+旧的 `assets/src/util/validateConfig.js` 和 `assets/src/util/validateSiteConfig.js` 仍可在游戏内控制台使用，但仓库级检查优先走 `tools/validate-content.js`。
 
 ## 工作原则
 

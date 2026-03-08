@@ -150,8 +150,11 @@ var ConfigValidator = {
         }
 
         var result = this.validate(type, id);
-        if (result.error || result.valid) {
+        if (result.error) {
             return !result.error;
+        }
+        if (result.valid && (!result.warnings || result.warnings.length === 0)) {
+            return true;
         }
 
         var warnKey = [type, id].join(":");
@@ -164,14 +167,14 @@ var ConfigValidator = {
         if (context) {
             prefix += "[" + context + "]";
         }
-        cc.w(prefix + " " + type + " " + id + " 配置不完整");
+        cc.w(prefix + " " + type + " " + id + (result.valid ? " 配置存在提醒" : " 配置不完整"));
         result.errors.forEach(function (error) {
             cc.w("  - " + error);
         });
         result.warnings.forEach(function (warning) {
             cc.w("  - 可选: " + warning);
         });
-        return false;
+        return result.valid;
     },
     printResult: function (type, id) {
         if (!this.isEnabled()) {

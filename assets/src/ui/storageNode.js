@@ -87,6 +87,7 @@ var StorageNode = BottomFrameNode.extend({
             "1101",
             "1103",
             "1104",
+            "1105",
             "1107",
             "13",
             "other"

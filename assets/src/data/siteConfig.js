@@ -3972,6 +3972,7 @@ var siteConfig = {
         "battleRoom": 1,
         "difficulty": [1, 1],
         "workRoom": 1,
+        "produceValue": 0,
         "produceList": [],
         "fixedProduceList": [{
             "itemId": "1101031",

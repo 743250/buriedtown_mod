@@ -10,6 +10,7 @@ var ResourceFallback = {
         talent: "icon_iap_0.png",
         purchase: "icon_iap_101.png",
         item: "icon_item_1101051.png",
+        itemDetail: "dig_item_1101051.png",
         site: "site_1.png"
     },
 

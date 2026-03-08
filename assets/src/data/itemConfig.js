@@ -271,6 +271,27 @@ var itemConfig = {
         "price": 0.75,
         "value": 0.6994851874999999
     },
+    "1105061": {
+        "id": "1105061",
+        "displayItemId": "1105051",
+        "weight": 0,
+        "price": 2.5,
+        "value": 2.5
+    },
+    "1105072": {
+        "id": "1105072",
+        "displayItemId": "1105051",
+        "weight": 1,
+        "price": 8,
+        "value": 8
+    },
+    "1105083": {
+        "id": "1105083",
+        "displayItemId": "1105051",
+        "weight": 1,
+        "price": 18,
+        "value": 18
+    },
     "1106013": {
         "id": "1106013",
         "weight": 15,

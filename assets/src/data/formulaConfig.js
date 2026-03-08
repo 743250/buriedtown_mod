@@ -641,6 +641,49 @@ var formulaConfig = {
         "makeTime": 30,
         "placedTime": [2880]
     },
+    "1205061": {
+        "id": "1205061",
+        "produce": [{
+            "itemId": 1105061,
+            "num": 10
+        }],
+        "cost": [{
+            "itemId": 1101061,
+            "num": 18
+        }],
+        "makeTime": 30,
+        "placedTime": [2160]
+    },
+    "1205072": {
+        "id": "1205072",
+        "produce": [{
+            "itemId": 1105072,
+            "num": 4
+        }],
+        "cost": [{
+            "itemId": 1105061,
+            "num": 4
+        }, {
+            "itemId": 1101031,
+            "num": 1
+        }],
+        "makeTime": 20
+    },
+    "1205083": {
+        "id": "1205083",
+        "produce": [{
+            "itemId": 1105083,
+            "num": 4
+        }],
+        "cost": [{
+            "itemId": 1105072,
+            "num": 4
+        }, {
+            "itemId": 1105052,
+            "num": 2
+        }],
+        "makeTime": 30
+    },
     "1207012": {
         "id": "1207012",
         "produce": [{

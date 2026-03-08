@@ -96,15 +96,7 @@ var ItemCell = cc.Node.extend({
         this.addChild(this.btn);
 
         var itemId = storageCell.item.id;
-        var displayItemId = uiUtil.getDisplayItemId(itemId);
-        var iconName = "icon_item_" + displayItemId + ".png";
-
-        var iconFame = autoSpriteFrameController.getSpriteFrameFromSpriteName(iconName);
-        if (!iconFame) {
-            cc.e("don't have " + iconName);
-            iconFame = autoSpriteFrameController.getSpriteFrameFromSpriteName("icon_item_1101051.png");
-        }
-        var icon = autoSpriteFrameController.getSpriteFromSpriteName(iconFame);
+        var icon = uiUtil.getItemIconSprite(itemId, "icon_item_1101051.png");
         icon.setPosition(this.btn.getContentSize().width / 2, this.btn.getContentSize().height / 2);
         this.btn.addChild(icon);
 

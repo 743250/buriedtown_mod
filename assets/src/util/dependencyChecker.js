@@ -34,9 +34,9 @@ var DependencyChecker = {
             checklist.items.push({
                 name: field.name,
                 file: field.file,
-                location: field.location.replace("{id}", id),
+                location: field.location ? field.location.replace("{id}", id) : "",
                 required: field.required,
-                template: field.template.replace(/{id}/g, id),
+                template: field.template ? field.template.replace(/{id}/g, id) : "",
                 status: status
             });
         });
@@ -67,8 +67,12 @@ var DependencyChecker = {
 
             cc.log(status + " " + required + " " + item.name);
             cc.log("   文件: " + item.file);
-            cc.log("   位置: " + item.location);
-            cc.log("   示例: " + item.template);
+            if (item.location) {
+                cc.log("   位置: " + item.location);
+            }
+            if (item.template) {
+                cc.log("   示例: " + item.template);
+            }
             cc.log("");
 
             if (!item.status && item.required) {

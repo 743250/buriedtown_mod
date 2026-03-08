@@ -358,12 +358,30 @@ var string = {
     "1316": "You need to unlock this character before you can select him/her.",
     "1317": "The stranger who appeared in town after the disaster is quite the cook and knows how to brew alcohol. Unlike other survivors, he remains upbeat and positive.",
     "1318": "Can build cellars to brew alcohol.\\nCan build well-outfitted kitchens to make flavored stews.",
-    "1319": "Characters locked",
+    "1319": "Dr. Jin",
+    "1321": "Yazi",
+    "1322": "Electrical Engineer",
+    "1324": "Dr. Jin holds a medical doctorate and is also an excellent pharmacist. Farming is not her strength, however, so her potato harvests are always smaller than others'. Long-term hunger has taught her to consume 25% less food.",
+    "1325": "Can craft first-aid kits and penicillin, though not homemade penicillin. Medicine crafting costs less, and medicinal soup can restore HP.",
+    "1327": "Bill",
+    "1328": "Research Staff",
+    "1329": "A storeroom keeper at a research institute, Bill can always get his hands on rare supplies. He seems to know many secrets about the apocalypse, but never shares them.",
+    "1330": "Can grow coffee beans and craft precision firearms, grenades, and enhanced gear.\\nStarts with access to the Prison and the 081 Research Institute.\\nBill now starts with the Battle Falcon instead of the old +15 carry bonus.",
+    "1331": "Jeff",
+    "1332": "Furniture Store Owner",
+    "1333": "Before the town fell into hell, Jeff ran a furniture store and worked part-time as a firefighter. After the disaster, those skills made survival much easier for him.",
+    "1334": "Can grow fast poplar and process it with an axe or chainsaw into wood materials. Can also grow flax and turn it into flexible materials.\\n(Tree growth cycle: 30 days. Crafted via the old radio.)",
     "1342": "Test Character",
     "1343": "Experimental build",
     "1344": "Not much use",
     "1345": "Bear Grylls",
     "1346": "Survival expert",
+    "1370": "Smoke (%smin)",
+    "1371": "The smoke drifts away as you lean back and loosen up a little.",
+    "1372": "Will consume: %s",
+    "1373": "You sit quietly for a while, smoking %s (stock: %s) to steady yourself.",
+    "1374": "You force yourself to chew some %s (stock: %s).",
+    "1375": "You need tobacco, a hand-rolled cigarette, or a fine cigarette.",
     "1350": "Travel quickly by zipline!",
     "1351": "Zipline build mode: select a starting target on the map.",
     "1352": "Zipline build cancelled.",
@@ -390,7 +408,7 @@ var string = {
     "zipline_target_type_npc": "NPC",
     "1320": "New characters will be available soon, stay tuned.",
     "3000": ["Autumn", "Winter", "Spring", "Summer"],
-    "3006": ["Materials ", "Food ", "Medicines ", "Enhancement ", "Equipment ", "Miscellaneous "],
+    "3006": ["Materials ", "Food ", "Medicines ", "Luxury ", "Enhancement ", "Equipment ", "Miscellaneous "],
     "3007": ["Case", "Table", "Cupboard"],
     "3008": ["You've discovered a locked case. ", "A table with a locked drawer. Seems like no one noticed it before.", "It is obvious that these cupboards have been overlooked by people and zombies."],
     "3009": ["You spotted zombies in front of you!", "You spotted zombies in front of you!", "Some wandering zombies have noticed you. ", "Some wandering zombies have noticed you. ", "You startled a large pack of zombies. They're about to charge at you.", "You startled a large pack of zombies. They're about to charge at you.", "You startled a large pack of zombies. They're about to charge at you.", "A horde of zombies reeking of the horrific smell of death draw close to you.", "You are surrounded by a horde of zombies. ", "A horde of zombies reeking of the horrific smell of death draw close to you.", "A horde of zombies reeking of the horrific smell of death draw close to you.", "You are surrounded by a horde of zombies."],
@@ -425,9 +443,17 @@ var string = {
         "title": "Wood",
         "des": "A very versatile material that is commonly seen in buildings, furniture, and as a fuel source."
     },
+    "1101012": {
+        "title": "Fast-Growing Poplar",
+        "des": "A tree that grows faster than most others. It is a practical choice in the apocalypse. The wood is soft, but it still works as fuel."
+    },
     "1101021": {
         "title": "Metal",
         "des": "Includes steel, easily mouldable copper, and low melting point lead. Can be used to create structures or manufacture ammo."
+    },
+    "1101022": {
+        "title": "Metal Ore",
+        "des": "Ore with many impurities. It can be smelted into usable metal materials."
     },
     "1101031": {
         "title": "Fabric",
@@ -472,6 +498,10 @@ var string = {
     "1102053": {
         "title": "Battle Falcon Engine ",
         "des": "A core component used for building the Battle Falcon. "
+    },
+    "1102063": {
+        "title": "Generator Components",
+        "des": "Replacement parts used to keep the power plant running. Electricity is one of the last foundations of civilization."
     },
     "1103011": {
         "title": "Potatoes",
@@ -541,6 +571,22 @@ var string = {
         "title": "Herbs",
         "des": "Herbs are the oldest form of medicine that humans have. Many health effects have been scientifically proven now regarding their use."
     },
+    "1105052": {
+        "title": "Flax",
+        "des": "A common textile crop used for cloth and other flexible materials."
+    },
+    "1105061": {
+        "title": "Tobacco",
+        "des": "Dried tobacco leaves with a sharp smell. In desperate times, plenty of people will still trade for a familiar smoke."
+    },
+    "1105072": {
+        "title": "Hand-rolled cigarette",
+        "des": "A rough cigarette rolled by hand from tobacco and paper. Crude, but comforting."
+    },
+    "1105083": {
+        "title": "Fine cigarette",
+        "des": "A carefully rolled and well-packed cigarette. In the apocalypse, this counts as a luxury item."
+    },
     "1106013": {
         "title": "Dog",
         "des": "Man's best friend, a dog can help guard the shelter and help out in combat. Dogs eat meat."
@@ -588,6 +634,14 @@ var string = {
     "1301063": {
         "title": "FAMAS",
         "des": "The service rifle of NATO troops, it has good mobility and stability."
+    },
+    "1301071": {
+        "title": "Electric Pistol",
+        "des": "Fires a powerful electric discharge and outperforms a normal pistol at short range. Without power, however, it is useless."
+    },
+    "1301082": {
+        "title": "Electric Rifle",
+        "des": "Generates a burst of high voltage that can pierce any flesh in an instant. Assuming, of course, that it still has power."
     },
     "1301091": {
         "title": "Sharpshooter's Beloved Pistol",
@@ -811,6 +865,18 @@ var string = {
         "title": "Time for being tipsy",
         "des": "You must stay composed in dangerous environments, but it's also important to relax and relieve stress."
     },
+    "b_a_10_3": {
+        "title": "Smoke Tobacco",
+        "des": "Light up some dried tobacco. It is harsh and bitter, but it still helps take the edge off survival stress."
+    },
+    "b_a_10_4": {
+        "title": "Smoke Hand-rolled Cigarette",
+        "des": "A rough hand-rolled cigarette does not burn evenly, but it is enough to help you steady your nerves."
+    },
+    "b_a_10_5": {
+        "title": "Smoke Fine Cigarette",
+        "des": "A fine cigarette burns smoothly and brings the strongest relief. In times like these, it is a real luxury."
+    },
     "npc_1": {
         "name": "Mr. Luo",
         "des": "Alcoholic Luo fought in the Gulf War and worked in a factory after the war. He may help you with weapons if you have a drink with him once in a while.",
@@ -840,6 +906,11 @@ var string = {
         "name": "Stranger",
         "des": "A kind-hearted stranger who claims to be here by chance. He is good at brewing, cooking, and surving in the wildness. It's almost as though he was born for this disaster!",
         "dialogs": ["In any case, we are still alive.", "As long as you can control the fermentation conditions well, you will make good alcohol.", "I think there are many similarities between cooking and doing scientific experiments.", "I enjoy talking with you, but I don't like to talk about my past.", "I am afraid the hardest times have yet to come. Those who survive may encounter even more troubles and suffering."]
+    },
+    "npc_8": {
+        "name": "Bear Grylls",
+        "des": "A wilderness survival expert who excels at building fast routes through the ruins. His zipline system lets him move quickly between destinations.",
+        "dialogs": ["In the wild, speed is life.", "A good zipline network gets us where we need to go faster.", "These ruins feel like just another wilderness to me.", "Ziplines are one of the field skills I trust most.", "Give me two solid anchor points and I can build a fast route."]
     },
     "site_1": {
         "name": "Supermarket",
@@ -960,6 +1031,10 @@ var string = {
     "site_61": {
         "name": "081 Research Institute ",
         "des": "One would never expect to find such an enormous structure 30 meters underground  beneath a secret base. Who on earth built this place?  And what happened here?"
+    },
+    "site_204": {
+        "name": "Power Plant",
+        "des": "The town's only backup power plant. It has been neglected for years, and even if you get it running again, trouble is guaranteed."
     },
     "site_301": {
         "name": "Elevator ",
@@ -1122,15 +1197,40 @@ var string = {
         "des": "Well trained in shooting, and familiar with firearms. \\n (Once unlocked it never expires, and is available for all future games.)",
         "effect": "Hit increases to 125%"
     },
+    "p_120": {
+        "name": "Sharpshooter",
+        "des": "Long before the outbreak, you spent countless mornings at the range. Breathing, recoil control, and lead timing are now instinct. The more chaotic things get, the steadier your aim becomes.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "Gun precision up to x1.3 and headshot ability greatly improved; gain the Sharpshooter's exclusive pistol that never breaks, fires faster, and hits vital spots more easily."
+    },
     "p_102": {
         "name": "Athlete",
         "des": "Has exercised for a long time, and therefore has a stronger physique and faster recovery times. \\n (Once unlocked it never expires, and is available for all future games.)",
         "effect": "HP increases to 125%"
     },
+    "p_121": {
+        "name": "Bruiser",
+        "des": "Constant training has given you a sturdier frame than most people and made you far better at surviving under heavy loads.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "HP +60, backpack capacity +20, and melee damage up to +25%."
+    },
     "p_103": {
         "name": "Scavenger",
         "des": "Good at scavenging useful items from rubble. \\n (Once unlocked it never expires, and is available for all future games.)",
         "effect": "Item drops increased by 10%."
+    },
+    "p_122": {
+        "name": "Scavenger",
+        "des": "You are good at digging valuable supplies out of the ruins.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "Looting from sites and battles has up to a 25% chance to yield double resources."
+    },
+    "p_123": {
+        "name": "Negotiator",
+        "des": "You understand the rules of barter and can always push a trade toward better terms.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "When trading with NPCs, cross-category exchanges can get up to an 18% discount. Same-category trades get no discount."
+    },
+    "p_124": {
+        "name": "Wolverine",
+        "des": "You have astonishing recovery ability and can regain your footing quickly after a hard fight.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "Restore up to 40 HP after each battle victory."
     },
     "p_104": {
         "name": "Communicator",
@@ -1184,6 +1284,11 @@ var string = {
         "name": "Character: Mr. Luo",
         "des": "As a former marine officer, Mr. Luo knows how to use guns and make bullets, but his long-term alcohol abuse makes him an unstable force in combat.",
         "effect": "Can build mine fields and use homemade explosives to defend against night raids from zombies.\\nCan make machine tools, bullets, explosives, and zombie bait.\\nCan increase your Mood by drinking with you (a low Mood will reduce your shooting accuracy)."
+    },
+    "p_109": {
+        "name": "Yazi",
+        "des": "Yazi is an electrical engineer who loves turning wild ideas into reality.",
+        "effect": "Can repair the power plant to restore electricity, build electric nets, chainsaws, and electric weapons, and smelt ore. Cooking uses less fuel when power is available.\\nYazi's electric pistol and electric rifle are no longer lost during zombie swarms."
     },
     "m_103": {
         "name": "Ironman Medal (Grade 3)",

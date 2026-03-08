@@ -161,6 +161,48 @@ var ContentBlueprint = {
         var normalizedItemId = this._normalizeId(itemIdStr);
         return normalizedItemId !== null && !!itemConfig[normalizedItemId];
     },
+    _getItemDisplayId: function (itemId) {
+        itemId = this._normalizeId(itemId);
+        if (itemId === null) {
+            return null;
+        }
+        if (typeof WeaponCraftService !== "undefined"
+            && WeaponCraftService
+            && typeof WeaponCraftService.getDisplayItemId === "function") {
+            itemId = this._normalizeId(WeaponCraftService.getDisplayItemId(itemId));
+        }
+        if (typeof itemConfig !== "undefined"
+            && itemConfig
+            && itemConfig[itemId]
+            && itemConfig[itemId].displayItemId !== undefined) {
+            var displayItemId = this._normalizeId(itemConfig[itemId].displayItemId);
+            if (displayItemId !== null) {
+                itemId = displayItemId;
+            }
+        }
+        if (itemId === 1301091) {
+            return 1301011;
+        }
+        return itemId;
+    },
+    _hasSpriteFrame: function (spriteFrameName) {
+        if (!spriteFrameName) {
+            return false;
+        }
+        if (typeof autoSpriteFrameController === "undefined"
+            || !autoSpriteFrameController
+            || typeof autoSpriteFrameController.getSpriteFrameFromSpriteName !== "function") {
+            return true;
+        }
+        if (spriteFrameName.charAt(0) === "#") {
+            spriteFrameName = spriteFrameName.substring(1);
+        }
+        try {
+            return !!autoSpriteFrameController.getSpriteFrameFromSpriteName(spriteFrameName);
+        } catch (e) {
+            return false;
+        }
+    },
     _hasValidSiteItemList: function (list, countFieldName) {
         if (!Array.isArray(list)) {
             return false;
@@ -221,6 +263,10 @@ var ContentBlueprint = {
             return true;
         }
         return typeof config.timeRatio === "number" && config.timeRatio > 0;
+    },
+    _isSpecialSiteWithoutRooms: function (id) {
+        id = this._normalizeId(id);
+        return id === 61 || id === 100 || id === 202 || id === 204;
     },
     role: {
         fields: [
@@ -488,6 +534,40 @@ var ContentBlueprint = {
                 validator: function (id) {
                     return ContentBlueprint._hasStringText(id, "des");
                 }
+            },
+            {
+                name: "物品显示映射",
+                file: "data/itemConfig.js",
+                required: false,
+                validator: function (id) {
+                    id = ContentBlueprint._normalizeId(id);
+                    if (id === null || typeof itemConfig === "undefined" || !itemConfig || !itemConfig[id]) {
+                        return false;
+                    }
+                    if (itemConfig[id].displayItemId === undefined) {
+                        return true;
+                    }
+                    var displayItemId = ContentBlueprint._normalizeId(itemConfig[id].displayItemId);
+                    return displayItemId !== null && !!itemConfig[displayItemId];
+                }
+            },
+            {
+                name: "物品图标资源",
+                file: "res/icon.plist",
+                required: false,
+                validator: function (id) {
+                    var displayItemId = ContentBlueprint._getItemDisplayId(id);
+                    return displayItemId !== null && ContentBlueprint._hasSpriteFrame("icon_item_" + displayItemId + ".png");
+                }
+            },
+            {
+                name: "物品详情图资源",
+                file: "res/dig_item.plist",
+                required: false,
+                validator: function (id) {
+                    var displayItemId = ContentBlueprint._getItemDisplayId(id);
+                    return displayItemId !== null && ContentBlueprint._hasSpriteFrame("dig_item_" + displayItemId + ".png");
+                }
             }
         ]
     },
@@ -531,6 +611,9 @@ var ContentBlueprint = {
                 file: "data/siteConfig.js",
                 required: true,
                 validator: function (id) {
+                    if (ContentBlueprint._isSpecialSiteWithoutRooms(id)) {
+                        return true;
+                    }
                     var config = ContentBlueprint._getSiteConfig(id);
                     return !!config
                         && ContentBlueprint._isFiniteNumber(config.battleRoom)

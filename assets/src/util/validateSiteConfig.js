@@ -1,6 +1,6 @@
 /**
- * Site config validation helper.
- * Run this from the in-game console after the regular scripts are loaded.
+ * Legacy in-game validation helper.
+ * Preferred CLI: node tools/validate-content.js site-links
  */
 var siteIds = [];
 if (typeof SiteConfigService !== "undefined" && SiteConfigService && typeof SiteConfigService.getAllSiteIds === "function") {

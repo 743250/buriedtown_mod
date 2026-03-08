@@ -29,6 +29,7 @@ var Build = cc.Class.extend({
         this.isUpgrading = false;
         this.actions = [];
         this.initBuildActions();
+        this.activeBtnKeys = [];
         this.activeBtnIndex = -2;
 
         this.restore(saveObj);
@@ -50,26 +51,104 @@ var Build = cc.Class.extend({
     save: function () {
         var saveActions = {};
         this.actions.forEach(function (action) {
-            saveActions[action.id] = action.save();
-        });
+            var actionKey = this._getActionStateKey(action);
+            saveActions[actionKey] = action.save();
+        }, this);
         return {
             id: this.id,
             level: this.level,
             saveActions: saveActions,
+            activeBtnKeys: this.activeBtnKeys.slice(),
             activeBtnIndex: this.activeBtnIndex
         };
     },
+    _getActionStateKey: function (action) {
+        if (action && typeof action.getActionKey === "function") {
+            return action.getActionKey();
+        }
+        return action ? action.id : null;
+    },
+    _normalizeActionKey: function (key) {
+        if (key === undefined || key === null || key === -2 || key === "-2") {
+            return null;
+        }
+        if (key === -1 || key === "-1") {
+            return -1;
+        }
+        return String(key);
+    },
+    _normalizeActiveBtnKeys: function (keys) {
+        var normalized = [];
+        var seen = {};
+        if (!Array.isArray(keys)) {
+            keys = [keys];
+        }
+        keys.forEach(function (key) {
+            key = this._normalizeActionKey(key);
+            if (key === null || seen[key]) {
+                return;
+            }
+            seen[key] = true;
+            normalized.push(key);
+        }, this);
+        if (normalized.indexOf(-1) !== -1) {
+            return [-1];
+        }
+        return normalized.slice(0, this.getConcurrentActionLimit());
+    },
+    _applyActiveBtnKeys: function (keys) {
+        this.activeBtnKeys = this._normalizeActiveBtnKeys(keys);
+        this.activeBtnIndex = this.activeBtnKeys.length > 0 ? this.activeBtnKeys[0] : -2;
+    },
+    _restoreActiveBtnKeys: function (opt) {
+        var restoredKeys = opt.activeBtnKeys;
+        if (!Array.isArray(restoredKeys) && Array.isArray(opt.activeBtnIndices)) {
+            restoredKeys = opt.activeBtnIndices;
+        }
+        if (Array.isArray(restoredKeys)) {
+            this._applyActiveBtnKeys(restoredKeys);
+            return;
+        }
+
+        var derivedKeys = this.actions.filter(function (action) {
+            if (!action) {
+                return false;
+            }
+            if (action.step !== undefined && action.step !== 0) {
+                return true;
+            }
+            return action.fuel > 0;
+        }, this).map(function (action) {
+            return this._getActionStateKey(action);
+        }, this);
+        derivedKeys = derivedKeys.filter(function (key) {
+            return key !== null;
+        });
+        if (derivedKeys.length > 0) {
+            this._applyActiveBtnKeys(derivedKeys);
+            return;
+        }
+
+        this._applyActiveBtnKeys(opt.activeBtnIndex);
+    },
     restore: function (opt) {
         if (opt) {
-            var saveActions = opt.saveActions;
+            var saveActions = opt.saveActions || {};
             this.actions.forEach(function (action) {
-                action.restore(saveActions[action.id]);
-            });
-            //fix bug: 1.1.7存档升上来时,此处无值导致生产线无法解锁的问题
-            if (opt.activeBtnIndex !== undefined && opt.activeBtnIndex !== null) {
-                this.activeBtnIndex = opt.activeBtnIndex;
-            }
+                var actionKey = this._getActionStateKey(action);
+                var saveObj = Object.prototype.hasOwnProperty.call(saveActions, actionKey)
+                    ? saveActions[actionKey]
+                    : saveActions[action.id];
+                action.restore(saveObj);
+            }, this);
+            this._restoreActiveBtnKeys(opt);
         }
+    },
+    getConcurrentActionLimit: function () {
+        if (this.id === 2 && this.level >= 1) {
+            return 2;
+        }
+        return 1;
     },
     needBuild: function () {
         return this.level < 0;
@@ -233,23 +312,68 @@ var Build = cc.Class.extend({
             return self._isActionVisible(action, context);
         });
     },
-    setActiveBtnIndex: function (index) {
-        this.activeBtnIndex = index;
+    isActionActive: function (actionId) {
+        actionId = this._normalizeActionKey(actionId);
+        if (actionId === null) {
+            return false;
+        }
+        return this.activeBtnKeys.indexOf(actionId) !== -1;
     },
-    resetActiveBtnIndex: function () {
-        this.activeBtnIndex = -2;
+    canUseAction: function (actionId) {
+        actionId = this._normalizeActionKey(actionId);
+        if (actionId === null) {
+            return false;
+        }
+        if (actionId === -1) {
+            return !this.anyBtnActive();
+        }
+        if (this.activeBtnKeys.indexOf(-1) !== -1) {
+            return false;
+        }
+        if (this.isActionActive(actionId)) {
+            return true;
+        }
+        return this.activeBtnKeys.length < this.getConcurrentActionLimit();
+    },
+    setActiveBtnIndex: function (index) {
+        index = this._normalizeActionKey(index);
+        if (index === null) {
+            return false;
+        }
+        if (!this.canUseAction(index)) {
+            return false;
+        }
+        if (!this.isActionActive(index)) {
+            this._applyActiveBtnKeys(this.activeBtnKeys.concat(index));
+        }
+        return true;
+    },
+    resetActiveBtnIndex: function (index) {
+        if (index === undefined || index === null) {
+            this._applyActiveBtnKeys([]);
+            return;
+        }
+        index = this._normalizeActionKey(index);
+        if (index === null) {
+            this._applyActiveBtnKeys([]);
+            return;
+        }
+        this._applyActiveBtnKeys(this.activeBtnKeys.filter(function (key) {
+            return key !== index;
+        }));
     },
     anyBtnActive: function () {
-        return this.activeBtnIndex !== -2;
+        return this.activeBtnKeys.length > 0;
     },
     needWarn: function () {
+        var self = this;
         var res = this.canUpgrade();
         var canUpgrade = res.buildUpgradeType === BuildUpgradeType.UPGRADABLE;
         var replacedSuccess = this.actions.some(function (action) {
             return action.step === 2 && !action.isActioning;
         });
         var canMake = this.actions.some(function (action) {
-            return action.step === 0 && !action.isActioning && action.canMake();
+            return self.canUseAction(self._getActionStateKey(action)) && action.step === 0 && !action.isActioning && action.canMake();
         });
         var isActioning = this.actions.some(function (action) {
             return action.isActioning;
@@ -298,6 +422,9 @@ var RestBuild = Build.extend({
     initBuildActions: function () {
         var action1 = new RestBuildAction(this.id, this.level);
         this.actions.push(action1);
+        this.actions.push(new SmokeBuildAction(this.id, this.level, 3));
+        this.actions.push(new SmokeBuildAction(this.id, this.level, 4));
+        this.actions.push(new SmokeBuildAction(this.id, this.level, 5));
         var roleType = player ? player.roleType : null;
         var restActionTypes = RoleRuntimeService.getRestActionTypes(roleType);
         restActionTypes.forEach(function (actionType) {
