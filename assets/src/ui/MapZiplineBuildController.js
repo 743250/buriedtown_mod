@@ -33,7 +33,7 @@ var MapZiplineBuildController = cc.Class.extend({
         return button;
     },
     isAvailable: function () {
-        return player.roleType === RoleType.BELL && !!player.ziplineNetwork;
+        return RoleRuntimeService.isZiplineFrameworkAvailable(player);
     },
     hasAnyLinks: function () {
         return !!(player.ziplineNetwork

@@ -16,11 +16,24 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_1.png",
         selectionOrder: 1,
         npcId: 1,
+        actionTags: ["luo"],
+        visitorNpcIds: [6, 4, 2, 3],
+        visitorUnlockedNpcIds: [5],
         specialBuilds: [16, 17, 5],
+        roomBuilds: [
+            {id: 16, level: -1},
+            {id: 17, level: 0},
+            {id: 5, level: -1}
+        ],
+        temperatureBuild: {id: 5},
+        restActionTypes: ["drink"],
+        buildLevelCaps: {
+            6: 0
+        },
         unlockSites: [20, 21],
         battleModifiers: {
             precisePenalty: true,
-            nightDefenseType: 'dog_only'
+            homeDefenseMode: "dog_only"
         }
     },
 
@@ -36,7 +49,11 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_2.png",
         selectionOrder: 3,
         npcId: 2,
+        actionTags: ["jin"],
+        visitorNpcIds: [1, 4, 3, 6],
+        visitorUnlockedNpcIds: [5],
         unlockSites: [51, 52],
+        restActionTypes: ["drink_tea"],
         attrModifiers: {
             hungerDecay: 0.75
         }
@@ -54,6 +71,9 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_3.png",
         selectionOrder: 5,
         npcId: 3,
+        actionTags: ["jie"],
+        visitorNpcIds: [1, 4, 2, 6],
+        visitorUnlockedNpcIds: [5],
         unlockSites: [30, 32]
     },
 
@@ -69,10 +89,22 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_4.png",
         selectionOrder: 2,
         npcId: 4,
+        actionTags: ["yazi", "powered"],
+        visitorNpcIds: [1, 6, 2, 3],
+        visitorUnlockedNpcIds: [5],
         specialBuilds: [7, 19, 18],
+        roomBuilds: [
+            {id: 7, level: -1},
+            {id: 19, level: -1},
+            {id: 18, level: -1}
+        ],
+        temperatureBuild: {
+            id: 18,
+            levels: [0]
+        },
         unlockSites: [204, 43, 41],
         battleModifiers: {
-            nightDefenseType: 'electric_grid'
+            homeDefenseMode: "dog_only"
         }
     },
 
@@ -88,8 +120,12 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_5.png",
         selectionOrder: 4,
         npcId: 5,
+        actionTags: ["bier"],
+        visitorNpcIds: [1, 4, 3, 2, 6],
+        visitorUnlockedNpcIds: [5],
+        siteNpcUnlocksEnabled: false,
         unlockSites: [61, 14, 301],
-        specialItems: [1302041]
+        specialItems: [1305044]
     },
 
     // 陌生人
@@ -104,6 +140,9 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_6.png",
         selectionOrder: 0,
         npcId: 6,
+        actionTags: ["stranger"],
+        visitorNpcIds: [1, 4, 2, 3],
+        visitorUnlockedNpcIds: [5],
         specialBuilds: [7, 8, 5, 9],
         unlockSites: [203]
     },
@@ -120,9 +159,25 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_6.png",
         selectionOrder: 7,
         npcId: 7,
-        specialBuilds: [19, 18],
+        actionTags: ["king", "powered"],
+        visitorNpcIds: [1, 4, 2, 6, 3],
+        visitorUnlockedNpcIds: [5],
+        specialBuilds: [7, 19, 18],
+        roomBuilds: [
+            {id: 7, level: -1},
+            {id: 19, level: -1},
+            {id: 18, level: -1}
+        ],
+        temperatureBuild: {
+            id: 18,
+            levels: [0]
+        },
+        siteNpcUnlocksEnabled: false,
         unlockSites: [61, 204, 301],
-        unlockNpcs: [1, 2, 3, 4, 6]
+        unlockNpcs: [1, 2, 3, 4, 6],
+        battleModifiers: {
+            homeDefenseMode: "dog_only"
+        }
     },
 
     // 贝尔
@@ -137,6 +192,13 @@ var RoleConfigTable = {
         avatarFallback: "npc_dig_7.png",
         mapRoleType: 7,
         selectionOrder: 6,
-        npcId: 8
+        npcId: 8,
+        actionTags: ["bell"],
+        visitorNpcIds: [1, 4, 2, 3],
+        visitorUnlockedNpcIds: [5],
+        zipline: {
+            enabled: true,
+            timeRatio: 0.3
+        }
     }
 };

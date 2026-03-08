@@ -2,9 +2,6 @@
  * Computes route modifiers for zipline-connected map travel.
  */
 var ZiplineTravelService = {
-    CONFIG: {
-        TIME_RATIO: 0.3
-    },
     getDefaultRouteState: function () {
         return {
             hasZipline: false,
@@ -15,8 +12,9 @@ var ZiplineTravelService = {
     },
     buildRouteState: function (options) {
         var routeState = this.getDefaultRouteState();
+        var ziplineConfig = RoleRuntimeService.getZiplineConfig(options && options.roleType);
         if (!options
-            || options.roleType !== RoleType.BELL
+            || !ziplineConfig.enabled
             || !options.ziplineNetwork
             || !(options.destinationEntity || options.destinationSite)
             || typeof options.ziplineNetwork.hasLink !== "function") {
@@ -30,9 +28,9 @@ var ZiplineTravelService = {
         }
 
         routeState.hasZipline = true;
-        routeState.timeMultiplier = this.CONFIG.TIME_RATIO;
-        routeState.velocityMultiplier = 1 / this.CONFIG.TIME_RATIO;
-        routeState.accelerateRealTimeMultiplier = this.CONFIG.TIME_RATIO;
+        routeState.timeMultiplier = ziplineConfig.timeRatio;
+        routeState.velocityMultiplier = 1 / ziplineConfig.timeRatio;
+        routeState.accelerateRealTimeMultiplier = ziplineConfig.timeRatio;
         return routeState;
     }
 };

@@ -190,7 +190,7 @@ var MapView = cc.ScrollView.extend({
         this.refreshZiplineOverlay();
     },
     supportsZiplineFramework: function () {
-        return player.roleType === RoleType.BELL && !!player.ziplineNetwork;
+        return RoleRuntimeService.isZiplineFrameworkAvailable(player);
     },
     attachZiplineUi: function (hostNode) {
         if (!this.supportsZiplineFramework() || !hostNode || this.ziplineBuildController) {

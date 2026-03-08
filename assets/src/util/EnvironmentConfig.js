@@ -13,7 +13,6 @@ cc.originAudioEngine = {};
 
 var setSound = function (isOn) {
     cc.sys.localStorage.setItem("sound", isOn ? 1 : 2);
-    aaa
 }
 var needSound = function () {
     var sound = cc.sys.localStorage.getItem("sound") || 1;
@@ -98,3 +97,39 @@ cc.eventManager.addCustomListener(cc.game.EVENT_SHOW, function(){
        //onEnterForeground handler
        cc.log("game show")
 });
+
+var EnvironmentConfig = {
+    STORAGE_KEY: {
+        PURCHASE_BYPASS_SDK: "debug_purchase_bypass_sdk",
+        PURCHASE_AUTO_UNLOCK: "debug_purchase_auto_unlock",
+        CONTENT_VALIDATION: "debug_content_validation"
+    },
+    _readBoolFlag: function (storageKey, fallbackValue) {
+        if (!cc || !cc.sys || !cc.sys.localStorage || !storageKey) {
+            return !!fallbackValue;
+        }
+
+        var rawValue = cc.sys.localStorage.getItem(storageKey);
+        if (rawValue === null || rawValue === undefined || rawValue === "") {
+            return !!fallbackValue;
+        }
+
+        rawValue = ("" + rawValue).toLowerCase();
+        if (rawValue === "1" || rawValue === "true" || rawValue === "yes" || rawValue === "on") {
+            return true;
+        }
+        if (rawValue === "0" || rawValue === "false" || rawValue === "no" || rawValue === "off") {
+            return false;
+        }
+        return !!fallbackValue;
+    },
+    isContentValidationEnabled: function () {
+        return this._readBoolFlag(this.STORAGE_KEY.CONTENT_VALIDATION, true);
+    },
+    getPurchaseDebugFlags: function () {
+        return {
+            unlockAllRoleAndTalentForTest: this._readBoolFlag(this.STORAGE_KEY.PURCHASE_AUTO_UNLOCK, false),
+            bypassPaySdkForTest: this._readBoolFlag(this.STORAGE_KEY.PURCHASE_BYPASS_SDK, false)
+        };
+    }
+};

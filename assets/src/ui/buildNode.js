@@ -223,11 +223,10 @@ var BuildNode = BottomFrameNode.extend({
 
         if (action.isLocked) {
             if (!itemView.getChildByName('lock')) {
-                var n = uiUtil.createLockNode(cc.size(itemView.width - 16, itemView.height), action.purchaseId, function (purchaseId, payResult) {
-                    var result = PurchaseService.applyPurchaseResult(purchaseId, payResult);
+                var n = uiUtil.createLockNode(cc.size(itemView.width - 16, itemView.height), action.purchaseId, function (result) {
                     if (result.isSuccess) {
                         self.updateAllView();
-                    } else if (result.failedReason === "INSUFFICIENT_POINTS") {
+                    } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
                         uiUtil.showTip("成就点不足!");
                     }
                 });

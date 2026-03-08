@@ -24,7 +24,16 @@ var ItemType = {
 var Item = cc.Class.extend({
     ctor: function (id) {
         this.id = id;
-        this.config = utils.clone(itemConfig[this.id]);
+        if (typeof ConfigValidator !== "undefined" && ConfigValidator && typeof ConfigValidator.warnIfInvalid === "function") {
+            ConfigValidator.warnIfInvalid("item", this.id, "new Item");
+        }
+
+        var itemDefinition = itemConfig[this.id];
+        if (!itemDefinition) {
+            cc.e("Item config missing. itemId=" + this.id);
+            throw {msg: "item config missing: " + this.id};
+        }
+        this.config = utils.clone(itemDefinition);
     },
     getPrice: function () {
         return this.config["price"];

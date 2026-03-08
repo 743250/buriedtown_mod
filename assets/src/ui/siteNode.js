@@ -121,7 +121,7 @@ var SiteNode = BottomFrameNode.extend({
     renderZiplineSection: function (leftEdge, rightEdge, topY) {
         this.bg.removeChildByName("zipline_section");
 
-        if (player.roleType !== RoleType.BELL || !player.ziplineNetwork) {
+        if (!RoleRuntimeService.isZiplineFrameworkAvailable(player)) {
             return;
         }
 

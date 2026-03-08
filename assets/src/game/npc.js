@@ -344,56 +344,7 @@ var NPCManager = cc.Class.extend({
         cc.i("visitPlayer " + rand);
         if (rand <= 25) {
             player.log.addMsg(1100);
-            var npcPool = [];
-            // 老罗版本解锁陌生人
-            if (player.roleType === RoleType.LUO) {
-                npcPool.push(RoleType.STRANGER);
-                npcPool.push(RoleType.YAZI);
-                npcPool.push(RoleType.JIN);
-                npcPool.push(RoleType.JIE);
-                //npcPool.push(RoleType.KING);
-            } else if (player.roleType === RoleType.YAZI) {
-                npcPool.push(RoleType.LUO);
-                npcPool.push(RoleType.STRANGER);
-                npcPool.push(RoleType.JIN);
-                npcPool.push(RoleType.JIE);
-                //npcPool.push(RoleType.KING);
-            }  else if (player.roleType === RoleType.JIN) {
-                npcPool.push(RoleType.LUO);
-                npcPool.push(RoleType.YAZI);
-                npcPool.push(RoleType.JIE);
-                npcPool.push(RoleType.STRANGER);
-                //npcPool.push(RoleType.KING);
-            }  else if (player.roleType === RoleType.BIER) {
-                npcPool.push(RoleType.LUO);
-                npcPool.push(RoleType.YAZI);
-                npcPool.push(RoleType.JIE);
-                npcPool.push(RoleType.JIN);
-                npcPool.push(RoleType.STRANGER);
-                //npcPool.push(RoleType.KING);
-            }  else if (player.roleType === RoleType.JIE) {
-                npcPool.push(RoleType.LUO);
-                npcPool.push(RoleType.YAZI);
-                npcPool.push(RoleType.JIN);
-                npcPool.push(RoleType.STRANGER);
-                //npcPool.push(RoleType.KING);
-            }  else if (player.roleType === RoleType.KING) {
-                npcPool.push(RoleType.LUO);
-                npcPool.push(RoleType.YAZI);
-                npcPool.push(RoleType.JIN);
-                npcPool.push(RoleType.STRANGER);
-                npcPool.push(RoleType.JIE);
-            } else {
-                npcPool.push(RoleType.LUO);
-                npcPool.push(RoleType.YAZI);
-                npcPool.push(RoleType.JIN);
-                npcPool.push(RoleType.JIE);
-                //npcPool.push(RoleType.KING);
-            }
-            // 比尔是副本解锁,所以当解锁后才可以在访问池子充出现
-            if (this.getNPC(5).isUnlocked) {
-                npcPool.push(5);
-            }
+            var npcPool = RoleRuntimeService.getVisitorNpcPool(player.roleType, this);
             var npcId = npcPool[utils.getRandomInt(0, npcPool.length - 1)];
             this.unlockNpc(npcId);
             var npc = this.npcList[npcId];

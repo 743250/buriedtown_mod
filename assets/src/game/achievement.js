@@ -111,6 +111,9 @@ var Achievement = {
         }
     },
     checkMake: function (itemId, num) {
+        if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.getBaseItemId) {
+            itemId = WeaponCraftService.getBaseItemId(itemId);
+        }
         var ids = ["bt_make_1", "bt_make_2", "bt_make_3", "bt_make_4"];
         var gcId = this.findIdFromArray(ids, "itemId", itemId);
         if (gcId) {
@@ -138,6 +141,9 @@ var Achievement = {
         }
     },
     checkGetItem: function (itemId) {
+        if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.getBaseItemId) {
+            itemId = WeaponCraftService.getBaseItemId(itemId);
+        }
         var ids = ["bt_item_1", "bt_item_2", "bt_item_3", "bt_item_4"];
         var gcId = this.findIdFromArray(ids, "itemId", itemId);
         if (gcId) {

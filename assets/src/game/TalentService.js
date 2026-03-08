@@ -285,7 +285,13 @@ var TalentService = {
         return this._getTalentValueByLevel(104, "socialExtraGiftChanceValues", level104, 0);
     },
     getTalentPurchaseIdList: function () {
-        return [0].concat(this._getSortedTalentIds());
+        var talentIds = this._getSortedTalentIds();
+        if (typeof ConfigValidator !== "undefined" && ConfigValidator && typeof ConfigValidator.warnIfInvalid === "function") {
+            talentIds.forEach(function (talentId) {
+                ConfigValidator.warnIfInvalid("talent", talentId, "TalentService.getTalentPurchaseIdList");
+            });
+        }
+        return [0].concat(talentIds);
     },
     getMaxChosenTalentCount: function () {
         return this.MAX_CHOSEN_TALENT_COUNT;

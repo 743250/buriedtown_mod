@@ -93,11 +93,14 @@ var ShopLayer = cc.Layer.extend({
             payNode.updatePrice(stringUtil.getString(1191, purchaseConfig.price));
         }
     },
-    _showExchangeFailedTip: function (payResult) {
-        if (payResult == 3) {
+    _showExchangeFailedTip: function (result) {
+        if (result && (result.failedReason === PurchaseService.FAIL_REASON.ALREADY_UNLOCKED
+            || result.failedReason === PurchaseService.FAIL_REASON.MAX_LEVEL)) {
             uiUtil.showTip("已购或已满级");
-        } else {
+        } else if (result && result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
             uiUtil.showTip("成就点不足!");
+        } else {
+            uiUtil.showTip("购买失败");
         }
     },
     _rebuildPayNodes: function () {
@@ -176,7 +179,12 @@ var ShopLayer = cc.Layer.extend({
         }
         var heightPadding = 10;
 
-        var data = [108, 109, 110, 111, 112, 113, 114, 105, 106, 107, 101, 102, 103, 104, 120, 121, 122, 123, 124];
+        var data = PurchaseService.getMainShopPurchaseIds
+            ? PurchaseService.getMainShopPurchaseIds()
+            : [];
+        if (!data || data.length === 0) {
+            data = [108, 109, 110, 111, 112, 113, 114, 105, 106, 107, 101, 102, 103, 104, 120, 121, 122, 123, 124];
+        }
         data = data.filter(function (purchaseId) {
             return !!PurchaseList[purchaseId];
         });
@@ -304,16 +312,14 @@ var ShopLayer = cc.Layer.extend({
             showPayDialogFromOuter();
         }
     },
-    onPayResult: function (purchaseId, payResult) {
-        var result = PurchaseService.applyPurchaseResult(purchaseId, payResult);
-
+    onPayResult: function (result) {
         if (result.isSuccess) {
             return;
         }
 
         if (result.isExchangePurchase) {
-            this._showExchangeFailedTip(payResult);
-        } else if (result.failedReason === "INSUFFICIENT_POINTS") {
+            this._showExchangeFailedTip(result);
+        } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
             uiUtil.showTip("成就点不足!");
         }
     }

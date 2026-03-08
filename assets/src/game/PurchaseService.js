@@ -9,6 +9,13 @@ var PurchaseService = {
         FAILED: 2,
         ALREADY_UNLOCKED: 3
     },
+    FAIL_REASON: {
+        INVALID_PURCHASE: "INVALID_PURCHASE",
+        INSUFFICIENT_POINTS: "INSUFFICIENT_POINTS",
+        ALREADY_UNLOCKED: "ALREADY_UNLOCKED",
+        MAX_LEVEL: "MAX_LEVEL",
+        PURCHASE_FAILED: "PURCHASE_FAILED"
+    },
     _normalizePurchaseId: function (purchaseId) {
         var normalizedPurchaseId = parseInt(purchaseId);
         if (isNaN(normalizedPurchaseId)) {
@@ -114,6 +121,111 @@ var PurchaseService = {
         }
         return IAPPackage.getPriceOff(purchaseId);
     },
+    _getSortedPurchaseIds: function (filterFn) {
+        if (typeof PurchaseList === "undefined" || !PurchaseList) {
+            return [];
+        }
+        return Object.keys(PurchaseList).map(function (purchaseId) {
+            return parseInt(purchaseId);
+        }).filter(function (purchaseId) {
+            if (isNaN(purchaseId)) {
+                return false;
+            }
+            return !filterFn || filterFn(purchaseId);
+        }).sort(function (a, b) {
+            return a - b;
+        });
+    },
+    _dedupePurchaseIds: function (purchaseIdList) {
+        var uniqueMap = {};
+        var result = [];
+        if (!Array.isArray(purchaseIdList)) {
+            return result;
+        }
+
+        purchaseIdList.forEach(function (purchaseId) {
+            purchaseId = parseInt(purchaseId);
+            if (isNaN(purchaseId) || uniqueMap[purchaseId]) {
+                return;
+            }
+            uniqueMap[purchaseId] = true;
+            result.push(purchaseId);
+        });
+        return result;
+    },
+    getRolePurchaseIds: function () {
+        if (typeof role === "undefined"
+            || !role
+            || typeof role.getAllRoleTypes !== "function"
+            || typeof role.getPurchaseIdByRoleType !== "function") {
+            return [];
+        }
+
+        var rolePurchaseIds = role.getAllRoleTypes().map(function (roleType) {
+            return role.getPurchaseIdByRoleType(roleType);
+        }).filter(function (purchaseId) {
+            return !!purchaseId && typeof PurchaseList !== "undefined" && PurchaseList && !!PurchaseList[purchaseId];
+        }).sort(function (a, b) {
+            return a - b;
+        });
+
+        return this._dedupePurchaseIds(rolePurchaseIds);
+    },
+    getTalentPurchaseIds: function () {
+        var talentPurchaseIds = [];
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.getTalentPurchaseIdList === "function") {
+            talentPurchaseIds = TalentService.getTalentPurchaseIdList().filter(function (purchaseId) {
+                return purchaseId > 0
+                    && typeof PurchaseList !== "undefined"
+                    && PurchaseList
+                    && !!PurchaseList[purchaseId];
+            });
+        } else {
+            var self = this;
+            talentPurchaseIds = this._getSortedPurchaseIds(function (purchaseId) {
+                return self.isTalentPurchase(purchaseId);
+            });
+        }
+        return this._dedupePurchaseIds(talentPurchaseIds).sort(function (a, b) {
+            return a - b;
+        });
+    },
+    getExchangeItemPurchaseIds: function () {
+        var itemPurchaseIds = [];
+        if (typeof ExchangeAchievementConfig !== "undefined" && ExchangeAchievementConfig) {
+            for (var exchangeId in ExchangeAchievementConfig) {
+                var exchangeConfig = ExchangeAchievementConfig[exchangeId];
+                if (!exchangeConfig || exchangeConfig.type !== "item") {
+                    continue;
+                }
+                var purchaseId = parseInt(exchangeConfig.targetId);
+                if (isNaN(purchaseId)
+                    || typeof PurchaseList === "undefined"
+                    || !PurchaseList
+                    || !PurchaseList[purchaseId]) {
+                    continue;
+                }
+                itemPurchaseIds.push(purchaseId);
+            }
+        }
+        return this._dedupePurchaseIds(itemPurchaseIds).sort(function (a, b) {
+            return a - b;
+        });
+    },
+    getMainShopPurchaseIds: function () {
+        return this._dedupePurchaseIds(
+            this.getRolePurchaseIds()
+                .concat(this.getExchangeItemPurchaseIds())
+                .concat(this.getTalentPurchaseIds())
+        );
+    },
+    getConsumablePurchaseIds: function () {
+        return this._getSortedPurchaseIds(function (purchaseId) {
+            return purchaseId >= 200;
+        });
+    },
     _grantUnlockReward: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
         if (purchaseId === null
@@ -192,11 +304,13 @@ var PurchaseService = {
         var result = {
             purchaseId: outcome.purchaseId,
             rawResult: outcome.rawResult,
+            legacyResultCode: outcome.rawResult,
             isExchangePurchase: outcome.isExchangePurchase,
             isSuccess: outcome.isSuccess,
             isFailure: outcome.isFailure,
+            isAlreadyUnlocked: outcome.isAlreadyUnlocked,
             isAchievementPointFailure: outcome.isAchievementPointFailure,
-            failedReason: outcome.isAchievementPointFailure ? "INSUFFICIENT_POINTS" : null,
+            failedReason: outcome.failedReason,
             unlockRecorded: false,
             unlockRewardGranted: false,
             consumableGranted: false
@@ -206,37 +320,69 @@ var PurchaseService = {
             return result;
         }
 
-        if (outcome.needsManualUnlockRecord) {
+        if (outcome.isConsumablePurchase) {
+            result.consumableGranted = true;
+        }
+
+        if (outcome.needsUnlockRecord) {
             var syncResult = this.syncPurchasedUnlock(result.purchaseId);
             result.unlockRecorded = !!syncResult.recorded;
             result.unlockRewardGranted = !!syncResult.unlockRewardGranted;
-        } else {
+        } else if (outcome.needsUnlockReward) {
             result.unlockRewardGranted = this._grantUnlockReward(result.purchaseId);
         }
 
-        if (outcome.needsManualConsumableGrant) {
-            result.consumableGranted = this._hasIAPMethod("payConsumeIAP")
-                ? !!IAPPackage.payConsumeIAP(result.purchaseId)
-                : false;
-            if (!result.consumableGranted) {
-                result.isSuccess = false;
-                result.isFailure = true;
-                result.failedReason = "INSUFFICIENT_POINTS";
-            }
-        }
-
         return result;
+    },
+    purchase: function (purchaseId, target, cb) {
+        var self = this;
+        this.purchaseLegacy(purchaseId, target, function (paidPurchaseId, payResult) {
+            var result = self.applyPurchaseResult(paidPurchaseId, payResult);
+            if (cb) {
+                cb.call(target, result);
+            }
+        });
     },
     getPurchaseOutcome: function (purchaseId, payResult) {
         purchaseId = this._normalizePurchaseId(purchaseId);
 
         var isExchangePurchase = purchaseId === null ? false : this.isExchangePurchase(purchaseId);
+        var isConsumablePurchase = purchaseId !== null && purchaseId >= 200;
+        var isTalentPurchase = purchaseId === null ? false : this.isTalentPurchase(purchaseId);
+        var isBypassSuccess = purchaseId !== null
+            && !isExchangePurchase
+            && !isConsumablePurchase
+            && payResult == this.LEGACY_RESULT.SUCCESS
+            && this.isPaySdkBypassedForTest();
         var isSuccess = false;
         if (purchaseId !== null) {
             if (isExchangePurchase) {
                 isSuccess = payResult == this.LEGACY_RESULT.SUCCESS;
+            } else if (isConsumablePurchase) {
+                isSuccess = payResult == this.LEGACY_RESULT.SDK_SUCCESS;
             } else {
-                isSuccess = payResult == this.LEGACY_RESULT.SUCCESS || payResult == this.LEGACY_RESULT.SDK_SUCCESS;
+                isSuccess = payResult == this.LEGACY_RESULT.SDK_SUCCESS || isBypassSuccess;
+            }
+        }
+
+        var isAlreadyUnlocked = purchaseId !== null
+            && isExchangePurchase
+            && payResult == this.LEGACY_RESULT.ALREADY_UNLOCKED;
+        var isAchievementPointFailure = purchaseId !== null
+            && payResult == this.LEGACY_RESULT.FAILED
+            && (isExchangePurchase || isConsumablePurchase);
+        var failedReason = null;
+        if (purchaseId === null) {
+            failedReason = this.FAIL_REASON.INVALID_PURCHASE;
+        } else if (!isSuccess) {
+            if (isAlreadyUnlocked) {
+                failedReason = isTalentPurchase
+                    ? this.FAIL_REASON.MAX_LEVEL
+                    : this.FAIL_REASON.ALREADY_UNLOCKED;
+            } else if (isAchievementPointFailure) {
+                failedReason = this.FAIL_REASON.INSUFFICIENT_POINTS;
+            } else {
+                failedReason = this.FAIL_REASON.PURCHASE_FAILED;
             }
         }
 
@@ -244,24 +390,31 @@ var PurchaseService = {
             purchaseId: purchaseId,
             rawResult: payResult,
             isExchangePurchase: isExchangePurchase,
+            isConsumablePurchase: isConsumablePurchase,
             isSuccess: isSuccess,
             isFailure: !isSuccess,
-            needsManualUnlockRecord: purchaseId !== null
+            needsUnlockRecord: purchaseId !== null
+                && isSuccess
                 && !isExchangePurchase
-                && payResult == this.LEGACY_RESULT.SUCCESS,
-            needsManualConsumableGrant: purchaseId !== null
-                && purchaseId >= 200
-                && payResult == this.LEGACY_RESULT.SUCCESS,
-            isAchievementPointFailure: purchaseId !== null
-                && purchaseId >= 200
-                && payResult == this.LEGACY_RESULT.FAILED
+                && !isConsumablePurchase,
+            needsUnlockReward: purchaseId !== null
+                && isSuccess
+                && isExchangePurchase,
+            needsManualUnlockRecord: purchaseId !== null
+                && isSuccess
+                && !isExchangePurchase
+                && !isConsumablePurchase,
+            needsManualConsumableGrant: false,
+            isAlreadyUnlocked: isAlreadyUnlocked,
+            isAchievementPointFailure: isAchievementPointFailure,
+            failedReason: failedReason
         };
     },
     isLegacySuccess: function (purchaseId, payResult) {
         return this.getPurchaseOutcome(purchaseId, payResult).isSuccess;
     },
     needsManualUnlockRecord: function (purchaseId, payResult) {
-        return this.getPurchaseOutcome(purchaseId, payResult).needsManualUnlockRecord;
+        return this.getPurchaseOutcome(purchaseId, payResult).needsUnlockRecord;
     },
     needsManualConsumableGrant: function (purchaseId, payResult) {
         return this.getPurchaseOutcome(purchaseId, payResult).needsManualConsumableGrant;

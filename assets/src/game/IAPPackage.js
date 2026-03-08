@@ -5,13 +5,30 @@ var IAPPackage = {
     _map: {},
     _record: {},
     _testForceLocked: {},
-    // Test-mode switch: unlock all role/talent style purchases (<200) without real payment flow.
-    _unlockAllRoleAndTalentForTest: true,
-    // Test-mode switch: bypass payment SDK and treat purchase as success immediately.
-    _bypassPaySdkForTest: true,
+    // Explicit dev flags come from EnvironmentConfig/localStorage, not hardcoded defaults.
+    _unlockAllRoleAndTalentForTest: false,
+    _bypassPaySdkForTest: false,
     SHOP_STATE_CHANGE_EVENT: "shop_state_change",
-    initPackage: function () {
+    _applyEnvironmentFlags: function () {
+        if (typeof EnvironmentConfig === "undefined"
+            || !EnvironmentConfig
+            || typeof EnvironmentConfig.getPurchaseDebugFlags !== "function") {
+            return;
+        }
 
+        var debugFlags = EnvironmentConfig.getPurchaseDebugFlags() || {};
+        this._unlockAllRoleAndTalentForTest = !!debugFlags.unlockAllRoleAndTalentForTest;
+        this._bypassPaySdkForTest = !!debugFlags.bypassPaySdkForTest;
+
+        if (this._unlockAllRoleAndTalentForTest || this._bypassPaySdkForTest) {
+            cc.w("IAP debug flags enabled. unlock="
+                + this._unlockAllRoleAndTalentForTest
+                + ", bypass="
+                + this._bypassPaySdkForTest);
+        }
+    },
+    initPackage: function () {
+        this._applyEnvironmentFlags();
         this.initIAPRecord();
         if (!this._unlockAllRoleAndTalentForTest) {
             this.onIAPPaied(0);

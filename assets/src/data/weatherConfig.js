@@ -25,6 +25,7 @@ var weatherConfig = {
         "id": 4,
         "lastDays": 2,
         "gun_precise": -0.15,
+        "monster_precise": -0.1,
         "monster_speed": -1
     }
 };

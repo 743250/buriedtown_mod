@@ -16,8 +16,18 @@ var BattleConfig = {
     REAL_DISTANCE_PER_LINE: 100,
     //逃生时间
     ESCAPE_TIME: 1.5,
-    BULLET_ID: 1305011
+    BULLET_ID: 1305011,
+    PLAYER_DODGE_RATE: 0,
+    MONSTER_DODGE_RATE: 0
 }
+
+var createBattleRuntimeConfig = function () {
+    return {
+        escapeTime: BattleConfig.ESCAPE_TIME,
+        playerDodgeRate: BattleConfig.PLAYER_DODGE_RATE,
+        monsterDodgeRate: BattleConfig.MONSTER_DODGE_RATE
+    };
+};
 
 var Battle = cc.Class.extend({
     ctor: function (battleInfo, isDodge) {
@@ -54,9 +64,7 @@ var Battle = cc.Class.extend({
         this.player = new BattleActors.Player(this, BattleActors.createBattlePlayerSnapshot({
             testBattleConfig: testBattleConfig,
             bulletItemId: BattleConfig.BULLET_ID
-        }), {
-            escapeTime: BattleConfig.ESCAPE_TIME
-        });
+        }), createBattleRuntimeConfig());
 
         this.isMonsterStop = false;
 

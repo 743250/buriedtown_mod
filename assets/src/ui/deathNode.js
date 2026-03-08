@@ -87,12 +87,11 @@ var DeathNode = BottomFrameNode.extend({
         var self = this;
         var purchaseId = 203;
         var payDialog = uiUtil.showPayDialog(purchaseId, function () {
-            utils.pay(purchaseId, self, function (purchaseId, payResult) {
-                var result = PurchaseService.applyPurchaseResult(purchaseId, payResult);
+            utils.pay(purchaseId, self, function (result) {
                 if (result.isSuccess) {
                     player.storage.decreaseItem(RELIVE_ITEMID, 1);
                     self.goHome();
-                } else if (result.failedReason === "INSUFFICIENT_POINTS") {
+                } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
                     uiUtil.showTip("成就点不足!");
                 }
             });

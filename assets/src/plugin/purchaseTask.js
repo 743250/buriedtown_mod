@@ -62,9 +62,8 @@ var PurchaseTask = cc.Class.extend({
         this.step = step;
     },
     onPurchaseResult: function (result) {
-        if (result == 1) {
-            PurchaseService.applyPurchaseResult(this.purchaseId, PurchaseService.LEGACY_RESULT.SUCCESS);
-        }
+        // PurchaseService applies unlock/consumable side effects from the final callback.
+        this.result = result;
     },
     pay: function () {
         if (this.beforePay) {

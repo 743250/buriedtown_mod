@@ -2,6 +2,7 @@ if (typeof cc === "undefined" || !cc) {
     var cc = require("../test/testBattle");
     var utils = require("../util/utils");
     var itemConfig = require("../data/itemConfig");
+    var CombatResolver = require("./CombatResolver");
 }
 
 var BattleEquipmentSystem = (function () {
@@ -24,6 +25,44 @@ var BattleEquipmentSystem = (function () {
             1301033: "ATTACK_5",
             1301063: "ATTACK_5"
         }
+    };
+
+    var applyTalentPreciseBonus = function (precise) {
+        if (IAPPackage.getPreciseEffect) {
+            return IAPPackage.getPreciseEffect(precise);
+        }
+        return precise;
+    };
+
+    var applyStatusPreciseAdjustments = function (precise, options) {
+        options = options || {};
+        var adjustedPrecise = precise;
+
+        if (player && player.weather && typeof player.weather.getValue === "function") {
+            adjustedPrecise += player.weather.getValue("gun_precise");
+        }
+
+        var spiritPenalty = RoleRuntimeService.getSpiritPrecisePenalty(player);
+        if (spiritPenalty > 0) {
+            adjustedPrecise -= spiritPenalty;
+            if (options.logPenalty) {
+                cc.log("spirit " + memoryUtil.decode(player.spirit));
+                cc.log("decPreciseBySpirit " + spiritPenalty);
+            }
+        }
+
+        var vigourPenalty = RoleRuntimeService.getVigourPrecisePenalty
+            ? RoleRuntimeService.getVigourPrecisePenalty(player)
+            : 0;
+        if (vigourPenalty > 0) {
+            adjustedPrecise -= vigourPenalty;
+            if (options.logPenalty) {
+                cc.log("vigour " + memoryUtil.decode(player.vigour));
+                cc.log("decPreciseByVigour " + vigourPenalty);
+            }
+        }
+
+        return adjustedPrecise;
     };
 
     var BattleEquipment = cc.Class.extend({
@@ -166,7 +205,26 @@ var BattleEquipmentSystem = (function () {
         getTarget: function () {
             return this.battlePlayer.battle.targetMon;
         },
-        getHarm: function () {
+        getMonsterDodgeRate: function () {
+            var runtimeConfig = this.battlePlayer && this.battlePlayer.runtimeConfig;
+            return CombatResolver.normalizeRate(runtimeConfig && runtimeConfig.monsterDodgeRate, 0);
+        },
+        getMeleeHitChance: function () {
+            var precise = Number(this.attr.precise);
+            if (isNaN(precise)) {
+                precise = 1;
+            }
+            precise = applyTalentPreciseBonus(precise);
+            precise = applyStatusPreciseAdjustments(precise);
+            return CombatResolver.normalizeRate(precise, 1);
+        },
+        resolveMeleeHitResult: function () {
+            return CombatResolver.resolveTwoPhaseHit(this.getMeleeHitChance(), this.getMonsterDodgeRate());
+        },
+        getHarm: function (monster) {
+            if (monster && !this.resolveMeleeHitResult().success) {
+                return 0;
+            }
             return SafetyHelper.safeCallWithFallback(IAPPackage.getMeleeDamageEffect, this.attr.atk, this.attr.atk);
         },
         isInRange: function (monster) {
@@ -204,20 +262,13 @@ var BattleEquipmentSystem = (function () {
             var precise = this.attr.precise + this.attr.dtPrecise * dtLineIndex;
             var deathHit = this.attr.deathHit + this.attr.dtDeathHit * dtLineIndex;
 
-            precise = IAPPackage.getPreciseEffect(precise);
+            precise = applyTalentPreciseBonus(precise);
             deathHit = IAPPackage.getHeadshotEffect(deathHit);
             if (IAPPackage.isElitePistolItem && IAPPackage.isElitePistolItem(this.id)) {
                 precise += IAPPackage.getElitePistolPreciseBonus ? IAPPackage.getElitePistolPreciseBonus() : 0;
                 deathHit += IAPPackage.getElitePistolHeadshotBonus ? IAPPackage.getElitePistolHeadshotBonus() : 0;
             }
-            precise += player.weather.getValue("gun_precise");
-
-            if (player.roleType === RoleType.LUO) {
-                cc.log("spirit " + memoryUtil.decode(player.spirit));
-                var decPrecise = (100 - memoryUtil.decode(player.spirit)) * 0.0035;
-                cc.log("decPrecise " + decPrecise);
-                precise -= decPrecise;
-            }
+            precise = applyStatusPreciseAdjustments(precise, {logPenalty: true});
 
             precise = cc.clampf(precise, 0, 1);
             deathHit = cc.clampf(deathHit, 0, 1);

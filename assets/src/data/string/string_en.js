@@ -382,6 +382,7 @@ var string = {
     "1365": "This target has no zipline connections.",
     "1366": "Zipline removal cancelled.",
     "1367": "You can maintain at most 3 ziplines at the same time.",
+    "1368": "The %s zombie attack missed.",
     "zipline_site_panel_title": "Zipline",
     "zipline_site_panel_subtitle": "Reachable targets",
     "zipline_site_empty": "No zipline connections yet.",
@@ -1134,7 +1135,7 @@ var string = {
     "p_104": {
         "name": "Communicator",
         "des": "You are good with interacting with people. You're able to quickly earn their trust and aid. \\n (Unlocking this permanently allows you to choose this character).",
-        "effect": "Gain a large bonus to NPC interactions. Refusing an NPC's request will not cause relationship points to drop."
+        "effect": "Refusing an NPC's request will not lower relationship points; bonus gifts trigger at 50% from level 2 and always trigger at level 3."
     },
     "p_105": {
         "name": "Military Grade Backpack ",

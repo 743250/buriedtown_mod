@@ -96,7 +96,8 @@ var ItemCell = cc.Node.extend({
         this.addChild(this.btn);
 
         var itemId = storageCell.item.id;
-        var iconName = "icon_item_" + itemId + ".png";
+        var displayItemId = uiUtil.getDisplayItemId(itemId);
+        var iconName = "icon_item_" + displayItemId + ".png";
 
         var iconFame = autoSpriteFrameController.getSpriteFrameFromSpriteName(iconName);
         if (!iconFame) {

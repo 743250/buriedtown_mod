@@ -40,7 +40,12 @@ var ShopNode = BottomFrameNode.extend({
         var viewHeight = this.contentTopLineHeight - 20;
         var widthPadding = (viewWidth - 2 * NODE_WIDTH ) / 3;
         var heightPadding = 5;
-        var data = [201, 202, 203, 204, 205, 206, 207, 208, 209];
+        var data = PurchaseService.getConsumablePurchaseIds
+            ? PurchaseService.getConsumablePurchaseIds()
+            : [];
+        if (!data || data.length === 0) {
+            data = [201, 202, 203, 204, 205, 206, 207, 208, 209];
+        }
         var row = Math.ceil(data.length / 2);
         var totalHeight = NODE_HEIGHT * row + (heightPadding * (row - 1));
 
@@ -108,9 +113,8 @@ var ShopNode = BottomFrameNode.extend({
         this._shopStateListener = null;
     },
 
-    onPayResult: function (purchaseId, payResult) {
-        var result = PurchaseService.applyPurchaseResult(purchaseId, payResult);
-        if (result.failedReason === "INSUFFICIENT_POINTS") {
+    onPayResult: function (result) {
+        if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
             uiUtil.showTip("成就点不足!");
         }
     },

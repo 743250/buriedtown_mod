@@ -14,82 +14,6 @@ if (typeof GameEvents === "undefined" || !GameEvents) {
     };
 }
 
-var BuildActionRuleMap = {
-    BIER_KING_ONLY: {
-        1401041: true,
-        1401052: true,
-        1401063: true,
-        1207012: true,
-        1207022: true,
-        1207032: true,
-        1207042: true,
-        1403044: true
-    },
-    STRANGER_BIER_KING_ONLY: {
-        1205011: true
-    },
-    STRANGER_ONLY: {
-        1201071: true
-    },
-    JIE_ONLY: {
-        1201011: true,
-        1201012: true,
-        1201013: true,
-        1201031: true,
-        1205052: true
-    },
-    KING_BIER_ONLY: {
-        1202053: true
-    },
-    YAZI_KING_ONLY: {
-        1401071: true,
-        1401082: true,
-        1402043: true,
-        1202063: true
-    },
-    YAZI_ONLY: {
-        1201022: true,
-        1201021: true,
-        1201041: true,
-        1201051: true
-    },
-    POWERED_ONLY: {
-        1203064: true,
-        1203023: true,
-        1203053: true,
-        1203034: true,
-        1203075: true
-    },
-    POWERED_HIDDEN: {
-        1203063: true,
-        1203022: true,
-        1203052: true,
-        1203033: true,
-        1203074: true
-    },
-    YAZI_BIER_EXCLUDE: {
-        1401011: true,
-        1401022: true,
-        1401033: true
-    },
-    JIN_ONLY: {
-        1206054: true,
-        1203012: true,
-        1204043: true,
-        1204012: true,
-        1204022: true
-    },
-    NON_JIN_ONLY: {
-        1203011: true,
-        1204011: true,
-        1204021: true,
-        1204032: true
-    },
-    LUO_EXCLUDE: {
-        1205033: true
-    }
-};
-
 // Action锁定配置表
 var _actionLockConfig = {
     1405024: { purchaseId: 105, checkFn: 'isBigBagUnlocked' },
@@ -156,9 +80,6 @@ var Build = cc.Class.extend({
         }
         return role.getChoosenRoleType();
     },
-    _isRoleIn: function (roleType, roleTypeList) {
-        return roleTypeList.indexOf(roleType) !== -1;
-    },
     _hasStorageItem: function (itemId) {
         return player.storage.validateItem(itemId, 1);
     },
@@ -199,49 +120,9 @@ var Build = cc.Class.extend({
     },
 
     _isActionVisibleByRoleAndState: function (actionId, roleType, isWorkSitePowered) {
-        if (BuildActionRuleMap.LUO_EXCLUDE[actionId]) {
-            return roleType !== RoleType.LUO;
-        }
-        if (BuildActionRuleMap.BIER_KING_ONLY[actionId]) {
-            return this._isRoleIn(roleType, [RoleType.BIER, RoleType.KING]);
-        }
-        if (BuildActionRuleMap.STRANGER_BIER_KING_ONLY[actionId]) {
-            return this._isRoleIn(roleType, [RoleType.STRANGER, RoleType.BIER, RoleType.KING]);
-        }
-        if (BuildActionRuleMap.STRANGER_ONLY[actionId]) {
-            return roleType === RoleType.STRANGER;
-        }
-        if (BuildActionRuleMap.JIE_ONLY[actionId]) {
-            return roleType === RoleType.JIE;
-        }
-        if (BuildActionRuleMap.KING_BIER_ONLY[actionId]) {
-            return this._isRoleIn(roleType, [RoleType.KING, RoleType.BIER]);
-        }
-        if (BuildActionRuleMap.YAZI_KING_ONLY[actionId]) {
-            return this._isRoleIn(roleType, [RoleType.YAZI, RoleType.KING]);
-        }
-        if (BuildActionRuleMap.YAZI_ONLY[actionId]) {
-            return roleType === RoleType.YAZI;
-        }
-        if (BuildActionRuleMap.POWERED_ONLY[actionId]) {
-            return this._isRoleIn(roleType, [RoleType.KING, RoleType.YAZI]) && isWorkSitePowered;
-        }
-        if (BuildActionRuleMap.POWERED_HIDDEN[actionId]) {
-            if (!this._isRoleIn(roleType, [RoleType.KING, RoleType.YAZI])) {
-                return true;
-            }
-            return !isWorkSitePowered;
-        }
-        if (BuildActionRuleMap.YAZI_BIER_EXCLUDE[actionId]) {
-            return !this._isRoleIn(roleType, [RoleType.YAZI, RoleType.BIER]);
-        }
-        if (BuildActionRuleMap.JIN_ONLY[actionId]) {
-            return roleType === RoleType.JIN;
-        }
-        if (BuildActionRuleMap.NON_JIN_ONLY[actionId]) {
-            return roleType !== RoleType.JIN;
-        }
-        return true;
+        return RoleRuntimeService.isBuildActionVisible(actionId, roleType, {
+            isWorkSitePowered: isWorkSitePowered
+        });
     },
     _buildActionFilterContext: function () {
         return {
@@ -260,26 +141,19 @@ var Build = cc.Class.extend({
         return this._isActionVisibleByInventory(action.id, context.inventoryState)
             && this._isActionVisibleByRoleAndState(action.id, context.roleType, context.isWorkSitePowered);
     },
+    _getMaxLevel: function () {
+        var defaultMaxLevel = this.configs.length - 1;
+        return RoleRuntimeService.getBuildMaxLevel(this._getRoleType(), this.id, defaultMaxLevel);
+    },
     isMax: function () {
-        if (this._getRoleType() === RoleType.LUO && this.id == 6) {
-            return this.level >= 0;
-        } else {
-            return this.level >= this.configs.length - 1;
-        }
+        return this.level >= this._getMaxLevel();
     },
     canUpgrade: function () {
         var res = {buildUpgradeType: BuildUpgradeType.UPGRADABLE};
         //1. 是否有下一级可升级
-        if (this._getRoleType() === RoleType.LUO && this.id == 6) {
-            if (this.level >= 0) {
-                res.buildUpgradeType = BuildUpgradeType.MAX_LEVEL;
-                return res;
-            }
-        } else {
-            if (this.level >= this.configs.length - 1) {
-                res.buildUpgradeType = BuildUpgradeType.MAX_LEVEL;
-                return res;
-            }
+        if (this.level >= this._getMaxLevel()) {
+            res.buildUpgradeType = BuildUpgradeType.MAX_LEVEL;
+            return res;
         }
         //2. 前置条件是否满足
         var nextLevel = this.level + 1;
@@ -424,14 +298,15 @@ var RestBuild = Build.extend({
     initBuildActions: function () {
         var action1 = new RestBuildAction(this.id, this.level);
         this.actions.push(action1);
-        if (player.roleType === RoleType.LUO) {
-            var action2 = new DrinkBuildAction(this.id, this.level);
-            this.actions.push(action2);
-        }
-        if (player.roleType === RoleType.JIN) {
-            var action3 = new DrinkTeaBuildAction(this.id, this.level);
-            this.actions.push(action3);
-        }
+        var roleType = player ? player.roleType : null;
+        var restActionTypes = RoleRuntimeService.getRestActionTypes(roleType);
+        restActionTypes.forEach(function (actionType) {
+            if (actionType === "drink") {
+                this.actions.push(new DrinkBuildAction(this.id, this.level));
+            } else if (actionType === "drink_tea") {
+                this.actions.push(new DrinkTeaBuildAction(this.id, this.level));
+            }
+        }, this);
     },
     restore: function (opt) {
     }
@@ -521,36 +396,7 @@ var Room = cc.Class.extend({
         //狗舍
         this.createBuild(12, -1);
 
-        //角色区分建筑
-        if (player.roleType === RoleType.LUO) {
-            //机床
-            this.createBuild(16, -1);
-            //雷区
-            this.createBuild(17, 0);
-            //火炉
-            this.createBuild(5, -1);
-        } else if (player.roleType === RoleType.YAZI) {
-            //酒窖
-            this.createBuild(7, -1);
-            //电网
-            this.createBuild(19, -1);
-            //电炉
-            this.createBuild(18, -1);
-        } else if (player.roleType === RoleType.KING) {
-            //酒窖
-            this.createBuild(7, -1);
-            //电网
-            this.createBuild(19, -1);
-            //电炉
-            this.createBuild(18, -1);
-        } else {
-            //酒窖
-            this.createBuild(7, -1);
-            //栅栏
-            this.createBuild(11, -1);
-            //火炉
-            this.createBuild(5, -1);
-        }
+        RoleRuntimeService.applyRoomBuildStates(this, player.roleType);
 
         //仓库
         this.createBuild(13, 0);

@@ -205,6 +205,9 @@ uiUtil.createVStack = function (opt) {
 
 uiUtil.getDisplayItemId = function (itemId) {
     itemId = parseInt(itemId);
+    if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.getDisplayItemId) {
+        itemId = WeaponCraftService.getDisplayItemId(itemId);
+    }
     if (itemId === 1301091) return 1301011;
     return itemId;
 };
@@ -1379,6 +1382,25 @@ uiUtil.getPurchaseStringConfig = function (purchaseId) {
     }
     if (typeof strConfig.effect !== "string") {
         strConfig.effect = "";
+    }
+
+    if (/^ID\s+\d+$/.test(strConfig.name)
+        && typeof ConfigValidator !== "undefined"
+        && ConfigValidator
+        && typeof ConfigValidator.warnIfInvalid === "function") {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isTalentPurchase === "function"
+            && PurchaseService.isTalentPurchase(purchaseId)) {
+            ConfigValidator.warnIfInvalid("talent", purchaseId, "uiUtil.getPurchaseStringConfig");
+        } else if (typeof role !== "undefined"
+            && role
+            && typeof role.getRoleTypeByPurchaseId === "function") {
+            var roleType = role.getRoleTypeByPurchaseId(purchaseId);
+            if (roleType !== null && roleType !== undefined) {
+                ConfigValidator.warnIfInvalid("role", roleType, "uiUtil.getPurchaseStringConfig");
+            }
+        }
     }
 
     // For exchange-only character purchase ids without p_xxx string entries,

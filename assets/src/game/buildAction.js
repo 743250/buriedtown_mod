@@ -209,11 +209,16 @@ var Formula = BuildAction.extend({
                     player.costItems(self.config.cost);
 
                     //非放置类的,第一次进度完成即获取物品
-                    player.gainItems(self.config.produce);
-                    self.config.produce.forEach(function (item) {
+                    var produce = (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.rollDurableProduce)
+                        ? WeaponCraftService.rollDurableProduce(self.config.produce)
+                        : utils.clone(self.config.produce);
+                    player.gainItems(produce);
+                    produce.forEach(function (item) {
                         Achievement.checkMake(item.itemId, item.num);
                     });
-                    player.log.addMsg(1090, itemInfo.num, itemName, player.storage.getNumByItemId(itemInfo.itemId));
+                    var producedItemInfo = produce[0] || itemInfo;
+                    var producedItemName = stringUtil.getString(producedItemInfo.itemId).title;
+                    player.log.addMsg(1090, producedItemInfo.num, producedItemName, player.storage.getNumByItemId(producedItemInfo.itemId));
                     self.build.resetActiveBtnIndex();
 
                     if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
@@ -240,6 +245,9 @@ var Formula = BuildAction.extend({
                 });
             }
             produce = TalentService.applyHomeProduceEffect(produce);
+            if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.rollDurableProduce) {
+                produce = WeaponCraftService.rollDurableProduce(produce);
+            }
 
             //放置完毕收获
             player.gainItems(produce);
@@ -247,7 +255,8 @@ var Formula = BuildAction.extend({
                 Achievement.checkProduce(item.itemId, item.num);
             });
             this.step = 0;
-            player.log.addMsg(1092, produce[0].num, itemName, player.storage.getNumByItemId(itemInfo.itemId));
+            var producedItem = produce[0] || itemInfo;
+            player.log.addMsg(1092, producedItem.num, stringUtil.getString(producedItem.itemId).title, player.storage.getNumByItemId(producedItem.itemId));
             this._finishActioning({enableLeftBtn: false});
         }
         this._sendUpdageSignal();

@@ -1,26 +1,22 @@
 /**
- * 配置校验器（基于 ContentBlueprint）
- * 用途：校验配置是否完整、正确
- *
- * 使用方式：
- * ConfigValidator.validate("role", 9);
- *
- * 创建时间：2026-03-06
+ * ConfigValidator validates role / talent / item content links against
+ * ContentBlueprint and reports missing pieces once per content id.
  */
-
 var ConfigValidator = {
     DEV_MODE: true,
-
-    /**
-     * 校验配置
-     * @param {string} type - 类型 (role/talent/item)
-     * @param {number} id - ID
-     * @returns {object} 校验结果
-     */
-    validate: function(type, id) {
+    _warnedKeys: {},
+    isEnabled: function () {
+        if (typeof EnvironmentConfig !== "undefined"
+            && EnvironmentConfig
+            && typeof EnvironmentConfig.isContentValidationEnabled === "function") {
+            return !!EnvironmentConfig.isContentValidationEnabled();
+        }
+        return !!this.DEV_MODE;
+    },
+    validate: function (type, id) {
         var blueprint = ContentBlueprint.getBlueprint(type);
         if (!blueprint) {
-            return { error: "未知类型: " + type };
+            return {error: "未知类型: " + type};
         }
 
         var result = {
@@ -31,8 +27,13 @@ var ConfigValidator = {
             warnings: []
         };
 
-        blueprint.fields.forEach(function(field) {
-            var status = field.validator(id);
+        blueprint.fields.forEach(function (field) {
+            var status = false;
+            try {
+                status = !!field.validator(id);
+            } catch (e) {
+                status = false;
+            }
 
             if (!status && field.required) {
                 result.valid = false;
@@ -44,14 +45,48 @@ var ConfigValidator = {
 
         return result;
     },
+    validateRole: function (id) {
+        return this.validate("role", id);
+    },
+    validateTalent: function (id) {
+        return this.validate("talent", id);
+    },
+    validateItem: function (id) {
+        return this.validate("item", id);
+    },
+    warnIfInvalid: function (type, id, context) {
+        if (!this.isEnabled()) {
+            return true;
+        }
 
-    /**
-     * 打印校验结果
-     * @param {string} type - 类型
-     * @param {number} id - ID
-     */
-    printResult: function(type, id) {
-        if (!this.DEV_MODE) return;
+        var result = this.validate(type, id);
+        if (result.error || result.valid) {
+            return !result.error;
+        }
+
+        var warnKey = [type, id].join(":");
+        if (this._warnedKeys[warnKey]) {
+            return false;
+        }
+        this._warnedKeys[warnKey] = true;
+
+        var prefix = "[ConfigValidator]";
+        if (context) {
+            prefix += "[" + context + "]";
+        }
+        cc.w(prefix + " " + type + " " + id + " 配置不完整");
+        result.errors.forEach(function (error) {
+            cc.w("  - " + error);
+        });
+        result.warnings.forEach(function (warning) {
+            cc.w("  - 可选: " + warning);
+        });
+        return false;
+    },
+    printResult: function (type, id) {
+        if (!this.isEnabled()) {
+            return;
+        }
 
         var result = this.validate(type, id);
         if (result.error) {
@@ -60,24 +95,17 @@ var ConfigValidator = {
         }
 
         var prefix = "[ConfigValidator] " + type + " " + id;
-
         if (result.valid) {
-            cc.log(prefix + " ✓ 配置完整\n");
+            cc.log(prefix + " ✓ 配置完整");
         } else {
             cc.warn(prefix + " ✗ 配置不完整");
-            cc.warn("缺失项:");
-            result.errors.forEach(function(error) {
+            result.errors.forEach(function (error) {
                 cc.warn("  - " + error);
             });
-            cc.warn("");
         }
 
-        if (result.warnings.length > 0) {
-            cc.warn("警告（可选项）:");
-            result.warnings.forEach(function(warning) {
-                cc.warn("  - " + warning);
-            });
-            cc.warn("");
-        }
+        result.warnings.forEach(function (warning) {
+            cc.warn("  - 可选: " + warning);
+        });
     }
 };

@@ -62,11 +62,11 @@ var TalentConfigTable = {
         stringId: 'p_104',
         maxLevel: 3,
         effectType: 'social_gift_chance',
-        socialExtraGiftChanceValues: [0, 0, 0.25, 0.5],
+        socialExtraGiftChanceValues: [0, 0, 0.5, 1],
         tierEffectTextList: [
             "你学会了拒绝的艺术，拒绝NPC求助不扣亲密度",
-            "你的魅力让人难以抗拒，拒绝不扣好感，NPC额外赠礼率+25%",
-            "人见人爱，NPC总想给你更多帮助，拒绝不扣好感，额外赠礼率+50%"
+            "你的魅力让人难以抗拒，拒绝不扣好感，NPC额外赠礼率+50%",
+            "人见人爱，NPC总想给你更多帮助，拒绝不扣好感，NPC额外赠礼必定触发"
         ]
     },
 

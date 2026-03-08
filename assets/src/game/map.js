@@ -57,29 +57,8 @@ var Map = cc.Class.extend({
     init: function () {
         this.unlockSite(100);
         this.unlockSite(201);
-        
-        if (player.roleType === RoleType.YAZI) {
-            this.unlockSite(204);
-        }
-        
-        if (player.roleType === RoleType.KING) {
-            this.unlockSite(61);
-            this.unlockSite(204);
-            this.unlockSite(301);
-            this.unlockNpc(1);
-            this.unlockNpc(2);
-            this.unlockNpc(3);
-            this.unlockNpc(4);
-            this.unlockNpc(6);
-        }
-        
-        if (role.getChoosenRoleType() === RoleType.BIER) {
-            this.unlockSite(61);
-            this.unlockSite(14);
-            this.unlockSite(301);
-        }
 
-        this.unlockSiteByRole();
+        this.unlockSiteByRole(player.roleType);
 
         //根据角色决定家的位置
         var homePos = player.npcManager.getNPC(player.roleType).pos;
@@ -91,15 +70,9 @@ var Map = cc.Class.extend({
     /**
      * 根据选用的角色解锁副本,例如,选择老罗,那么老罗作为NPC通过送礼物解锁的副本应当直接解锁
      */
-    unlockSiteByRole: function () {
-        var roleType = role.getChoosenRoleType();
-        var gifts = npcConfig[roleType].gift;
-        var self = this;
-        gifts.forEach(function (gift) {
-            if (gift && gift.hasOwnProperty('siteId')) {
-                self.unlockSite(gift.siteId);
-            }
-        });
+    unlockSiteByRole: function (roleType) {
+        roleType = roleType || role.getChoosenRoleType();
+        RoleRuntimeService.applyInitialUnlocks(this, roleType);
     },
 
     forEach: function (func) {

@@ -4,6 +4,7 @@ if (typeof cc === "undefined" || !cc) {
     var itemConfig = require("../data/itemConfig");
     var monsterConfig = require("../data/monsterConfig");
     var BattleEquipmentSystem = require("./BattleEquipmentSystem");
+    var CombatResolver = require("./CombatResolver");
 }
 
 var BattleActors = (function () {
@@ -197,17 +198,32 @@ var BattleActors = (function () {
             this.useWeapon2();
             this.useEquip();
         },
-        underAtk: function (monster) {
-            var harm = monster.attr.attack - this.def;
-            if (TalentService.canZeroBattleDamage()) {
-                harm = Math.max(0, harm);
-            } else {
-                harm = Math.max(1, harm);
+        getPlayerDodgeRate: function () {
+            return CombatResolver.normalizeRate(this.runtimeConfig && this.runtimeConfig.playerDodgeRate, 0);
+        },
+        getMonsterHitChance: function (monster) {
+            var precise = CombatResolver.normalizeRate(monster && monster.attr && monster.attr.precise, 0.9);
+            if (typeof player !== "undefined" && player && player.weather && typeof player.weather.getValue === "function") {
+                precise += Number(player.weather.getValue("monster_precise")) || 0;
             }
+            return CombatResolver.normalizeRate(precise, 0.9);
+        },
+        resolveMonsterAttackResult: function (monster) {
+            return CombatResolver.resolveTwoPhaseHit(this.getMonsterHitChance(monster), this.getPlayerDodgeRate());
+        },
+        underAtk: function (monster) {
+            var monsterType = stringUtil.getString("monsterType_" + monster.attr.prefixType);
+            if (!this.resolveMonsterAttackResult(monster).success) {
+                this.battle.processLog(stringUtil.getString(1368, monsterType));
+                return;
+            }
+
+            var minDamage = TalentService.canZeroBattleDamage() ? 0 : 1;
+            var harm = CombatResolver.getDamageAfterDefense(monster.attr.attack, this.def, minDamage);
             this.hp -= harm;
 
             cc.e("player underAtk hp=" + this.hp + " by monster " + monster.id);
-            this.battle.processLog(stringUtil.getString(1047, stringUtil.getString("monsterType_" + monster.attr.prefixType), "-" + harm), cc.color.RED);
+            this.battle.processLog(stringUtil.getString(1047, monsterType, "-" + harm), cc.color.RED);
             this.battle.recordPlayerUnderAttack(harm);
             if (this.hp <= 0) {
                 this.die();

@@ -311,7 +311,7 @@ var Site = BaseSite.extend({
                 player.map.unlockSite(siteId);
             });
         }
-        if (unlockValue.npc && role.getChoosenRoleType() !== RoleType.KING && role.getChoosenRoleType() !== RoleType.BIER) {
+        if (unlockValue.npc && RoleRuntimeService.canUnlockNpcsFromSite(player.roleType)) {
             unlockValue.npc.forEach(function (npcId) {
                 player.npcManager.unlockNpc(npcId);
             });

@@ -89,6 +89,30 @@ var HomeNode = BottomFrameNode.extend({
         gateBtn.addChild(gateLight);
         gateLight.runAction(cc.repeatForever((cc.sequence(cc.fadeOut(2), cc.fadeIn(2)))));
 
+        this.btnRadioChat = uiUtil.createSpriteBtn({normal: "btn_contact.png"}, this, function () {
+            self.forward(Navigation.nodeName.RADIO_NODE, {bid: 15});
+        });
+        this.btnRadioChat.setPosition(this.bgRect.width / 2, 78);
+        this.bg.addChild(this.btnRadioChat, 3);
+        this.btnRadioChat.setName("btn_radio_chat");
+
+        this.btnRadioChatLabel = new cc.LabelTTF(stringUtil.getString(1148), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_4);
+        this.btnRadioChatLabel.setColor(UITheme.colors.TEXT_TITLE);
+        this.btnRadioChatLabel.setPosition(this.bgRect.width / 2, 26);
+        this.bg.addChild(this.btnRadioChatLabel, 3);
+        this.btnRadioChatLabel.setName("btn_radio_chat_label");
+
+        this.updateRadioChatEntry();
+
+    },
+    updateRadioChatEntry: function () {
+        var isVisible = player.room.getBuildLevel(15) >= 0;
+        if (this.btnRadioChat) {
+            this.btnRadioChat.setVisible(isVisible);
+        }
+        if (this.btnRadioChatLabel) {
+            this.btnRadioChatLabel.setVisible(isVisible);
+        }
     },
     updateBtn: function (bid) {
         var btn = this.btnList[bid];
@@ -112,6 +136,9 @@ var HomeNode = BottomFrameNode.extend({
         }
 
         uiUtil.createBuildWarn(btn, bid);
+        if (bid === 15) {
+            this.updateRadioChatEntry();
+        }
     },
     onClickBuild: function (sender) {
         var bid = sender.info.bid;
@@ -198,15 +225,14 @@ var HomeNode = BottomFrameNode.extend({
         var self = this;
         if (!PurchaseService.isUnlocked(107)) {
             btn.setEnabled(false);
-            var lockNode = uiUtil.createLockNode(btn.getContentSize(), 107, function (purchaseId, payResult) {
-                var result = PurchaseService.applyPurchaseResult(purchaseId, payResult);
+            var lockNode = uiUtil.createLockNode(btn.getContentSize(), 107, function (result) {
                 if (result.isSuccess) {
                     if (player.room && player.room.isBuildExist(12, 0)) {
                         uiUtil.removeIconWarn(btn, 'buildWarn');
                         self.updateBtn(12);
                     }
                     self.updateDogHouse();
-                } else if (result.failedReason === "INSUFFICIENT_POINTS") {
+                } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
                     uiUtil.showTip("成就点不足!");
                 }
             }, true);

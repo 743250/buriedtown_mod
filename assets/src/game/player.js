@@ -244,11 +244,13 @@ var Player = cc.Class.extend({
         if (IAPPackage.isDogHouseUnlocked() && !player.room.isBuildExist(12, 0)) {
             this.room.createBuild(12, -1);
         }
-        
-         if (this.roleType === RoleType.BIER){
-            this.storage.increaseItem(1305044,1);
+
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.ensureSpecialItems === "function") {
+            RoleRuntimeService.ensureSpecialItems(this);
         }
-        
+
     },
 
     //包扎
@@ -484,7 +486,7 @@ var Player = cc.Class.extend({
     },
 
     _getHourlyStarveChange: function (changeConfig) {
-        return this.roleType === RoleType.JIN ? changeConfig[0][1] : changeConfig[0][0];
+        return RoleRuntimeService.getHourlyStarveChange(this.roleType, changeConfig);
     },
 
     _getHourlyVigourChange: function (changeConfig) {
@@ -643,18 +645,7 @@ var Player = cc.Class.extend({
         var c = this.config["temperature"];
 
         var temperature = this.initTemperature();
-
-        if (player.roleType === RoleType.YAZI || player.roleType === RoleType.KING) {
-            //电炉
-            if (this.room.getBuild(18).isActive() && this.room.getBuildLevel(18) == 0) {
-                temperature += c[4][0];
-            }
-        } else {
-            //火炉
-            if (this.room.getBuild(5).isActive()) {
-                temperature += c[4][0];
-            }
-        }
+        temperature += RoleRuntimeService.getTemperatureBonus(this, c[4][0]);
 
         //天气
         temperature += this.weather.getValue("temperature");
@@ -903,16 +894,6 @@ var Player = cc.Class.extend({
         }
         return homeDef;
     },
-    _getLuoHomeDef: function () {
-        var homeDef = 0;
-        if (this.dog.isActive()) {
-            homeDef += 15;
-        }
-        return homeDef;
-    },
-    _getYaziHomeDef: function () {
-        return this._getLuoHomeDef();
-    },
     _getAttackResult: function (attackStrength, def, causeStorage) {
         var res = {};
         cc.d("monster strength=" + attackStrength + " def=" + def);
@@ -992,14 +973,7 @@ var Player = cc.Class.extend({
                 homeRes.defend = true;
             } else {
                 var attackStrength = this._getAttackInNightStrength();
-                var homeDef;
-                if (this.roleType === RoleType.LUO) {
-                    homeDef = this._getLuoHomeDef();
-                } else if (this.roleType === RoleType.YAZI || this.roleType === RoleType.KING) {
-                    homeDef = this._getYaziHomeDef();
-                } else {
-                    homeDef = this._getHomeDef();
-                }
+                var homeDef = RoleRuntimeService.getHomeDefense(this);
                 homeRes = this._getAttackResult(attackStrength, homeDef, this.storage);
                 homeRes.happened = true;
 

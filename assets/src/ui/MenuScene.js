@@ -16,9 +16,11 @@ var MenuLayer = cc.Layer.extend({
         paramManager.init();
         PurchaseService.initPackage();
         var sdkType = CommonUtil.getMetaData("sdk_type");
-        // In test-bypass mode we keep payType for UI branching, but skip native PayHelper init
-        // to avoid Google Play Games player-profile popup at launch.
-        if (PurchaseService.isPaySdkBypassedForTest()) {
+        // Google Play native pay init will eagerly surface the platform profile/account prompt.
+        // Keep payType for UI branching, but skip startup init so launch stays silent.
+        var shouldBypassNativePayInit = PurchaseService.isPaySdkBypassedForTest()
+            || sdkType === PurchaseAndroid.PAY_TYPE_GOOGLE_PLAY;
+        if (shouldBypassNativePayInit) {
             PurchaseAndroid.payType = sdkType || PurchaseAndroid.PAY_TYPE_TEST;
         } else {
             PurchaseAndroid.init(sdkType, {});
@@ -200,9 +202,11 @@ var MenuLayer = cc.Layer.extend({
 
             if (PurchaseAndroid.payType !== PurchaseAndroid.PAY_TYPE_GOOGLE_PLAY) {
 
-                btn5.setVisible(false);
-                btn4.x = bg.width / 2;
-                btn7.x = bg.width - 106;
+                // Keep the About entry visible so players can still open changelog info.
+                btn5.setVisible(true);
+                btn4.x = bg.width / 2 - 140;
+                btn5.x = bg.width / 2;
+                btn7.x = bg.width / 2 + 140;
 
 
                 //if (PurchaseAndroid.payType === PurchaseAndroid.PAY_TYPE_HEYOUXI) {
@@ -226,7 +230,7 @@ var MenuLayer = cc.Layer.extend({
                 if ((PurchaseAndroid.payType === PurchaseAndroid.PAY_TYPE_AIYOUXI || PurchaseAndroid.payType === PurchaseAndroid.PAY_TYPE_OPERATOR)
                     && ClientData.CHANNEL == 214906000) {
                     btn8.setVisible(false);
-                    btn5.setVisible(false);
+                    btn5.setVisible(true);
 
                     btn4.x = bg.width - 106;
 
@@ -253,8 +257,14 @@ var MenuLayer = cc.Layer.extend({
                 }
 
                 btn8.setVisible(false);
-                btn4.x = bg.width / 2 - 70;
-                btn7.x = bg.width / 2 + 70;
+                if (btn5.isVisible()) {
+                    btn4.x = bg.width / 2 - 140;
+                    btn5.x = bg.width / 2;
+                    btn7.x = bg.width / 2 + 140;
+                } else {
+                    btn4.x = bg.width / 2 - 70;
+                    btn7.x = bg.width / 2 + 70;
+                }
             }
 
             // Test mode keeps all three bottom-entry buttons visible.
@@ -264,6 +274,12 @@ var MenuLayer = cc.Layer.extend({
                 btn5.x = bg.width / 2;
                 btn7.x = bg.width / 2 + 140;
             }
+
+            // Always keep the contact/changelog shortcut in the bottom icon row on Android.
+            btn5.setVisible(true);
+            btn4.x = bg.width / 2 - 140;
+            btn5.x = bg.width / 2;
+            btn7.x = bg.width / 2 + 140;
 
         }
         Achievement.init();
