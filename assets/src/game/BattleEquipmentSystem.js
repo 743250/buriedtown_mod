@@ -150,13 +150,29 @@ var BattleEquipmentSystem = (function () {
         },
         action: function () {
             if (this.isInAtkCD) {
-                return;
+                return false;
+            }
+            if (this.usesSharedAttackCooldown()
+                && this.battlePlayer
+                && typeof this.battlePlayer.isInSharedAttackCooldown === "function"
+                && this.battlePlayer.isInSharedAttackCooldown()) {
+                return false;
             }
             cc.d(this.itemConfig.name + " action");
             if (this.beforeCd() === false) {
-                return;
+                return false;
             }
             this.isInAtkCD = true;
+            var atkCD = Number(this.attr && this.attr.atkCD);
+            if (!(atkCD > 0)) {
+                atkCD = 0.1;
+            }
+            var cooldown = atkCD * player.vigourEffect();
+            if (this.usesSharedAttackCooldown()
+                && this.battlePlayer
+                && typeof this.battlePlayer.enterSharedAttackCooldown === "function") {
+                this.battlePlayer.enterSharedAttackCooldown(cooldown);
+            }
             var self = this;
             var finishCooldown = function () {
                 self.isInAtkCD = false;
@@ -165,13 +181,13 @@ var BattleEquipmentSystem = (function () {
                     self.afterCd();
                 }
             };
-            var atkCD = Number(this.attr && this.attr.atkCD);
-            if (!(atkCD > 0)) {
-                atkCD = 0.1;
-            }
-            cc.director.getScheduler().scheduleCallbackForTarget(this, finishCooldown, atkCD * player.vigourEffect(), 1);
+            cc.director.getScheduler().scheduleCallbackForTarget(this, finishCooldown, cooldown, 1);
+            return true;
         },
         _action: function () {
+        },
+        usesSharedAttackCooldown: function () {
+            return false;
         },
         beforeCd: function () {
             return true;
@@ -246,6 +262,9 @@ var BattleEquipmentSystem = (function () {
     });
 
     var BattleWeapon = BattleEquipment.extend({
+        usesSharedAttackCooldown: function () {
+            return true;
+        },
         playEffect: function (soundName) {
             if (this.effectId) {
                 audioManager.stopEffect(this.effectId);

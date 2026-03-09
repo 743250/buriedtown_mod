@@ -188,6 +188,8 @@ var BattleActors = (function () {
 
             this.bulletNum = playerObj.bulletNum;
             this.toolNum = playerObj.toolNum;
+            this.sharedAttackCooldown = false;
+            this._sharedAttackCooldownCallback = null;
 
             this.weapon1 = BattleEquipmentSystem.createEquipment(playerObj.weapon1, this);
             this.weapon2 = BattleEquipmentSystem.createEquipment(playerObj.weapon2, this);
@@ -204,6 +206,27 @@ var BattleActors = (function () {
             this._safeActionStep(this.useWeapon1, "weapon1");
             this._safeActionStep(this.useWeapon2, "weapon2");
             this._safeActionStep(this.useEquip, "equip");
+        },
+        isInSharedAttackCooldown: function () {
+            return this.sharedAttackCooldown === true;
+        },
+        enterSharedAttackCooldown: function (cooldown) {
+            if (!(cooldown > 0)) {
+                cooldown = 0.1;
+            }
+
+            this.sharedAttackCooldown = true;
+            if (this._sharedAttackCooldownCallback) {
+                cc.director.getScheduler().unscheduleCallbackForTarget(this, this._sharedAttackCooldownCallback);
+            }
+
+            var self = this;
+            this._sharedAttackCooldownCallback = function () {
+                self.sharedAttackCooldown = false;
+                cc.director.getScheduler().unscheduleCallbackForTarget(self, self._sharedAttackCooldownCallback);
+                self._sharedAttackCooldownCallback = null;
+            };
+            cc.director.getScheduler().scheduleCallbackForTarget(this, this._sharedAttackCooldownCallback, cooldown, 1);
         },
         getPlayerDodgeRate: function () {
             return CombatResolver.normalizeRate(this.runtimeConfig && this.runtimeConfig.playerDodgeRate, 0);
