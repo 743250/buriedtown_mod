@@ -54,12 +54,47 @@ var BattleActors = (function () {
             this.attr = utils.clone(monsterConfig[type]);
             this.dead = false;
             this.line = null;
+            this._attackCooldownCallback = null;
+            this._isAttackScheduled = false;
         },
         playEffect: function (soundName) {
             if (this.effectId) {
                 audioManager.stopEffect(this.effectId);
             }
             this.effectId = audioManager.playEffect(soundName);
+        },
+        _scheduleNextAttack: function () {
+            if (this.dead || this.battle.isBattleEnd || !this.line || !this.isInRange() || this._isAttackScheduled) {
+                return;
+            }
+
+            var cooldown = Number(this.attr.attackSpeed);
+            if (!(cooldown > 0)) {
+                cooldown = 0.1;
+            }
+
+            this._isAttackScheduled = true;
+            var self = this;
+            this._attackCooldownCallback = function () {
+                self._isAttackScheduled = false;
+                cc.director.getScheduler().unscheduleCallbackForTarget(self, self._attackCooldownCallback);
+                self._attackCooldownCallback = null;
+
+                if (self.dead || self.battle.isBattleEnd || !self.line || !self.isInRange()) {
+                    return;
+                }
+
+                self.atk();
+                self._scheduleNextAttack();
+            };
+            cc.director.getScheduler().scheduleCallbackForTarget(this, this._attackCooldownCallback, cooldown, 1);
+        },
+        _cancelAttackSchedule: function () {
+            if (this._attackCooldownCallback) {
+                cc.director.getScheduler().unscheduleCallbackForTarget(this, this._attackCooldownCallback);
+                this._attackCooldownCallback = null;
+            }
+            this._isAttackScheduled = false;
         },
         move: function () {
             var targetLine;
@@ -84,7 +119,7 @@ var BattleActors = (function () {
             }
 
             if (this.line && this.isInRange()) {
-                cc.director.getScheduler().scheduleCallbackForTarget(this, this.atk, this.attr.attackSpeed, 1);
+                this._scheduleNextAttack();
             }
         },
         moveToLine: function (line) {
@@ -113,7 +148,7 @@ var BattleActors = (function () {
             var battlePlayer = this.battle.player;
             battlePlayer.underAtk(this);
             if (battlePlayer.isDie()) {
-                cc.director.getScheduler().unscheduleCallbackForTarget(this, this.atk);
+                this._cancelAttackSchedule();
             }
         },
         underAtk: function (obj) {
@@ -152,6 +187,7 @@ var BattleActors = (function () {
             this.battle.recordMonsterKill();
             cc.e("monster " + this.id + " die");
             this.dead = true;
+            this._cancelAttackSchedule();
             this.battle.removeMonster(this);
             if (obj instanceof BattleEquipmentSystem.Bomb) {
                 obj.deadMonsterNum++;
