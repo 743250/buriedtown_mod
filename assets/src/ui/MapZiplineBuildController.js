@@ -33,10 +33,11 @@ var MapZiplineBuildController = cc.Class.extend({
         return button;
     },
     isAvailable: function () {
-        if (!RoleRuntimeService.isZiplineFrameworkAvailable(player)) {
-            return false;
-        }
-        return !RoleRuntimeService.isZiplineBuildFromSiteOnly(player.roleType);
+        return RoleRuntimeService.isZiplineFrameworkAvailable(player);
+    },
+    isHomeDirectMode: function () {
+        return !!(RoleRuntimeService.isZiplineHomeOnly(player.roleType)
+            || RoleRuntimeService.isZiplineBuildFromSiteOnly(player.roleType));
     },
     hasAnyLinks: function () {
         return !!(player.ziplineNetwork
@@ -102,7 +103,13 @@ var MapZiplineBuildController = cc.Class.extend({
         this.mode = mode;
         this.selectedEntityKey = null;
         this.setSelectedEntity(null);
-        player.log.addMsg(mode === this.MODE.REMOVE ? 1362 : 1351);
+        if (this.isHomeDirectMode()) {
+            player.log.addMsg(mode === this.MODE.REMOVE
+                ? (stringUtil.getString("zipline_map_remove_hint") || "滑索拆除模式：点击已连接家的目标即可拆除")
+                : (stringUtil.getString("zipline_map_build_hint") || "滑索建立模式：点击一个地点或NPC，直接连接到家"));
+        } else {
+            player.log.addMsg(mode === this.MODE.REMOVE ? 1362 : 1351);
+        }
         this.refresh();
     },
     cancelMode: function () {
@@ -141,6 +148,10 @@ var MapZiplineBuildController = cc.Class.extend({
         return this.handleRemoveEntityClick(entity, baseSite);
     },
     handleBuildEntityClick: function (entity, baseSite) {
+        if (this.isHomeDirectMode()) {
+            return this.handleDirectHomeBuild(baseSite);
+        }
+
         var currentEntityKey = player.ziplineNetwork.getEntityKey(baseSite, player.map);
         if (!currentEntityKey) {
             player.log.addMsg(1357);
@@ -191,6 +202,11 @@ var MapZiplineBuildController = cc.Class.extend({
             return;
         }
 
+        if (this.isHomeDirectMode()) {
+            this.handleDirectHomeRemove(baseSite);
+            return;
+        }
+
         if (!player.ziplineNetwork.hasLinksForEntity(baseSite, player.map)) {
             player.log.addMsg(1365);
             return;
@@ -214,6 +230,10 @@ var MapZiplineBuildController = cc.Class.extend({
         this.handleRemoveEntityClick(entity, baseSite);
     },
     handleRemoveEntityClick: function (entity, baseSite) {
+        if (this.isHomeDirectMode()) {
+            return this.handleDirectHomeRemove(baseSite);
+        }
+
         var currentEntityKey = player.ziplineNetwork.getEntityKey(baseSite, player.map);
         if (!currentEntityKey) {
             player.log.addMsg(1357);
@@ -256,7 +276,132 @@ var MapZiplineBuildController = cc.Class.extend({
         Record.saveAll();
         return true;
     },
-    getRemoveActionState: function (siteId) {
+    handleDirectHomeBuild: function (baseSite) {
+        if (!baseSite || baseSite.id === HOME_SITE) {
+            player.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
+            return true;
+        }
+
+        var buildCost = this.getBuildCost();
+        if (buildCost.length > 0 && !player.validateItemsInBag(buildCost)) {
+            player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
+            return true;
+        }
+
+        var result = player.ziplineNetwork.createLink(HOME_SITE, baseSite, player.map);
+        if (!result.ok) {
+            if (result.reason === "duplicate") {
+                player.log.addMsg(1355);
+            } else if (result.reason === "max-links") {
+                player.log.addMsg(1367);
+            } else if (result.reason === "home-only") {
+                player.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
+            } else if (result.reason === "invalid-site") {
+                player.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
+            } else {
+                player.log.addMsg(1357);
+            }
+            return true;
+        }
+
+        if (buildCost.length > 0) {
+            player.costItemsInBag(buildCost);
+            if (typeof Achievement !== "undefined" && Achievement && typeof Achievement.checkCost === "function") {
+                buildCost.forEach(function (itemInfo) {
+                    Achievement.checkCost(itemInfo.itemId, itemInfo.num);
+                });
+            }
+        }
+
+        var homeSite = player.map.getSite(HOME_SITE);
+        player.log.addMsg(1356, homeSite ? homeSite.getName() : "家", baseSite.getName());
+        this.finishMode();
+        Record.saveAll();
+        return true;
+    },
+    handleDirectHomeRemove: function (baseSite) {
+        if (!baseSite || baseSite.id === HOME_SITE) {
+            player.log.addMsg(1364);
+            return true;
+        }
+
+        if (!player.ziplineNetwork.hasLink(HOME_SITE, baseSite, player.map)) {
+            player.log.addMsg(1364);
+            return true;
+        }
+
+        var result = player.ziplineNetwork.removeLinkBetween(HOME_SITE, baseSite, player.map);
+        if (!result.ok) {
+            player.log.addMsg(result.reason === "not-found" ? 1364 : 1357);
+            return true;
+        }
+
+        var refundTarget = this.grantRefundItems(baseSite, this.getRefundCost());
+        var homeSite = player.map.getSite(HOME_SITE);
+        player.log.addMsg(1360, (homeSite ? homeSite.getName() : "家") + " <-> " + baseSite.getName());
+        if (refundTarget === "bag") {
+            player.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
+        } else if (refundTarget === "storage") {
+            player.log.addMsg(stringUtil.getString("zipline_site_refund_to_site_storage") || "背包空间不足，返还材料已放入当前地点存放");
+        }
+        this.finishMode();
+        Record.saveAll();
+        return true;
+    },
+    getBuildCost: function () {
+        return RoleRuntimeService.getZiplineBuildCost
+            ? RoleRuntimeService.getZiplineBuildCost(player.roleType)
+            : [];
+    },
+    getRefundCost: function () {
+        return RoleRuntimeService.getZiplineRefundCost
+            ? RoleRuntimeService.getZiplineRefundCost(player.roleType)
+            : [];
+    },
+    canFitItemsInBag: function (itemList) {
+        var tempBag = player.bag.clone();
+        for (var i = 0; i < itemList.length; i++) {
+            var itemInfo = itemList[i];
+            if (!tempBag.validateItemWeight(itemInfo.itemId, itemInfo.num)) {
+                return false;
+            }
+            tempBag.increaseItem(itemInfo.itemId, itemInfo.num);
+        }
+        return true;
+    },
+    grantRefundItems: function (baseSite, refundItems) {
+        refundItems = utils.clone(refundItems || []);
+        if (!refundItems.length) {
+            return "none";
+        }
+
+        if (this.canFitItemsInBag(refundItems)) {
+            player.gainItemsInBag(refundItems);
+            return "bag";
+        }
+
+        if (baseSite && typeof baseSite.increaseItem === "function") {
+            refundItems.forEach(function (itemInfo) {
+                baseSite.increaseItem(itemInfo.itemId, itemInfo.num);
+            });
+            return "storage";
+        }
+
+        return "none";
+    },
+    getRemoveActionState: function (baseSite) {
+        if (this.isHomeDirectMode()) {
+            var hasHomeLink = !!(baseSite
+                && baseSite.id !== HOME_SITE
+                && player.ziplineNetwork
+                && player.ziplineNetwork.hasLink(HOME_SITE, baseSite, player.map));
+            return {
+                visible: hasHomeLink,
+                enabled: hasHomeLink,
+                active: false,
+                labelText: this.getRemoveActionLabel()
+            };
+        }
         return {
             visible: false,
             enabled: false,

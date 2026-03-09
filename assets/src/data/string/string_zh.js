@@ -1341,6 +1341,8 @@ var string = {
     "zipline_site_invalid_target": "当前目标不能建立滑索",
     "zipline_site_refund_received": "已返还50%滑索材料",
     "zipline_site_refund_to_site_storage": "背包空间不足，返还材料已放入当前地点存放",
+    "zipline_map_build_hint": "滑索建立模式：点击一个地点或NPC，直接连接到家",
+    "zipline_map_remove_hint": "滑索拆除模式：点击已连接家的目标即可拆除",
     "m_103": {
         "name": "铁人勋章（三等）",
         "condition": "单局生存超过10天",
