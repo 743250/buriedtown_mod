@@ -22,6 +22,9 @@ var ZiplineEndpointPanelController = cc.Class.extend({
     getCurrentEntityRef: function () {
         return this.getEntityRef ? this.getEntityRef() : this.getCurrentEntity();
     },
+    getActionEntityRef: function () {
+        return this.getCurrentEntity() || this.getCurrentEntityRef();
+    },
     refresh: function () {
         if (!this.hostNode) {
             return;
@@ -33,7 +36,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var entity = this.getCurrentEntity();
-        var entityRef = this.getCurrentEntityRef();
+        var entityRef = this.getActionEntityRef();
         if (!entity || !entityRef || !this.shouldShowPanel()) {
             return;
         }
@@ -172,7 +175,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         var entity = this.getCurrentEntity();
         return !!(entity
             && player.ziplineNetwork
-            && player.ziplineNetwork.hasLink(HOME_SITE, this.getCurrentEntityRef(), player.map));
+            && player.ziplineNetwork.hasLink(HOME_SITE, this.getActionEntityRef(), player.map));
     },
     getBuildCost: function () {
         return RoleRuntimeService.getZiplineBuildCost
@@ -318,7 +321,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var entity = this.getCurrentEntity();
-        var entityRef = this.getCurrentEntityRef();
+        var entityRef = this.getActionEntityRef();
         var buildCost = this.getBuildCost();
         if (buildCost.length > 0 && !player.validateItemsInBag(buildCost)) {
             player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
@@ -331,6 +334,8 @@ var ZiplineEndpointPanelController = cc.Class.extend({
                 player.log.addMsg(1355);
             } else if (result.reason === "max-links") {
                 player.log.addMsg(1367);
+            } else if (result.reason === "same-site") {
+                player.log.addMsg(1354);
             } else if (result.reason === "home-only") {
                 player.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
             } else if (result.reason === "invalid-site") {
@@ -362,7 +367,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var entity = this.getCurrentEntity();
-        var entityRef = this.getCurrentEntityRef();
+        var entityRef = this.getActionEntityRef();
         var targetEntity = player.ziplineNetwork.resolveEntity(targetEntityKey, player.map);
         var result = player.ziplineNetwork.removeLinkBetween(entityRef, targetEntityKey, player.map);
         if (!result.ok) {

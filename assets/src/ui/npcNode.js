@@ -55,7 +55,7 @@ var NpcNode = BottomFrameNode.extend({
                 return this.npc;
             }.bind(this),
             getEntityRef: function () {
-                return "npc:" + this.npc.id;
+                return this.npc;
             }.bind(this),
             onRefreshHeader: this.refreshSiteHeaderStats.bind(this)
         });
