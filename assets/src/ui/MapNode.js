@@ -226,7 +226,7 @@ var MapView = cc.ScrollView.extend({
         for (var i = 0; i < this.entityList.length; i++) {
             var entity = this.entityList[i];
             entity.updateZiplineRemoveAction(this.ziplineBuildController
-                ? this.ziplineBuildController.getRemoveActionState(entity.baseSite.id)
+                ? this.ziplineBuildController.getRemoveActionState(entity.baseSite)
                 : null);
         }
     },

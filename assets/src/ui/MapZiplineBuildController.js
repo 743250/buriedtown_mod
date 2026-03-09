@@ -43,6 +43,9 @@ var MapZiplineBuildController = cc.Class.extend({
             && typeof player.ziplineNetwork.getLinkCount === "function"
             && player.ziplineNetwork.getLinkCount(player.map) > 0);
     },
+    getActionService: function () {
+        return ZiplineActionService;
+    },
     refresh: function () {
         var isAvailable = this.isAvailable();
         this.updateActionButton(this.buildButton, this.MODE.BUILD, isAvailable, cc.color(132, 34, 20, 255));
@@ -160,22 +163,14 @@ var MapZiplineBuildController = cc.Class.extend({
             return true;
         }
 
-        var startSite = player.ziplineNetwork.resolveEntity(this.selectedEntityKey, player.map);
-        var result = player.ziplineNetwork.createLink(this.selectedEntityKey, baseSite, player.map);
+        var startEntity = player.ziplineNetwork.resolveEntity(this.selectedEntityKey, player.map);
+        var result = this.getActionService().createLink(this.selectedEntityKey, currentEntityKey, player.map);
         if (!result.ok) {
-            if (result.reason === "duplicate") {
-                player.log.addMsg(1355);
-            } else if (result.reason === "max-links") {
-                player.log.addMsg(1367);
-            } else if (result.reason === "same-site") {
-                player.log.addMsg(1354);
-            } else {
-                player.log.addMsg(1357);
-            }
+            this.logBuildFailure(result.reason);
             return true;
         }
 
-        player.log.addMsg(1356, startSite ? startSite.getName() : "", baseSite.getName());
+        player.log.addMsg(1356, startEntity ? startEntity.getName() : "", baseSite.getName());
         this.finishMode();
         Record.saveAll();
         return true;
@@ -238,29 +233,68 @@ var MapZiplineBuildController = cc.Class.extend({
             return true;
         }
 
-        var startSite = player.ziplineNetwork.resolveEntity(this.selectedEntityKey, player.map);
-        var result = player.ziplineNetwork.removeLinkBetween(this.selectedEntityKey, baseSite, player.map);
+        var startEntity = player.ziplineNetwork.resolveEntity(this.selectedEntityKey, player.map);
+        var result = this.getActionService().removeLink(this.selectedEntityKey, currentEntityKey, player.map, baseSite);
         if (!result.ok) {
-            if (result.reason === "not-found") {
-                player.log.addMsg(1364);
-            } else if (result.reason === "same-site") {
-                player.log.addMsg(1354);
-            } else {
-                player.log.addMsg(1357);
-            }
+            this.logRemoveFailure(result.reason);
             return true;
         }
 
-        player.log.addMsg(1360, (startSite ? startSite.getName() : this.selectedEntityKey) + " <-> " + baseSite.getName());
+        player.log.addMsg(1360, (startEntity ? startEntity.getName() : this.selectedEntityKey) + " <-> " + baseSite.getName());
+        this.logRefundResult(result.refundTarget);
         this.finishMode();
         Record.saveAll();
         return true;
     },
-    getRemoveActionState: function (siteId) {
+    logBuildFailure: function (reason) {
+        switch (reason) {
+        case "missing-cost":
+            player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
+            break;
+        case "duplicate":
+            player.log.addMsg(1355);
+            break;
+        case "max-links":
+            player.log.addMsg(1367);
+            break;
+        case "same-site":
+            player.log.addMsg(1354);
+            break;
+        case "home-only":
+            player.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
+            break;
+        case "invalid-site":
+            player.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
+            break;
+        default:
+            player.log.addMsg(1357);
+            break;
+        }
+    },
+    logRemoveFailure: function (reason) {
+        if (reason === "not-found") {
+            player.log.addMsg(1364);
+        } else if (reason === "same-site") {
+            player.log.addMsg(1354);
+        } else {
+            player.log.addMsg(1357);
+        }
+    },
+    logRefundResult: function (refundTarget) {
+        if (refundTarget === "bag") {
+            player.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
+        } else if (refundTarget === "storage") {
+            player.log.addMsg(stringUtil.getString("zipline_map_refund_to_target_storage")
+                || "背包空间不足，返还材料已放入当前目标存放");
+        }
+    },
+    getRemoveActionState: function (entityRef) {
+        var entityKey = player.ziplineNetwork.getEntityKey(entityRef, player.map);
+        var hasLinks = !!(entityKey && player.ziplineNetwork.hasLinksForEntity(entityRef, player.map));
         return {
-            visible: false,
-            enabled: false,
-            active: false,
+            visible: this.isAvailable() && hasLinks,
+            enabled: this.isAvailable() && hasLinks && !(this.mapView && this.mapView.actor && this.mapView.actor.isMoving),
+            active: this.mode === this.MODE.REMOVE && this.selectedEntityKey === entityKey,
             labelText: this.getRemoveActionLabel()
         };
     },
@@ -277,7 +311,7 @@ var MapZiplineBuildController = cc.Class.extend({
     isBuildableEntity: function (site) {
         return !!(player.ziplineNetwork
             && typeof player.ziplineNetwork.isEligibleEntity === "function"
-            && player.ziplineNetwork.isEligibleEntity(site));
+            && player.ziplineNetwork.isEligibleEntity(site, player.map));
     },
     getRemoveActionLabel: function () {
         var removeText = stringUtil.getString(1359) || "X";

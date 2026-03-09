@@ -1339,6 +1339,7 @@ var string = {
     "zipline_site_rule_hint": "仅可连接家，拆除返还50%材料",
     "zipline_site_home_only": "滑索只能连接家与地点或NPC",
     "zipline_site_invalid_target": "当前目标不能建立滑索",
+    "zipline_map_refund_to_target_storage": "背包空间不足，返还材料已放入当前目标存放",
     "zipline_site_refund_received": "已返还50%滑索材料",
     "zipline_site_refund_to_site_storage": "背包空间不足，返还材料已放入当前地点存放",
     "m_103": {

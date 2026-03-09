@@ -63,11 +63,9 @@ var ZiplineNetworkService = cc.Class.extend({
                 continue;
             }
 
-            var startEntity = this.resolveEntity(pair.startEntityKey, map);
-            var endEntity = this.resolveEntity(pair.endEntityKey, map);
-            if (!this.isEligibleEntity(startEntity)
-                || !this.isEligibleEntity(endEntity)
-                || !this._isHomeOnlyPair(startEntity, endEntity)) {
+            if (!this.isEligibleEntity(pair.startEntityKey, map)
+                || !this.isEligibleEntity(pair.endEntityKey, map)
+                || !this._isHomeOnlyPairKeys(pair.startEntityKey, pair.endEntityKey)) {
                 continue;
             }
 
@@ -103,31 +101,42 @@ var ZiplineNetworkService = cc.Class.extend({
         }
         return {};
     },
-    _isHomeEntity: function (entity) {
-        return !!(entity instanceof Site && entity.id === HOME_SITE);
+    _getMapRef: function (map) {
+        if (map) {
+            return map;
+        }
+        return (typeof player !== "undefined" && player && player.map) ? player.map : null;
     },
-    _isHomeOnlyPair: function (startEntity, endEntity) {
+    _isHomeEntityKey: function (entityKey) {
+        var entityInfo = this._splitEntityKey(entityKey);
+        return !!(entityInfo
+            && entityInfo.type === this.CONFIG.ENTITY_TYPE_SITE
+            && entityInfo.id === HOME_SITE);
+    },
+    _isHomeOnlyPairKeys: function (startEntityKey, endEntityKey) {
         var ziplineConfig = this._getRuntimeZiplineConfig();
         if (!ziplineConfig.homeOnly) {
             return true;
         }
-        return this._isHomeEntity(startEntity) || this._isHomeEntity(endEntity);
+        return this._isHomeEntityKey(startEntityKey) || this._isHomeEntityKey(endEntityKey);
     },
-    isEligibleEntity: function (entity) {
-        if (!entity || !this._hasValidMapPosition(entity)) {
+    isEligibleEntity: function (entityRef, map, fallbackType) {
+        var entityInfo = this._normalizeEntityRef(entityRef, map, fallbackType);
+        var entity = entityInfo ? entityInfo.entity : null;
+        if (!entityInfo || !entity || !this._hasValidMapPosition(entity)) {
             return false;
         }
-        if (entity instanceof NPC) {
+        if (entityInfo.type === this.CONFIG.ENTITY_TYPE_NPC) {
             return true;
         }
-        return !!(entity instanceof Site
+        return !!(entityInfo.type === this.CONFIG.ENTITY_TYPE_SITE
             && !entity.closed
-            && entity.id !== AD_SITE
-            && entity.id !== BOSS_SITE
-            && entity.id !== WORK_SITE);
+            && entityInfo.id !== AD_SITE
+            && entityInfo.id !== BOSS_SITE
+            && entityInfo.id !== WORK_SITE);
     },
-    isEligibleSite: function (entity) {
-        return this.isEligibleEntity(entity);
+    isEligibleSite: function (entityRef, map, fallbackType) {
+        return this.isEligibleEntity(entityRef, map, fallbackType);
     },
     getEntityKey: function (entityRef, map, fallbackType) {
         var entityInfo = this._normalizeEntityRef(entityRef, map, fallbackType);
@@ -165,11 +174,12 @@ var ZiplineNetworkService = cc.Class.extend({
         var result = [];
         for (var i = 0; i < this.links.length; i++) {
             var link = this.links[i];
-            var startEntity = this.resolveEntity(link.startEntityKey, map);
-            var endEntity = this.resolveEntity(link.endEntityKey, map);
-            if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
+            if (!this.isEligibleEntity(link.startEntityKey, map)
+                || !this.isEligibleEntity(link.endEntityKey, map)) {
                 continue;
             }
+            var startEntity = this.resolveEntity(link.startEntityKey, map);
+            var endEntity = this.resolveEntity(link.endEntityKey, map);
             if (!this._hasValidMapPosition(startEntity) || !this._hasValidMapPosition(endEntity)) {
                 continue;
             }
@@ -204,9 +214,8 @@ var ZiplineNetworkService = cc.Class.extend({
             }
 
             if (map) {
-                var startEntity = this.resolveEntity(link.startEntityKey, map);
-                var endEntity = this.resolveEntity(link.endEntityKey, map);
-                if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
+                if (!this.isEligibleEntity(link.startEntityKey, map)
+                    || !this.isEligibleEntity(link.endEntityKey, map)) {
                     continue;
                 }
             }
@@ -245,9 +254,8 @@ var ZiplineNetworkService = cc.Class.extend({
                 return true;
             }
 
-            var startEntity = this.resolveEntity(link.startEntityKey, map);
-            var endEntity = this.resolveEntity(link.endEntityKey, map);
-            return this.isEligibleEntity(startEntity) && this.isEligibleEntity(endEntity);
+            return this.isEligibleEntity(link.startEntityKey, map)
+                && this.isEligibleEntity(link.endEntityKey, map);
         }
 
         return false;
@@ -263,12 +271,11 @@ var ZiplineNetworkService = cc.Class.extend({
             return {ok: false, reason: "same-site"};
         }
 
-        var startEntity = this.resolveEntity(pair.startEntityKey, map);
-        var endEntity = this.resolveEntity(pair.endEntityKey, map);
-        if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
+        if (!this.isEligibleEntity(pair.startEntityKey, map)
+            || !this.isEligibleEntity(pair.endEntityKey, map)) {
             return {ok: false, reason: "invalid-site"};
         }
-        if (!this._isHomeOnlyPair(startEntity, endEntity)) {
+        if (!this._isHomeOnlyPairKeys(pair.startEntityKey, pair.endEntityKey)) {
             return {ok: false, reason: "home-only"};
         }
 
@@ -310,12 +317,9 @@ var ZiplineNetworkService = cc.Class.extend({
                 continue;
             }
 
-            if (map) {
-                var startEntity = this.resolveEntity(link.startEntityKey, map);
-                var endEntity = this.resolveEntity(link.endEntityKey, map);
-                if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
-                    return {ok: false, reason: "invalid-site"};
-                }
+            if (map && (!this.isEligibleEntity(link.startEntityKey, map)
+                || !this.isEligibleEntity(link.endEntityKey, map))) {
+                return {ok: false, reason: "invalid-site"};
             }
 
             var removedLink = this._cloneLink(link);
@@ -436,6 +440,7 @@ var ZiplineNetworkService = cc.Class.extend({
         };
     },
     _resolveEntityByType: function (map, entityType, entityId) {
+        map = this._getMapRef(map);
         var normalizedEntityId = this._normalizeEntityId(entityId);
         if (!normalizedEntityId) {
             return null;
@@ -458,6 +463,7 @@ var ZiplineNetworkService = cc.Class.extend({
             : null;
     },
     _normalizeEntityRef: function (entityRef, map, fallbackType) {
+        map = this._getMapRef(map);
         if (!entityRef) {
             return null;
         }
@@ -475,16 +481,17 @@ var ZiplineNetworkService = cc.Class.extend({
         }
 
         if (typeof entityRef === "object" && entityRef.id) {
-            var detectedType = this._detectEntityType(entityRef);
+            var detectedType = this._detectEntityType(entityRef, map) || fallbackType;
             var normalizedObjectId = this._normalizeEntityId(entityRef.id);
             if (!detectedType || !normalizedObjectId) {
                 return null;
             }
+            var resolvedEntity = this._resolveEntityByType(map, detectedType, normalizedObjectId) || entityRef;
             return {
                 key: this._buildEntityKey(detectedType, normalizedObjectId),
                 type: detectedType,
                 id: normalizedObjectId,
-                entity: entityRef
+                entity: resolvedEntity
             };
         }
 
@@ -538,11 +545,40 @@ var ZiplineNetworkService = cc.Class.extend({
             id: normalizedEntityId
         };
     },
-    _detectEntityType: function (entity) {
+    _detectEntityType: function (entity, map) {
         if (entity instanceof NPC) {
             return this.CONFIG.ENTITY_TYPE_NPC;
         }
         if (entity instanceof Site) {
+            return this.CONFIG.ENTITY_TYPE_SITE;
+        }
+        map = this._getMapRef(map);
+        var normalizedEntityId = this._normalizeEntityId(entity && entity.id);
+        if (!normalizedEntityId) {
+            return "";
+        }
+        var mapNpc = map && typeof map.getNpc === "function"
+            ? map.getNpc(normalizedEntityId)
+            : null;
+        if (mapNpc === entity) {
+            return this.CONFIG.ENTITY_TYPE_NPC;
+        }
+        var mapSite = map && typeof map.getSite === "function"
+            ? map.getSite(normalizedEntityId)
+            : null;
+        if (mapSite === entity) {
+            return this.CONFIG.ENTITY_TYPE_SITE;
+        }
+        if (!mapSite && mapNpc) {
+            return this.CONFIG.ENTITY_TYPE_NPC;
+        }
+        if (!mapNpc && mapSite) {
+            return this.CONFIG.ENTITY_TYPE_SITE;
+        }
+        if (typeof entity.getNeedItem === "function" || typeof entity.getDialog === "function") {
+            return this.CONFIG.ENTITY_TYPE_NPC;
+        }
+        if (typeof entity.isSiteEnd === "function" || typeof entity.canClose === "function") {
             return this.CONFIG.ENTITY_TYPE_SITE;
         }
         return "";

@@ -64,6 +64,7 @@ var jsList = [
     "src/game/npc.js",
     "src/game/map.js",
     "src/game/ZiplineNetworkService.js",
+    "src/game/ZiplineActionService.js",
     "src/game/equipment.js",
     "src/game/log.js",
     "src/game/game.js",

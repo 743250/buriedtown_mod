@@ -413,6 +413,7 @@ var string = {
     "zipline_site_rule_hint": "Can only connect to Home. Dismantling returns 50% of materials.",
     "zipline_site_home_only": "Ziplines can only connect Home with a site or NPC.",
     "zipline_site_invalid_target": "This target cannot host a zipline.",
+    "zipline_map_refund_to_target_storage": "Bag full. Refund materials were placed in the selected target's storage.",
     "zipline_site_refund_received": "50% of the zipline materials were returned.",
     "zipline_site_refund_to_site_storage": "Your bag is full. Returned materials were placed into this site's storage.",
     "1320": "New characters will be available soon, stay tuned.",

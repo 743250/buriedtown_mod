@@ -159,31 +159,32 @@ var ZiplineEndpointPanelController = cc.Class.extend({
     },
     shouldShowPanel: function () {
         var entity = this.getCurrentEntity();
+        var entityRef = this.getCurrentEntityRef();
         return !!(RoleRuntimeService.isZiplineFrameworkAvailable(player)
             && RoleRuntimeService.isZiplineHomeOnly(player.roleType)
             && RoleRuntimeService.isZiplineBuildFromSiteOnly(player.roleType)
             && entity
+            && entityRef
             && entity.id !== HOME_SITE
             && player.ziplineNetwork
             && typeof player.ziplineNetwork.isEligibleEntity === "function"
-            && player.ziplineNetwork.isEligibleEntity(entity));
+            && player.ziplineNetwork.isEligibleEntity(entityRef, player.map));
     },
     hasHomeLink: function () {
-        var entity = this.getCurrentEntity();
-        return !!(entity
+        var entityRef = this.getCurrentEntityRef();
+        return !!(entityRef
             && player.ziplineNetwork
             && typeof player.ziplineNetwork.hasHomeLink === "function"
-            && player.ziplineNetwork.hasHomeLink(this.getCurrentEntityRef(), player.map));
+            && player.ziplineNetwork.hasHomeLink(entityRef, player.map));
+    },
+    getActionService: function () {
+        return ZiplineActionService;
     },
     getBuildCost: function () {
-        return RoleRuntimeService.getZiplineBuildCost
-            ? RoleRuntimeService.getZiplineBuildCost(player.roleType)
-            : [];
+        return this.getActionService().getBuildCost(player.roleType);
     },
     getRefundCost: function () {
-        return RoleRuntimeService.getZiplineRefundCost
-            ? RoleRuntimeService.getZiplineRefundCost(player.roleType)
-            : [];
+        return this.getActionService().getRefundCost(player.roleType);
     },
     buildDisplayItems: function (itemList, compareWithBag, defaultColor) {
         var items = utils.clone(itemList || []);
@@ -282,37 +283,6 @@ var ZiplineEndpointPanelController = cc.Class.extend({
             height: footerHeight
         };
     },
-    canFitItemsInBag: function (itemList) {
-        var tempBag = player.bag.clone();
-        for (var i = 0; i < itemList.length; i++) {
-            var itemInfo = itemList[i];
-            if (!tempBag.validateItemWeight(itemInfo.itemId, itemInfo.num)) {
-                return false;
-            }
-            tempBag.increaseItem(itemInfo.itemId, itemInfo.num);
-        }
-        return true;
-    },
-    grantRefundItems: function (refundItems) {
-        var entity = this.getCurrentEntity();
-        refundItems = utils.clone(refundItems || []);
-        if (!refundItems.length) {
-            return "none";
-        }
-
-        if (this.canFitItemsInBag(refundItems)) {
-            player.gainItemsInBag(refundItems);
-            return "bag";
-        }
-
-        if (entity && typeof entity.increaseItem === "function") {
-            refundItems.forEach(function (itemInfo) {
-                entity.increaseItem(itemInfo.itemId, itemInfo.num);
-            });
-            return "storage";
-        }
-        return "none";
-    },
     onClickBuild: function () {
         if (!this.shouldShowPanel() || this.hasHomeLink()) {
             return;
@@ -320,37 +290,32 @@ var ZiplineEndpointPanelController = cc.Class.extend({
 
         var entity = this.getCurrentEntity();
         var entityRef = this.getCurrentEntityRef();
-        var buildCost = this.getBuildCost();
-        if (buildCost.length > 0 && !player.validateItemsInBag(buildCost)) {
-            player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
-            return;
-        }
-
-        var result = player.ziplineNetwork.createHomeLink(entityRef, player.map);
+        var result = this.getActionService().createHomeLink(entityRef, player.map);
         if (!result.ok) {
-            if (result.reason === "duplicate") {
+            switch (result.reason) {
+            case "missing-cost":
+                player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
+                break;
+            case "duplicate":
                 player.log.addMsg(1355);
-            } else if (result.reason === "max-links") {
+                break;
+            case "max-links":
                 player.log.addMsg(1367);
-            } else if (result.reason === "same-site") {
+                break;
+            case "same-site":
                 player.log.addMsg(1354);
-            } else if (result.reason === "home-only") {
+                break;
+            case "home-only":
                 player.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
-            } else if (result.reason === "invalid-site") {
+                break;
+            case "invalid-site":
                 player.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
-            } else {
+                break;
+            default:
                 player.log.addMsg(1357);
+                break;
             }
             return;
-        }
-
-        if (buildCost.length > 0) {
-            player.costItemsInBag(buildCost);
-            if (typeof Achievement !== "undefined" && Achievement && typeof Achievement.checkCost === "function") {
-                buildCost.forEach(function (itemInfo) {
-                    Achievement.checkCost(itemInfo.itemId, itemInfo.num);
-                });
-            }
         }
 
         var homeSite = player.map.getSite(HOME_SITE);
@@ -359,7 +324,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         this.refresh();
     },
     onClickRemove: function (targetEntityKey) {
-        if (!targetEntityKey) {
+        if (!targetEntityKey || !this.hasHomeLink()) {
             player.log.addMsg(1364);
             return;
         }
@@ -367,17 +332,16 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         var entity = this.getCurrentEntity();
         var entityRef = this.getCurrentEntityRef();
         var homeSite = player.map.getSite(HOME_SITE);
-        var result = player.ziplineNetwork.removeHomeLink(entityRef, player.map);
+        var result = this.getActionService().removeHomeLink(entityRef, player.map, entity);
         if (!result.ok) {
             player.log.addMsg(result.reason === "not-found" ? 1364 : 1357);
             return;
         }
 
-        var refundTarget = this.grantRefundItems(this.getRefundCost());
         player.log.addMsg(1360, (homeSite ? homeSite.getName() : "家") + " <-> " + (entity ? entity.getName() : entityRef));
-        if (refundTarget === "bag") {
+        if (result.refundTarget === "bag") {
             player.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
-        } else if (refundTarget === "storage") {
+        } else if (result.refundTarget === "storage") {
             player.log.addMsg(stringUtil.getString("zipline_site_refund_to_site_storage") || "背包空间不足，返还材料已放入当前地点存放");
         }
         this.onRefreshHeader();
