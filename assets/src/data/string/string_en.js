@@ -406,6 +406,15 @@ var string = {
     "zipline_site_empty": "No zipline connections yet.",
     "zipline_target_type_site": "Site",
     "zipline_target_type_npc": "NPC",
+    "zipline_site_cost_title": "Build cost",
+    "zipline_site_refund_title": "Dismantle return (50%)",
+    "zipline_site_build_action": "Link Home",
+    "zipline_site_cost_missing": "Not enough carried materials to build this zipline.",
+    "zipline_site_rule_hint": "Can only connect to Home. Dismantling returns 50% of materials.",
+    "zipline_site_home_only": "Ziplines can only connect Home with a site or NPC.",
+    "zipline_site_invalid_target": "This target cannot host a zipline.",
+    "zipline_site_refund_received": "50% of the zipline materials were returned.",
+    "zipline_site_refund_to_site_storage": "Your bag is full. Returned materials were placed into this site's storage.",
     "1320": "New characters will be available soon, stay tuned.",
     "3000": ["Autumn", "Winter", "Spring", "Summer"],
     "3006": ["Materials ", "Food ", "Medicines ", "Luxury ", "Enhancement ", "Equipment ", "Miscellaneous "],
@@ -1193,9 +1202,9 @@ var string = {
         "des": "Has nothing to rely on. In the face of disaster, you must fight your hardest to survive."
     },
     "p_101": {
-        "name": "Marksman",
-        "des": "Well trained in shooting, and familiar with firearms. \\n (Once unlocked it never expires, and is available for all future games.)",
-        "effect": "Hit increases to 125%"
+        "name": "Weapon Master",
+        "des": "You know how to maintain all kinds of weapons and keep them from wearing down too quickly.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "Weapon break chance reduced by up to 60%, and crafted weapons gain up to +30% extra chance to become reinforced variants."
     },
     "p_120": {
         "name": "Sharpshooter",
@@ -1203,9 +1212,9 @@ var string = {
         "effect": "Gun precision up to x1.3 and headshot ability greatly improved; gain the Sharpshooter's exclusive pistol that never breaks, fires faster, and hits vital spots more easily."
     },
     "p_102": {
-        "name": "Athlete",
-        "des": "Has exercised for a long time, and therefore has a stronger physique and faster recovery times. \\n (Once unlocked it never expires, and is available for all future games.)",
-        "effect": "HP increases to 125%"
+        "name": "Stone Skin",
+        "des": "You have a tough body and can absorb incoming blows more effectively.\\n(Permanent after unlock. Can be selected when starting a new game.)",
+        "effect": "Defense increased by up to 4; minimum damage taken can be reduced to 0 (0 damage does not increase injuries); infection growth reduced to 80%"
     },
     "p_121": {
         "name": "Bruiser",
@@ -1338,6 +1347,6 @@ var string = {
     "p_114": {
         "name": "Survival Expert",
         "des": "Bear Grylls is a wilderness survival expert who excels at building fast travel routes through the ruins.\\n(Permanent after unlock. Can be selected when starting a new game.)",
-        "effect": "Can build ziplines on the map. Travel time on connected routes is reduced to 30%."
+        "effect": "Can only build site-to-home ziplines from the destination site, spending materials carried in your bag. Travel time on connected routes is reduced to 30%."
     }
 };

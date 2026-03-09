@@ -198,7 +198,14 @@ var RoleConfigTable = {
         visitorUnlockedNpcIds: [5],
         zipline: {
             enabled: true,
-            timeRatio: 0.3
+            timeRatio: 0.3,
+            homeOnly: true,
+            buildFromSiteOnly: true,
+            buildCost: [
+                {itemId: 1101011, num: 8},
+                {itemId: 1101021, num: 4},
+                {itemId: 1101031, num: 4}
+            ]
         }
     }
 };

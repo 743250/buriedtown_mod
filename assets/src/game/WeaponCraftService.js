@@ -141,6 +141,15 @@ var WeaponCraftService = {
     getDisplayItemId: function (itemId) {
         return this.getBaseItemId(itemId);
     },
+    getDurableCraftChance: function () {
+        var chance = this.DURABLE_CRAFT_CHANCE;
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.getDurableCraftChance === "function") {
+            chance = TalentService.getDurableCraftChance(chance);
+        }
+        return Math.max(0, Math.min(1, chance));
+    },
 
     rollDurableProduce: function (produceList) {
         this.init();
@@ -149,6 +158,7 @@ var WeaponCraftService = {
         }
 
         var self = this;
+        var durableCraftChance = this.getDurableCraftChance();
         return produceList.map(function (item) {
             if (!item) {
                 return item;
@@ -161,7 +171,7 @@ var WeaponCraftService = {
                 return outputItem;
             }
 
-            if (Math.random() < self.DURABLE_CRAFT_CHANCE) {
+            if (Math.random() < durableCraftChance) {
                 outputItem.itemId = durableItemId;
             }
             return outputItem;

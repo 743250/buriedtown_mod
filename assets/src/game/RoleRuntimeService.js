@@ -73,7 +73,10 @@ var RoleRuntimeService = {
         siteNpcUnlocksEnabled: true,
         zipline: {
             enabled: false,
-            timeRatio: 1
+            timeRatio: 1,
+            homeOnly: false,
+            buildFromSiteOnly: false,
+            buildCost: []
         },
         attrModifiers: {},
         battleModifiers: {
@@ -141,7 +144,7 @@ var RoleRuntimeService = {
         }).slice();
     },
 
-    _normalizeSpecialItems: function (list) {
+    _normalizeItemStackList: function (list) {
         if (!Array.isArray(list)) {
             return [];
         }
@@ -167,6 +170,9 @@ var RoleRuntimeService = {
         }).filter(function (item) {
             return !!item;
         });
+    },
+    _normalizeSpecialItems: function (list) {
+        return this._normalizeItemStackList(list);
     },
 
     _collectGiftUnlockSites: function (roleType) {
@@ -207,6 +213,7 @@ var RoleRuntimeService = {
         if (!(ziplineTimeRatio > 0)) {
             ziplineTimeRatio = defaultConfig.zipline.timeRatio;
         }
+        var ziplineBuildCost = this._normalizeItemStackList(ziplineConfig.buildCost || defaultConfig.zipline.buildCost);
 
         return {
             roomBuilds: this._cloneBuildStates(config.roomBuilds || defaultConfig.roomBuilds),
@@ -225,7 +232,10 @@ var RoleRuntimeService = {
             siteNpcUnlocksEnabled: config.siteNpcUnlocksEnabled !== false,
             zipline: {
                 enabled: !!ziplineConfig.enabled,
-                timeRatio: ziplineTimeRatio
+                timeRatio: ziplineTimeRatio,
+                homeOnly: !!ziplineConfig.homeOnly,
+                buildFromSiteOnly: !!ziplineConfig.buildFromSiteOnly,
+                buildCost: ziplineBuildCost
             },
             attrModifiers: {
                 hungerDecay: typeof attrModifiers.hungerDecay === "number" ? attrModifiers.hungerDecay : null
@@ -435,6 +445,29 @@ var RoleRuntimeService = {
     },
     getZiplineConfig: function (roleType) {
         return this.getRuntimeConfig(roleType).zipline;
+    },
+    isZiplineHomeOnly: function (roleType) {
+        return !!this.getZiplineConfig(roleType).homeOnly;
+    },
+    isZiplineBuildFromSiteOnly: function (roleType) {
+        return !!this.getZiplineConfig(roleType).buildFromSiteOnly;
+    },
+    getZiplineBuildCost: function (roleType) {
+        return this._normalizeItemStackList(this.getZiplineConfig(roleType).buildCost || []);
+    },
+    getZiplineRefundCost: function (roleType) {
+        return this.getZiplineBuildCost(roleType).map(function (itemInfo) {
+            var refundNum = Math.floor(Number(itemInfo.num) * 0.5);
+            if (!(refundNum > 0)) {
+                return null;
+            }
+            return {
+                itemId: itemInfo.itemId,
+                num: refundNum
+            };
+        }).filter(function (itemInfo) {
+            return !!itemInfo;
+        });
     },
     supportsZipline: function (roleType) {
         return !!this.getZiplineConfig(roleType).enabled;

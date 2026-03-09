@@ -305,6 +305,12 @@ var NPC = BaseSite.extend({
         var npcString = stringUtil.getString("npc_" + this.id) || {};
         return npcString.des || "";
     },
+    increaseItem: function (itemId, num) {
+        this.storage.increaseItem(itemId, num);
+    },
+    getAllItemNum: function () {
+        return this.storage.getAllItemNum();
+    },
     isReputationMax: function () {
         return this.reputation === this.reputationMax;
     }

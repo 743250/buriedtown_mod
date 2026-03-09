@@ -320,6 +320,15 @@ var TalentService = {
         var multiplier = this._getTalentValueByLevel(101, "weaponBrokenMultiplierValues", level101, 1);
         return brokenProbability * multiplier;
     },
+    getDurableCraftChance: function (baseChance) {
+        var level101 = this._getActiveTalentLevel(101);
+        var bonus = this._getTalentValueByLevel(101, "durableCraftChanceBonusValues", level101, 0);
+        var chance = Number(baseChance) + bonus;
+        if (!isFinite(chance)) {
+            chance = Number(baseChance) || 0;
+        }
+        return Math.max(0, Math.min(1, chance));
+    },
     _isTalentUnlocked: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
         if (purchaseId === 0) {

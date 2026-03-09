@@ -13,10 +13,11 @@ var TalentConfigTable = {
         maxLevel: 3,
         effectType: 'weapon_broken_reduce',
         weaponBrokenMultiplierValues: [1, 0.8, 0.6, 0.4],
+        durableCraftChanceBonusValues: [0, 0.1, 0.2, 0.3],
         tierEffectTextList: [
-            "你开始重拾维护技巧，武器损耗减少20%",
-            "每件武器都像老朋友，你知道如何让它们更持久，损耗减少40%",
-            "武器维护已成本能，即使在恶劣环境中也能保持装备完好，损耗减少60%"
+            "你开始重拾维护技巧，武器损耗减少20%，制造耐久武器概率+10%",
+            "每件武器都像老朋友，你知道如何让它们更持久，损耗减少40%，制造耐久武器概率+20%",
+            "武器维护已成本能，即使在恶劣环境中也能保持装备完好，损耗减少60%，制造耐久武器概率+30%"
         ]
     },
 
@@ -28,13 +29,13 @@ var TalentConfigTable = {
         stringId: 'p_102',
         maxLevel: 3,
         effectType: 'defense_bonus',
-        defenseBonusValues: [0, 2, 4, 6],
+        defenseBonusValues: [0, 2, 3, 4],
         zeroDamageUnlockLevel: 2,
         infectIncreaseMultiplierValues: [1, 1, 1, 0.8],
         tierEffectTextList: [
             "你的身体开始适应伤害，战斗防御+2",
-            "皮肤如石，轻微攻击已无法伤你，防御+4，最低受击伤害可降至0（0伤害不增加外伤）",
-            "钢筋铁骨，感染也难以侵蚀你的身体，防御+6，0伤免疫，感染增长×0.8"
+            "皮肤如石，轻微攻击已无法伤你，防御+3，最低受击伤害可降至0（0伤害不增加外伤）",
+            "钢筋铁骨，感染也难以侵蚀你的身体，防御+4，0伤免疫，感染增长×0.8"
         ]
     },
 

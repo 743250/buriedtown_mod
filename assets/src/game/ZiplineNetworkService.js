@@ -65,7 +65,9 @@ var ZiplineNetworkService = cc.Class.extend({
 
             var startEntity = this.resolveEntity(pair.startEntityKey, map);
             var endEntity = this.resolveEntity(pair.endEntityKey, map);
-            if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
+            if (!this.isEligibleEntity(startEntity)
+                || !this.isEligibleEntity(endEntity)
+                || !this._isHomeOnlyPair(startEntity, endEntity)) {
                 continue;
             }
 
@@ -90,6 +92,26 @@ var ZiplineNetworkService = cc.Class.extend({
             && entity.pos
             && isFinite(entity.pos.x)
             && isFinite(entity.pos.y));
+    },
+    _getRuntimeZiplineConfig: function () {
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.getZiplineConfig === "function"
+            && typeof player !== "undefined"
+            && player) {
+            return RoleRuntimeService.getZiplineConfig(player.roleType) || {};
+        }
+        return {};
+    },
+    _isHomeEntity: function (entity) {
+        return !!(entity instanceof Site && entity.id === HOME_SITE);
+    },
+    _isHomeOnlyPair: function (startEntity, endEntity) {
+        var ziplineConfig = this._getRuntimeZiplineConfig();
+        if (!ziplineConfig.homeOnly) {
+            return true;
+        }
+        return this._isHomeEntity(startEntity) || this._isHomeEntity(endEntity);
     },
     isEligibleEntity: function (entity) {
         if (!entity || !this._hasValidMapPosition(entity)) {
@@ -242,6 +264,9 @@ var ZiplineNetworkService = cc.Class.extend({
         var endEntity = this.resolveEntity(pair.endEntityKey, map);
         if (!this.isEligibleEntity(startEntity) || !this.isEligibleEntity(endEntity)) {
             return {ok: false, reason: "invalid-site"};
+        }
+        if (!this._isHomeOnlyPair(startEntity, endEntity)) {
+            return {ok: false, reason: "home-only"};
         }
 
         if (this.hasLink(pair.startEntityKey, pair.endEntityKey, map)) {
@@ -403,13 +428,25 @@ var ZiplineNetworkService = cc.Class.extend({
     },
     _resolveEntityByType: function (map, entityType, entityId) {
         var normalizedEntityId = this._normalizeEntityId(entityId);
-        if (!map || !normalizedEntityId) {
+        if (!normalizedEntityId) {
             return null;
         }
         if (entityType === this.CONFIG.ENTITY_TYPE_NPC) {
-            return typeof map.getNpc === "function" ? map.getNpc(normalizedEntityId) : null;
+            var npcEntity = map && typeof map.getNpc === "function"
+                ? map.getNpc(normalizedEntityId)
+                : null;
+            if (!npcEntity
+                && typeof player !== "undefined"
+                && player
+                && player.npcManager
+                && typeof player.npcManager.getNPC === "function") {
+                npcEntity = player.npcManager.getNPC(normalizedEntityId) || null;
+            }
+            return npcEntity;
         }
-        return typeof map.getSite === "function" ? map.getSite(normalizedEntityId) || null : null;
+        return map && typeof map.getSite === "function"
+            ? map.getSite(normalizedEntityId) || null
+            : null;
     },
     _normalizeEntityRef: function (entityRef, map, fallbackType) {
         if (!entityRef) {

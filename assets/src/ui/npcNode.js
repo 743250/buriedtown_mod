@@ -45,6 +45,21 @@ var NpcNode = BottomFrameNode.extend({
         this.bg.addChild(des);
         des.setName("des");
         des.setColor(UITheme.colors.WHITE);
+        this.ziplineBaseY = des.y - des.height - 25;
+        this.ziplinePanelController = new ZiplineEndpointPanelController({
+            hostNode: this.bg,
+            leftEdge: leftEdge,
+            rightEdge: rightEdge,
+            topY: this.ziplineBaseY,
+            getEntity: function () {
+                return this.npc;
+            }.bind(this),
+            getEntityRef: function () {
+                return "npc:" + this.npc.id;
+            }.bind(this),
+            onRefreshHeader: this.refreshSiteHeaderStats.bind(this)
+        });
+        this.ziplinePanelController.refresh();
 
         var have = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(260, 0), cc.TEXT_ALIGNMENT_CENTER);
         have.setAnchorPoint(0.5, 0);
@@ -104,6 +119,12 @@ var NpcNode = BottomFrameNode.extend({
     },
     onExit: function () {
         this._super();
+    },
+    refreshSiteHeaderStats: function () {
+        var tradeLabel = this.bg.getChildByName("trade");
+        if (tradeLabel && typeof tradeLabel.updateView === "function") {
+            tradeLabel.updateView();
+        }
     },
 
     onClickLeftBtn: function () {
