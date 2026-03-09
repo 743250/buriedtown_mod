@@ -113,6 +113,7 @@ var Player = cc.Class.extend({
     },
 
     save: function () {
+        return PlayerPersistenceService.buildSaveData(this, AttrHelperRuntime);
         var attrData = AttrHelperRuntime.saveAttrs(this, ['hp', 'spirit', 'starve', 'vigour', 'injury', 'infect', 'temperature']);
         var opt = {
             hp: attrData.hp,
@@ -154,6 +155,7 @@ var Player = cc.Class.extend({
     },
 
     restore: function () {
+        return PlayerPersistenceService.restore(this, AttrHelperRuntime);
         var opt = Record.restore("player");
         if (opt) {
             AttrHelperRuntime.restoreAttrs(this, opt, ['hp', 'hpMaxOrigin', 'hpMax', 'spirit', 'starve', 'vigour', 'injury', 'infect', 'temperature']);

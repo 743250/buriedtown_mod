@@ -153,6 +153,36 @@ var BuildAction = cc.Class.extend({
     }
 });
 
+var createTimedEffectBuildAction = function (options) {
+    return BuildAction.extend({
+        ctor: function (bid, level, actionIndex) {
+            this._super(bid);
+            this.level = level >= 0 ? level : 0;
+            cc.assert(this.level < buildActionConfig[this.id].length, options.className + " buildActionConfig doesn't exist!");
+            this.configs = utils.clone(buildActionConfig[this.id]);
+            this.needBuild = {bid: this.id, level: 0};
+            this.index = options.useCtorActionIndex ? actionIndex : options.index;
+        },
+        updateConfig: function () {
+            return BuildActionEffectService.updateConfig(this);
+        },
+        clickIcon: function () {
+            return BuildActionEffectService.showBuildActionDialog(this);
+        },
+        clickAction1: function () {
+            return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: options.logMessageId});
+        },
+        _getUpdateViewInfo: function () {
+            return BuildActionEffectService.buildTimedEffectViewInfo(this, {
+                iconIndex: options.iconIndex,
+                actionTextId: options.actionTextId,
+                progressHintIds: options.progressHintIds,
+                idleHintText: options.idleHintText
+            });
+        }
+    });
+};
+
 var Formula = BuildAction.extend({
     ctor: function (fid, bid) {
         this._super(bid);
@@ -525,7 +555,7 @@ var DogBuildAction = BuildAction.extend({
     }
 });
 
-var RestBuildAction = BuildAction.extend({
+var LegacyRestBuildAction = BuildAction.extend({
     ctor: function (bid, level) {
         this._super(bid);
         this.level = level >= 0 ? level : 0;
@@ -623,7 +653,7 @@ var RestBuildAction = BuildAction.extend({
     }
 });
 
-var DrinkBuildAction = BuildAction.extend({
+var LegacyDrinkBuildAction = BuildAction.extend({
     ctor: function (bid, level) {
         this._super(bid);
         this.level = level >= 0 ? level : 0;
@@ -721,7 +751,7 @@ var DrinkBuildAction = BuildAction.extend({
     }
 });
 
-var DrinkTeaBuildAction = BuildAction.extend({
+var LegacyDrinkTeaBuildAction = BuildAction.extend({
     ctor: function (bid, level) {
         this._super(bid);
         this.level = level >= 0 ? level : 0;
@@ -819,7 +849,7 @@ var DrinkTeaBuildAction = BuildAction.extend({
     }
 });
 
-var SmokeBuildAction = BuildAction.extend({
+var LegacySmokeBuildAction = BuildAction.extend({
     ctor: function (bid, level, actionIndex) {
         this._super(bid);
         this.level = level >= 0 ? level : 0;
@@ -847,6 +877,58 @@ var SmokeBuildAction = BuildAction.extend({
                 default: 1371
             }
         });
+    }
+});
+
+var RestBuildAction = createTimedEffectBuildAction({
+    className: "RestBuildAction",
+    index: 0,
+    iconIndex: 0,
+    actionTextId: 1014,
+    logMessageId: 1096,
+    progressHintIds: {
+        1: 1016,
+        2: 1017,
+        default: 1015
+    }
+});
+
+var DrinkBuildAction = createTimedEffectBuildAction({
+    className: "DrinkBuildAction",
+    index: 1,
+    iconIndex: 1,
+    actionTextId: 1308,
+    logMessageId: 1309,
+    progressHintIds: {
+        1: 1306,
+        2: 1307,
+        default: 1305
+    }
+});
+
+var DrinkTeaBuildAction = createTimedEffectBuildAction({
+    className: "DrinkTeaBuildAction",
+    index: 2,
+    iconIndex: 0,
+    actionTextId: 1335,
+    logMessageId: 1336,
+    progressHintIds: {
+        1: 1337,
+        2: 1338,
+        default: 1339
+    }
+});
+
+var SmokeBuildAction = createTimedEffectBuildAction({
+    className: "SmokeBuildAction",
+    useCtorActionIndex: true,
+    iconIndex: 1,
+    actionTextId: 1370,
+    logMessageId: 1373,
+    progressHintIds: {
+        1: 1371,
+        2: 1371,
+        default: 1371
     }
 });
 
