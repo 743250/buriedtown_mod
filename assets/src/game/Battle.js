@@ -11,6 +11,7 @@ if (typeof cc === "undefined" || !cc) {
 
 var BattleConfig = {
     LINE_LENGTH: 6,
+    FRONT_LINE_CAPACITY: 2,
     //现实距离,m
     MAX_REAL_DISTANCE: 1000,
     REAL_DISTANCE_PER_LINE: 100,
@@ -41,6 +42,7 @@ var Battle = cc.Class.extend({
         for (var i = 0; i < 6; i++) {
             this.indicateLines.push({
                 index: i,
+                monsters: [],
                 monster: null
             });
         }
@@ -50,7 +52,9 @@ var Battle = cc.Class.extend({
             return new BattleActors.Monster(self, monId);
         });
         this.updateTargetMonster();
-        this.monsters[0].moveToLine(this.getLastLine());
+        if (this.monsters[0]) {
+            this.monsters[0].moveToLine(this.getLastLine());
+        }
         this.processLog(stringUtil.getString(1045, this.monsters.length));
 
         cc.director.getScheduler().scheduleCallbackForTarget(this, this.updateMonster, 1, cc.REPEAT_FOREVER);
@@ -103,7 +107,60 @@ var Battle = cc.Class.extend({
             });
         }
     },
+    getLineCapacity: function (line) {
+        if (!line) {
+            return 0;
+        }
+        return line.index === 0 ? BattleConfig.FRONT_LINE_CAPACITY : 1;
+    },
+    getLineMonsterList: function (line) {
+        if (!line) {
+            return [];
+        }
+        if (!Array.isArray(line.monsters)) {
+            line.monsters = line.monster ? [line.monster] : [];
+        }
+        return line.monsters;
+    },
+    isLineFull: function (line) {
+        return this.getLineMonsterList(line).length >= this.getLineCapacity(line);
+    },
+    addMonsterToLine: function (line, monster) {
+        if (!line || !monster) {
+            return false;
+        }
+
+        var lineMonsters = this.getLineMonsterList(line);
+        if (lineMonsters.indexOf(monster) !== -1) {
+            line.monster = lineMonsters[0] || null;
+            return true;
+        }
+        if (lineMonsters.length >= this.getLineCapacity(line)) {
+            return false;
+        }
+
+        lineMonsters.push(monster);
+        line.monster = lineMonsters[0] || null;
+        return true;
+    },
+    removeMonsterFromLine: function (line, monster) {
+        if (!line || !monster) {
+            return;
+        }
+
+        var lineMonsters = this.getLineMonsterList(line);
+        var index = lineMonsters.indexOf(monster);
+        if (index !== -1) {
+            lineMonsters.splice(index, 1);
+        }
+        line.monster = lineMonsters[0] || null;
+    },
     removeMonster: function (monster) {
+        if (monster && monster.line) {
+            this.removeMonsterFromLine(monster.line, monster);
+            monster.line = null;
+        }
+
         var targetIndex = -1;
         this.monsters.forEach(function (mon, index) {
             if (mon == monster) {
@@ -164,7 +221,7 @@ var Battle = cc.Class.extend({
     },
 
     updateTargetMonster: function () {
-        this.targetMon = this.monsters[0];
+        this.targetMon = this.monsters[0] || null;
     },
 
     setGameEndListener: function (listener) {

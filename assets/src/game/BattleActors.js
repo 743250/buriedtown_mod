@@ -105,7 +105,7 @@ var BattleActors = (function () {
                 targetIndex = Math.max(0, targetIndex);
                 for (var startIndex = this.line.index - 1, endIndex = targetIndex, i = startIndex; i >= endIndex; i--) {
                     var line = this.battle.indicateLines[i];
-                    if (!line.monster) {
+                    if (!this.battle.isLineFull(line)) {
                         targetLine = line;
                     } else {
                         break;
@@ -114,7 +114,7 @@ var BattleActors = (function () {
             } else {
                 targetLine = this.battle.getLastLine();
             }
-            if (targetLine && !targetLine.monster) {
+            if (targetLine && !this.battle.isLineFull(targetLine)) {
                 this.moveToLine(targetLine);
             }
 
@@ -127,13 +127,21 @@ var BattleActors = (function () {
                 return;
             }
 
-            if (this.line) {
-                this.line.monster = null;
+            var oldLine = this.line;
+            if (oldLine) {
+                this.battle.removeMonsterFromLine(oldLine, this);
             }
-            line.monster = this;
+
+            if (!this.battle.addMonsterToLine(line, this)) {
+                if (oldLine) {
+                    this.battle.addMonsterToLine(oldLine, this);
+                }
+                return;
+            }
+
             this.line = line;
             cc.log("monster " + this.id + " move to " + line.index);
-            if (this.id == this.battle.targetMon.id) {
+            if (this.battle.targetMon && this.id == this.battle.targetMon.id) {
                 this.battle.processLog(stringUtil.getString(1046, stringUtil.getString("monsterType_" + this.attr.prefixType), line.index));
             }
         },
@@ -198,9 +206,6 @@ var BattleActors = (function () {
                 }
                 this.battle.processLog(logStr);
                 this.battle.checkGameEnd();
-            }
-            if (this.line) {
-                this.line.monster = null;
             }
             audioManager.playEffect(audioManager.sound.MONSTER_DIE);
         },
