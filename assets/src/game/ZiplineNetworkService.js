@@ -252,6 +252,9 @@ var ZiplineNetworkService = cc.Class.extend({
 
         return false;
     },
+    hasHomeLink: function (entityRef, map) {
+        return this.hasLink(HOME_SITE, entityRef, map);
+    },
     createLink: function (startEntityRef, endEntityRef, map) {
         this.sanitize(map);
 
@@ -288,6 +291,9 @@ var ZiplineNetworkService = cc.Class.extend({
             link: this._cloneLink(link)
         };
     },
+    createHomeLink: function (entityRef, map) {
+        return this.createLink(HOME_SITE, entityRef, map);
+    },
     removeLinkBetween: function (startEntityRef, endEntityRef, map) {
         if (map) {
             this.sanitize(map);
@@ -321,6 +327,9 @@ var ZiplineNetworkService = cc.Class.extend({
         }
 
         return {ok: false, reason: "not-found"};
+    },
+    removeHomeLink: function (entityRef, map) {
+        return this.removeLinkBetween(HOME_SITE, entityRef, map);
     },
     removeLink: function (linkId) {
         var normalizedLinkId = this._normalizeLinkId(linkId);

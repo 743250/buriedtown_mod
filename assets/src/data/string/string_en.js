@@ -415,8 +415,6 @@ var string = {
     "zipline_site_invalid_target": "This target cannot host a zipline.",
     "zipline_site_refund_received": "50% of the zipline materials were returned.",
     "zipline_site_refund_to_site_storage": "Your bag is full. Returned materials were placed into this site's storage.",
-    "zipline_map_build_hint": "Zipline build mode: click a site or NPC to link it directly to Home.",
-    "zipline_map_remove_hint": "Zipline remove mode: click a target linked to Home to dismantle it.",
     "1320": "New characters will be available soon, stay tuned.",
     "3000": ["Autumn", "Winter", "Spring", "Summer"],
     "3006": ["Materials ", "Food ", "Medicines ", "Luxury ", "Enhancement ", "Equipment ", "Miscellaneous "],

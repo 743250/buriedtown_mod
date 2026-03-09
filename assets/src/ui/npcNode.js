@@ -54,9 +54,6 @@ var NpcNode = BottomFrameNode.extend({
             getEntity: function () {
                 return this.npc;
             }.bind(this),
-            getEntityRef: function () {
-                return this.npc;
-            }.bind(this),
             onRefreshHeader: this.refreshSiteHeaderStats.bind(this)
         });
         this.ziplinePanelController.refresh();

@@ -22,9 +22,6 @@ var ZiplineEndpointPanelController = cc.Class.extend({
     getCurrentEntityRef: function () {
         return this.getEntityRef ? this.getEntityRef() : this.getCurrentEntity();
     },
-    getActionEntityRef: function () {
-        return this.getCurrentEntity() || this.getCurrentEntityRef();
-    },
     refresh: function () {
         if (!this.hostNode) {
             return;
@@ -36,7 +33,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var entity = this.getCurrentEntity();
-        var entityRef = this.getActionEntityRef();
+        var entityRef = this.getCurrentEntityRef();
         if (!entity || !entityRef || !this.shouldShowPanel()) {
             return;
         }
@@ -175,7 +172,8 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         var entity = this.getCurrentEntity();
         return !!(entity
             && player.ziplineNetwork
-            && player.ziplineNetwork.hasLink(HOME_SITE, this.getActionEntityRef(), player.map));
+            && typeof player.ziplineNetwork.hasHomeLink === "function"
+            && player.ziplineNetwork.hasHomeLink(this.getCurrentEntityRef(), player.map));
     },
     getBuildCost: function () {
         return RoleRuntimeService.getZiplineBuildCost
@@ -321,14 +319,14 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var entity = this.getCurrentEntity();
-        var entityRef = this.getActionEntityRef();
+        var entityRef = this.getCurrentEntityRef();
         var buildCost = this.getBuildCost();
         if (buildCost.length > 0 && !player.validateItemsInBag(buildCost)) {
             player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
             return;
         }
 
-        var result = player.ziplineNetwork.createLink(HOME_SITE, entityRef, player.map);
+        var result = player.ziplineNetwork.createHomeLink(entityRef, player.map);
         if (!result.ok) {
             if (result.reason === "duplicate") {
                 player.log.addMsg(1355);
@@ -367,16 +365,16 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var entity = this.getCurrentEntity();
-        var entityRef = this.getActionEntityRef();
-        var targetEntity = player.ziplineNetwork.resolveEntity(targetEntityKey, player.map);
-        var result = player.ziplineNetwork.removeLinkBetween(entityRef, targetEntityKey, player.map);
+        var entityRef = this.getCurrentEntityRef();
+        var homeSite = player.map.getSite(HOME_SITE);
+        var result = player.ziplineNetwork.removeHomeLink(entityRef, player.map);
         if (!result.ok) {
             player.log.addMsg(result.reason === "not-found" ? 1364 : 1357);
             return;
         }
 
         var refundTarget = this.grantRefundItems(this.getRefundCost());
-        player.log.addMsg(1360, (entity ? entity.getName() : entityRef) + " <-> " + (targetEntity ? targetEntity.getName() : targetEntityKey));
+        player.log.addMsg(1360, (homeSite ? homeSite.getName() : "家") + " <-> " + (entity ? entity.getName() : entityRef));
         if (refundTarget === "bag") {
             player.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
         } else if (refundTarget === "storage") {
