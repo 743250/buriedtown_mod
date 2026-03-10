@@ -35,6 +35,8 @@ var BuildAction = cc.Class.extend({
     },
     clickAction1: function () {
     },
+    clickAction2: function () {
+    },
     _sendUpdageSignal: function () {
         utils.emitter.emit(BuildNodeUpdateEventName);
     },
@@ -52,6 +54,9 @@ var BuildAction = cc.Class.extend({
             var viewInfo = this._getUpdateViewInfo();
             if (this.build.anyBtnActive() && !this.build.canUseAction(this.getActionKey())) {
                 viewInfo.action1Disabled = true;
+                if (viewInfo.action2) {
+                    viewInfo.action2Disabled = true;
+                }
             }
             this.view.updateView(viewInfo);
         }
@@ -191,6 +196,7 @@ var Formula = BuildAction.extend({
         this.needBuild = null;
         this.step = 0;
         this.maxStep = this.config["placedTime"] ? 2 : 1;
+        this.batchCount = 5;
     },
     save: function () {
         return {step: this.step, pastTime: this.pastTime};
@@ -206,6 +212,130 @@ var Formula = BuildAction.extend({
     },
     clickIcon: function () {
         uiUtil.showItemDialog(this.config.produce[0].itemId, true);
+    },
+    getBatchCount: function () {
+        return Math.max(2, parseInt(this.batchCount, 10) || 5);
+    },
+    supportsBatchCraft: function () {
+        return !this.config["placedTime"];
+    },
+    getMaxBatchCraftCount: function () {
+        if (!this.supportsBatchCraft()) {
+            return 0;
+        }
+        var cost = this.config.cost || [];
+        if (cost.length === 0) {
+            return 99;
+        }
+        var maxCount = Number.MAX_SAFE_INTEGER;
+        cost.forEach(function (itemInfo) {
+            var needNum = parseInt(itemInfo.num, 10) || 0;
+            if (needNum <= 0) {
+                return;
+            }
+            var haveNum = player.getItemNumInPlayer(itemInfo.itemId);
+            maxCount = Math.min(maxCount, Math.floor(haveNum / needNum));
+        });
+        if (!isFinite(maxCount) || maxCount < 0) {
+            return 0;
+        }
+        return Math.min(99, maxCount);
+    },
+    _scaleItemList: function (itemList, count) {
+        count = Math.max(1, parseInt(count, 10) || 1);
+        if (!Array.isArray(itemList)) {
+            return [];
+        }
+        return itemList.map(function (itemInfo) {
+            var scaledItem = utils.clone(itemInfo);
+            scaledItem.num = (parseInt(scaledItem.num, 10) || 0) * count;
+            return scaledItem;
+        });
+    },
+    _mergeItemList: function (itemList) {
+        var mergedMap = {};
+        var mergedList = [];
+        if (!Array.isArray(itemList)) {
+            return mergedList;
+        }
+        itemList.forEach(function (itemInfo) {
+            if (!itemInfo) {
+                return;
+            }
+            var itemId = parseInt(itemInfo.itemId, 10);
+            var itemNum = parseInt(itemInfo.num, 10) || 0;
+            if (!mergedMap[itemId]) {
+                mergedMap[itemId] = {
+                    itemId: itemId,
+                    num: 0
+                };
+                mergedList.push(mergedMap[itemId]);
+            }
+            mergedMap[itemId].num += itemNum;
+        });
+        return mergedList;
+    },
+    _buildMakeProduce: function (count) {
+        var produceList = [];
+        count = Math.max(1, parseInt(count, 10) || 1);
+        for (var i = 0; i < count; i++) {
+            var rolledProduce = (typeof WeaponCraftService !== "undefined"
+                && WeaponCraftService
+                && WeaponCraftService.rollDurableProduce)
+                ? WeaponCraftService.rollDurableProduce(this.config.produce)
+                : utils.clone(this.config.produce);
+            produceList = produceList.concat(rolledProduce);
+        }
+        return this._mergeItemList(produceList);
+    },
+    _runMakeAction: function (makeCount) {
+        makeCount = Math.max(1, parseInt(makeCount, 10) || 1);
+        if (makeCount > 1 && !this.supportsBatchCraft()) {
+            return false;
+        }
+        if (this.build && !this.build.canUseAction(this.getActionKey())) {
+            return false;
+        }
+
+        var scaledCost = this._scaleItemList(this.config.cost, makeCount);
+        if (!this._isCostEnough(scaledCost)) {
+            return false;
+        }
+
+        this._beginActioning();
+
+        var time = this.config["makeTime"] * 60 * makeCount;
+        var self = this;
+        var itemInfo = this.config.produce[0];
+        this.addTimer(time, time, function () {
+            self.step++;
+            if (self.step == self.maxStep) {
+                self.step = 0;
+            }
+            if (self.step == 1) {
+                player.costItems(scaledCost);
+                self.place();
+                self._finishActioning({resetBuildBtn: false});
+            } else {
+                player.costItems(scaledCost);
+
+                var produce = self._buildMakeProduce(makeCount);
+                player.gainItems(produce);
+                produce.forEach(function (item) {
+                    Achievement.checkMake(item.itemId, item.num);
+                });
+                var producedItemInfo = produce[0] || itemInfo;
+                var producedItemName = stringUtil.getString(producedItemInfo.itemId).title;
+                player.log.addMsg(1090, producedItemInfo.num, producedItemName, player.storage.getNumByItemId(producedItemInfo.itemId));
+
+                if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
+                    userGuide.step();
+                    player.room.createBuild(14, 0);
+                }
+                self._finishActioning();
+            }
+        });
+        return true;
     },
     place: function () {
         var self = this;
@@ -302,6 +432,26 @@ var Formula = BuildAction.extend({
         }
         this._sendUpdageSignal();
     },
+    clickAction2: function () {
+        if (!uiUtil.checkVigour())
+            return;
+        if (this.step !== 0 || !this.supportsBatchCraft()) {
+            return;
+        }
+
+        var maxCount = this.getMaxBatchCraftCount();
+        if (maxCount <= 1) {
+            return;
+        }
+
+        var self = this;
+        uiUtil.showCraftCountSliderDialog(this.config.produce[0].itemId, maxCount, this.config["makeTime"], function (count) {
+            count = Math.max(1, parseInt(count, 10) || 1);
+            if (self._runMakeAction(count)) {
+                self._sendUpdageSignal();
+            }
+        });
+    },
     getPlacedTxt: function (time) {
         var itemName = stringUtil.getString(this.config.produce[0].itemId).title;
         //return stringUtil.getString(1008, itemName + Math.ceil(time / 60 / 60));
@@ -313,7 +463,7 @@ var Formula = BuildAction.extend({
         var action1Txt = (this.step == 1 || this.step == 2) ? stringUtil.getString(1003) : stringUtil.getString(1002, this.config["makeTime"]);
         var itemName = stringUtil.getString(this.config.produce[0].itemId).title;
 
-        var hint, hintColor, items, action1Disabled;
+        var hint, hintColor, items, action1Disabled, action2, action2Disabled;
         if (this._isNeedBuildLocked()) {
             hint = this._getNeedBuildHint();
             hintColor = cc.color.RED;
@@ -337,6 +487,10 @@ var Formula = BuildAction.extend({
                     action1Disabled = true;
                 }
                 items = this._buildCostItems(cost);
+                if (this.supportsBatchCraft() && this.getMaxBatchCraftCount() > 1) {
+                    action2 = stringUtil.getString(1376) || "批量";
+                    action2Disabled = false;
+                }
             }
         }
 
@@ -348,6 +502,8 @@ var Formula = BuildAction.extend({
             items: items,
             action1: action1Txt,
             action1Disabled: action1Disabled,
+            action2: action2,
+            action2Disabled: action2Disabled,
             percentage: 0
         };
         return res;

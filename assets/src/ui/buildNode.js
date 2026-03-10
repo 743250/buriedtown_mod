@@ -207,6 +207,14 @@ var BuildNode = BottomFrameNode.extend({
                         //cc.log("utils emitted");
                     }
                 }
+                },
+                {
+                    target: this, cb: function (sender) {
+                    var action = this.data[sender.idx];
+                    if (action && typeof action.clickAction2 === "function") {
+                        action.clickAction2();
+                    }
+                }
                 }
             );
             itemView.setAnchorPoint(0.5, 0.5);

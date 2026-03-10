@@ -382,6 +382,7 @@ var string = {
     "1373": "You sit quietly for a while, smoking %s (stock: %s) to steady yourself.",
     "1374": "You force yourself to chew some %s (stock: %s).",
     "1375": "You need tobacco, a hand-rolled cigarette, or a fine cigarette.",
+    "1376": "Batch",
     "1350": "Travel quickly by zipline!",
     "1351": "Zipline build mode: select a starting target on the map.",
     "1352": "Zipline build cancelled.",

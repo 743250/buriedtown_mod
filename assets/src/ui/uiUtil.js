@@ -760,6 +760,22 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
         action2.setVisible(false);
         bgNode.addChild(action2);
     }
+    var refreshActionButtonLayout = function () {
+        var visibleButtons = [];
+        var rightEdge = bgNode.getContentSize().width - 10;
+        var gap = 12;
+        if (action2 && action2.isVisible()) {
+            visibleButtons.push(action2);
+        }
+        if (action1 && action1.isVisible()) {
+            visibleButtons.push(action1);
+        }
+        for (var buttonIndex = visibleButtons.length - 1; buttonIndex >= 0; buttonIndex--) {
+            var button = visibleButtons[buttonIndex];
+            button.setPosition(rightEdge - button.getContentSize().width / 2, bgNode.getContentSize().height / 2);
+            rightEdge -= button.getContentSize().width + gap;
+        }
+    };
     bgNode.updateItemRichText = function (items) {
         var richText = bgNode.getChildByName("richText");
         if (richText) {
@@ -830,11 +846,15 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
             action1.setVisible(false);
         }
 
-        if (newData.action2) {
+        if (action2 && newData.action2) {
+            action2.setVisible(true);
             action2.setTitleForState(newData.action2, cc.CONTROL_STATE_NORMAL);
 
             action2.setEnabled(!newData.action2Disabled);
+        } else if (action2) {
+            action2.setVisible(false);
         }
+        refreshActionButtonLayout();
 
         if (newData.percentage != undefined) {
             pb.setPercentage(newData.percentage);
@@ -1065,6 +1085,55 @@ uiUtil.showItemSliderDialog = function (itemId, storage, cb) {
         }
         dialog.titleNode.getChildByName("txt_1").setString(stringUtil.getString(1028, value * itemConfig[itemId].weight));
         dialog.titleNode.getChildByName("txt_2").setString(stringUtil.getString(1029, valueStr + "/" + totalNum));
+    }, cc.CONTROL_EVENT_VALUECHANGED);
+    slider.setName("slider");
+
+    dialog.show();
+};
+
+uiUtil.showCraftCountSliderDialog = function (itemId, maxCount, makeTime, cb) {
+    maxCount = Math.max(1, parseInt(maxCount, 10) || 1);
+    if (maxCount <= 1) {
+        cb(1);
+        return;
+    }
+
+    var config = utils.clone(stringUtil.getString("item_1"));
+    var strConfig = stringUtil.getString(itemId);
+    var metaConfig = utils.clone(stringUtil.getString("item_1"));
+    config.action = metaConfig.action;
+
+    config.title.title = strConfig.title;
+    config.title.icon = uiUtil.getItemIconFrameName(itemId, true);
+    config.title.iconFallback = uiUtil.getDefaultSpriteName("item", true);
+    config.content.des = strConfig.des;
+    config.content.dig_des = uiUtil.getItemDetailFrameName(itemId, true);
+    config.content.dig_des_fallback = uiUtil.getDefaultSpriteName("itemDetail", true);
+    config.title.txt_1 = stringUtil.getString(1029, "1/" + maxCount);
+    config.title.txt_2 = stringUtil.getString(1002, makeTime);
+    config.action.btn_1.txt = stringUtil.getString(1030);
+
+    var dialog = new DialogBig(config);
+    config.action.btn_1.target = dialog;
+    config.action.btn_1.cb = function () {
+        cb(this.value ? this.value : 1);
+    };
+    var content = dialog.contentNode;
+
+    var slider = new cc.ControlSlider("#slider_bg.png", "#slider_content.png", "#slider_cap.png");
+    slider.setMinimumValue(1);
+    slider.setMaximumValue(maxCount);
+    slider.setPosition(content.width / 2, 40);
+    slider.setAnchorPoint(0.5, 0.5);
+    content.addChild(slider);
+
+    dialog.value = slider.getValue().toFixed(0);
+
+    slider.addTargetWithActionForControlEvents(this, function (sender) {
+        var value = sender.getValue().toFixed(0);
+        dialog.value = value;
+        dialog.titleNode.getChildByName("txt_1").setString(stringUtil.getString(1029, value + "/" + maxCount));
+        dialog.titleNode.getChildByName("txt_2").setString(stringUtil.getString(1002, makeTime * value));
     }, cc.CONTROL_EVENT_VALUECHANGED);
     slider.setName("slider");
 
