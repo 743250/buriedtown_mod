@@ -620,6 +620,9 @@ var formulaConfig = {
         "produce": [{
             "itemId": 1105051,
             "num": 8
+        }, {
+            "itemId": 1105061,
+            "num": 1
         }],
         "cost": [{
             "itemId": 1101061,

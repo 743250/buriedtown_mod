@@ -228,6 +228,14 @@ var PurchaseUiHelper = {
 
     getTitleIconConfig: function (purchaseId, purchaseConfig) {
         var meta = this.getDisplayIconMeta(purchaseId, purchaseConfig);
+        if (meta.type === "role") {
+            return {
+                // Shop cards keep the large dig portrait, while the text-heavy pay dialog
+                // uses the compact npc head icon in its title bar.
+                iconName: uiUtil.getNpcMapFrameName(meta.roleType, true),
+                fallbackName: "#npc_1.png"
+            };
+        }
         if (meta.type === "support" && purchaseConfig && purchaseConfig.effect && purchaseConfig.effect.length > 0) {
             return {
                 iconName: uiUtil.getItemIconFrameName(purchaseConfig.effect[0].itemId, true),
