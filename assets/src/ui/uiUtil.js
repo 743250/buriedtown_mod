@@ -1573,9 +1573,10 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     icon.x = bg.width / 2;
     icon.y = 118;
     if (isRolePortrait) {
-        // Role portraits have very different source sizes; fit them to a safe box to avoid overlap/clipping.
-        icon.setScale(fitSpriteScaleToBox(icon, bg.width * 0.68, 128, 0.5, 0.62));
-        icon.y = 112;
+        // Role portraits are tall and visually narrower than item icons. Give them a taller box so
+        // they don't read as undersized relative to shop items while still staying clear of labels.
+        icon.setScale(fitSpriteScaleToBox(icon, bg.width * 0.76, 156, 0.5, 1));
+        icon.y = 108;
     } else if (isSupportPackIcon) {
         // Support-pack icons are not visually uniform; normalize their perceived size.
         var supportScale = fitSpriteScaleToBox(icon, bg.width * 0.72, 132, 1, 1.32);
