@@ -82,7 +82,7 @@ var PurchaseUiHelper = {
 
     getPurchaseDisplayName: function (purchaseId, defaultName) {
         if (this.isOperatorPromoPurchase(purchaseId)) {
-            return "\u95f7\u5b50\u7279\u60e0";
+            return "靴子特惠";
         }
         return defaultName || "";
     },
@@ -109,10 +109,15 @@ var PurchaseUiHelper = {
                 purchaseConfig: null,
                 shopState: null,
                 isExchangePurchase: false,
+                isTalentPurchase: false,
+                isUnlocked: false,
+                currentTalentLevel: 0,
                 priceText: "",
                 canBuy: false,
                 canCancel: false,
-                shouldHideBuyButton: false
+                shouldHideBuyButton: false,
+                badgeText: "",
+                hideBadge: false
             };
         }
 
@@ -137,8 +142,26 @@ var PurchaseUiHelper = {
             && typeof PurchaseService.isExchangePurchase === "function"
             ? PurchaseService.isExchangePurchase(purchaseId)
             : false;
+        var isTalentPurchase = typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isTalentPurchase === "function"
+            ? PurchaseService.isTalentPurchase(purchaseId)
+            : false;
+        var isUnlocked = typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isUnlocked === "function"
+            ? PurchaseService.isUnlocked(purchaseId)
+            : false;
+        var currentTalentLevel = isTalentPurchase
+            && typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.getTalentLevel === "function"
+            ? Medal.getTalentLevel(purchaseId)
+            : 0;
 
         var priceText = "";
+        var badgeText = "";
+        var hideBadge = false;
         if (resolvedShopState
             && resolvedShopState.priceText !== undefined
             && resolvedShopState.priceText !== null
@@ -162,6 +185,20 @@ var PurchaseUiHelper = {
 
         var canBuy = resolvedShopState ? !!resolvedShopState.canBuy : true;
         var shouldHideBuyButton = resolvedShopState ? !!resolvedShopState.shouldHideBuyButton : false;
+        var canCancel = resolvedShopState ? !!resolvedShopState.canCancel : false;
+        if (resolvedShopState) {
+            badgeText = resolvedShopState.badgeText || "";
+            hideBadge = !!resolvedShopState.hideBadge;
+            if (resolvedShopState.isTalentPurchase !== undefined) {
+                isTalentPurchase = !!resolvedShopState.isTalentPurchase;
+            }
+            if (resolvedShopState.isUnlocked !== undefined) {
+                isUnlocked = !!resolvedShopState.isUnlocked;
+            }
+            if (resolvedShopState.currentTalentLevel !== undefined && resolvedShopState.currentTalentLevel !== null) {
+                currentTalentLevel = resolvedShopState.currentTalentLevel;
+            }
+        }
         if (!resolvedShopState) {
             if (isExchangePurchase) {
                 var nextAchievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
@@ -170,8 +207,24 @@ var PurchaseUiHelper = {
                 canBuy = nextAchievementPrice !== null
                     && nextAchievementPrice !== undefined
                     && currentAchievementPoints >= nextAchievementPrice;
+                canCancel = purchaseId < 200 && purchaseId !== 0 && !!isUnlocked;
+                if (isTalentPurchase) {
+                    if (shouldHideBuyButton) {
+                        badgeText = "\u5df2\u6ee1\u7ea7";
+                        hideBadge = false;
+                    } else {
+                        badgeText = "";
+                        hideBadge = true;
+                    }
+                } else if (isUnlocked) {
+                    badgeText = "\u5df2\u8d2d";
+                    hideBadge = false;
+                }
             } else {
                 canBuy = !PurchaseService.isUnlocked(purchaseId);
+                if (isUnlocked) {
+                    badgeText = "\u5df2\u8d2d";
+                }
             }
         }
 
@@ -180,10 +233,87 @@ var PurchaseUiHelper = {
             purchaseConfig: resolvedPurchaseConfig,
             shopState: resolvedShopState || null,
             isExchangePurchase: isExchangePurchase,
+            isTalentPurchase: isTalentPurchase,
+            isUnlocked: isUnlocked,
+            currentTalentLevel: currentTalentLevel,
             priceText: priceText,
             canBuy: canBuy,
-            canCancel: !!(resolvedShopState && resolvedShopState.canCancel),
-            shouldHideBuyButton: shouldHideBuyButton
+            canCancel: canCancel,
+            shouldHideBuyButton: shouldHideBuyButton,
+            badgeText: badgeText,
+            hideBadge: hideBadge
+        };
+    },
+
+    getPurchaseDisplayContext: function (purchaseId, purchaseConfig, shopState) {
+        var purchaseUiState = this.getPurchaseUiSnapshot(purchaseId, purchaseConfig, shopState);
+        if (purchaseUiState.purchaseId === null) {
+            return {
+                purchaseId: null,
+                strConfig: {
+                    name: "",
+                    des: "",
+                    effect: ""
+                },
+                displayBaseName: "",
+                purchaseConfig: null,
+                shopState: null,
+                purchaseUiState: purchaseUiState,
+                talentDisplayInfo: null,
+                purchaseIconMeta: null,
+                titleIconConfig: null,
+                titleText: "",
+                cardTitleText: "",
+                infoDialogContentText: "",
+                detailDescriptionText: "",
+                detailEffectText: "",
+                priceText: "",
+                isRolePortrait: false,
+                isSupportPackPurchase: false,
+                isExchangePurchase: false
+            };
+        }
+
+        purchaseId = purchaseUiState.purchaseId;
+        var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
+        strConfig.name = this.getPurchaseDisplayName(purchaseId, strConfig.name);
+
+        var resolvedPurchaseConfig = purchaseUiState.purchaseConfig || null;
+        var resolvedShopState = purchaseUiState.shopState || null;
+        var talentDisplayInfo = uiUtil.getTalentDisplayInfo
+            ? uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name)
+            : null;
+        var purchaseIconMeta = this.getDisplayIconMeta(purchaseId, resolvedPurchaseConfig);
+        var titleIconConfig = this.getTitleIconConfig(purchaseId, resolvedPurchaseConfig);
+        var detailDescriptionText = talentDisplayInfo
+            ? talentDisplayInfo.desText
+            : (strConfig.des || "").replace(/\\n/g, "\n");
+        var detailEffectText = talentDisplayInfo
+            ? talentDisplayInfo.effectText
+            : (strConfig.effect || "").replace(/\\n/g, "\n");
+        var infoDialogContentText = talentDisplayInfo
+            ? talentDisplayInfo.effectText
+            : ((strConfig.effect || strConfig.des || "").replace(/\\n/g, "\n"));
+
+        return {
+            purchaseId: purchaseId,
+            strConfig: strConfig,
+            displayBaseName: strConfig.name,
+            purchaseConfig: resolvedPurchaseConfig,
+            shopState: resolvedShopState,
+            purchaseUiState: purchaseUiState,
+            talentDisplayInfo: talentDisplayInfo,
+            purchaseIconMeta: purchaseIconMeta,
+            titleIconConfig: titleIconConfig,
+            titleText: talentDisplayInfo ? talentDisplayInfo.displayName : strConfig.name,
+            cardTitleText: talentDisplayInfo ? (talentDisplayInfo.cardName || talentDisplayInfo.displayName) : strConfig.name,
+            infoDialogContentText: infoDialogContentText,
+            detailDescriptionText: detailDescriptionText,
+            detailEffectText: detailEffectText,
+            priceText: purchaseUiState.priceText || "",
+            isRolePortrait: !!(purchaseIconMeta && purchaseIconMeta.type === "role"),
+            isSupportPackPurchase: !!(purchaseIconMeta && purchaseIconMeta.type === "support"),
+            isExchangePurchase: !!purchaseUiState.isExchangePurchase
         };
     },
 
@@ -316,10 +446,10 @@ var PurchaseUiHelper = {
     },
 
     showPayDialog: function (purchaseId, cb, ownerLayer) {
-        var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-        strConfig.name = this.getPurchaseDisplayName(purchaseId, strConfig.name);
-        var purchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
-        var talentDisplayInfo = uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name);
+        var purchaseDisplayContext = this.getPurchaseDisplayContext(purchaseId);
+        var strConfig = purchaseDisplayContext.strConfig;
+        var purchaseConfig = purchaseDisplayContext.purchaseConfig;
+        var talentDisplayInfo = purchaseDisplayContext.talentDisplayInfo;
 
         var d = new PayDialog(purchaseId, cb, ownerLayer);
 
@@ -346,15 +476,8 @@ var PurchaseUiHelper = {
         };
 
         if (purchaseId < 200) {
-            var desstr;
-            var effectstr;
-            if (talentDisplayInfo) {
-                desstr = talentDisplayInfo.desText;
-                effectstr = talentDisplayInfo.effectText;
-            } else {
-                desstr = strConfig.des.replace(/\\n/g, "\n");
-                effectstr = strConfig.effect.replace(/\\n/g, "\n");
-            }
+            var desstr = purchaseDisplayContext.detailDescriptionText;
+            var effectstr = purchaseDisplayContext.detailEffectText;
 
             var des = new cc.LabelTTF(desstr, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(viewWidth, 0));
             des.setColor(UITheme.colors.TEXT_TITLE);

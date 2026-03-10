@@ -636,24 +636,28 @@ var ButtonAtChooseScene = Button.extend({
     },
 
     showInfoDialog: function (purchaseId) {
-        var strConfig = null;
-        if (typeof uiUtil !== "undefined" && uiUtil && typeof uiUtil.getPurchaseStringConfig === "function") {
-            strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-        } else {
-            strConfig = stringUtil.getString("p_" + purchaseId) || {};
-        }
-        var talentDisplayInfo = null;
-        if (typeof uiUtil !== "undefined" && uiUtil && typeof uiUtil.getTalentDisplayInfo === "function") {
-            talentDisplayInfo = uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name);
-        }
+        var purchaseDisplayContext = (typeof PurchaseUiHelper !== "undefined"
+            && PurchaseUiHelper
+            && typeof PurchaseUiHelper.getPurchaseDisplayContext === "function")
+            ? PurchaseUiHelper.getPurchaseDisplayContext(purchaseId)
+            : null;
+        var strConfig = purchaseDisplayContext
+            ? purchaseDisplayContext.strConfig
+            : ((typeof uiUtil !== "undefined" && uiUtil && typeof uiUtil.getPurchaseStringConfig === "function")
+                ? uiUtil.getPurchaseStringConfig(purchaseId)
+                : (stringUtil.getString("p_" + purchaseId) || {}));
 
         var config = {
             title: {},
             content: {},
             action: {btn_1: {}}
         };
-        config.title.title = talentDisplayInfo ? talentDisplayInfo.displayName : (strConfig.name || ("ID " + purchaseId));
-        config.content.des = talentDisplayInfo ? talentDisplayInfo.effectText : (strConfig.effect || strConfig.des || "");
+        config.title.title = purchaseDisplayContext
+            ? purchaseDisplayContext.titleText
+            : (strConfig.name || ("ID " + purchaseId));
+        config.content.des = purchaseDisplayContext
+            ? purchaseDisplayContext.infoDialogContentText
+            : (strConfig.effect || strConfig.des || "");
         config.action.btn_1.txt = stringUtil.getString(1030);
         var d = new DialogSmall(config);
         d.show();

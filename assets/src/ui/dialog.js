@@ -1125,30 +1125,21 @@ var PayDialog = DialogBig.extend({
             action: {btn_1: {}, btn_2: {}}
         };
         this.purchaseId = purchaseId;
-        var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-        if ((PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
+        var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
+        var strConfig = purchaseDisplayContext.strConfig;
+        var purchaseConfig = purchaseDisplayContext.purchaseConfig;
+        var shopState = purchaseDisplayContext.shopState;
+        var purchaseUiState = purchaseDisplayContext.purchaseUiState;
+        var titleIconConfig = purchaseDisplayContext.titleIconConfig;
+        if (false && (PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
                 || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
                 || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
                 || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI
             ) && purchaseId == 106) {
             strConfig.name = '靴子特惠';
         }
-        strConfig.name = PurchaseUiHelper.getPurchaseDisplayName(purchaseId, strConfig.name);
-        var purchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
-        var isExchangePurchase = PurchaseService.isExchangePurchase(purchaseId);
-        var shopState = PurchaseService.getShopUiState(purchaseId);
-        var purchaseUiState = PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId, purchaseConfig, shopState);
-        var talentDisplayInfo = uiUtil.getTalentDisplayInfo ? uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name) : null;
-        var purchaseIconMeta = uiUtil.getPurchaseDisplayIconMeta
-            ? uiUtil.getPurchaseDisplayIconMeta(purchaseId, purchaseConfig)
-            : null;
-        var isRolePortrait = !!(purchaseIconMeta && purchaseIconMeta.type === "role");
-        var isSupportPackPurchase = !!(purchaseIconMeta && purchaseIconMeta.type === "support");
-
-        config.title.title = talentDisplayInfo ? talentDisplayInfo.displayName : strConfig.name;
-        var titleIconConfig = uiUtil.getPurchaseTitleIconConfig
-            ? uiUtil.getPurchaseTitleIconConfig(purchaseId, purchaseConfig)
-            : null;
+        strConfig.name = purchaseDisplayContext.displayBaseName;
+        config.title.title = purchaseDisplayContext.titleText;
         if (titleIconConfig) {
             config.title.icon = titleIconConfig.iconName;
             config.title.iconFallback = titleIconConfig.fallbackName;
@@ -1222,7 +1213,7 @@ var PayDialog = DialogBig.extend({
 
         var titleIcon = this.titleNode.getChildByName("icon");
         if (titleIcon) {
-            if (isRolePortrait) {
+            if (purchaseDisplayContext.isRolePortrait) {
                 // Character portraits have inconsistent source sizes. Keep them inside title bar.
                 var iconSize = titleIcon.getContentSize ? titleIcon.getContentSize() : null;
                 var iconWidth = iconSize ? iconSize.width : titleIcon.width;
@@ -1235,7 +1226,7 @@ var PayDialog = DialogBig.extend({
                     );
                 }
                 titleIcon.scale = Math.max(0.4, Math.min(0.72, fitScale));
-            } else if (isSupportPackPurchase) {
+            } else if (purchaseDisplayContext.isSupportPackPurchase) {
                 titleIcon.scale = 0.6;
             } else {
                 titleIcon.scale = 0.45;
@@ -1250,7 +1241,7 @@ var PayDialog = DialogBig.extend({
         if (shopState && shopState.priceText !== undefined && shopState.priceText !== null && shopState.priceText !== "") {
             priceStr = shopState.priceText;
         } else {
-            if (isExchangePurchase) {
+            if (purchaseDisplayContext.isExchangePurchase) {
                 var achievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
                 if (achievementPrice !== null && achievementPrice !== undefined) {
                     priceStr = achievementPrice + " 成就点";
@@ -1266,7 +1257,7 @@ var PayDialog = DialogBig.extend({
                 }
             }
         }
-        priceStr = purchaseUiState.priceText;
+        priceStr = purchaseDisplayContext.priceText;
         var price = new cc.LabelTTF(priceStr, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
         price.anchorX = 1;
         price.setPosition(this.rightEdge, 20);

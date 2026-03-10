@@ -1630,23 +1630,33 @@ uiUtil.getTalentDisplayInfo = function (purchaseId, baseName) {
 
 uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     var node = new cc.Node();
+    var purchaseDisplayContext = (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.getPurchaseDisplayContext === "function")
+        ? PurchaseUiHelper.getPurchaseDisplayContext(purchaseId)
+        : null;
 
-    var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-    if ((PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
+    var strConfig = purchaseDisplayContext
+        ? purchaseDisplayContext.strConfig
+        : uiUtil.getPurchaseStringConfig(purchaseId);
+    if (false && (PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
             || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
             || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
             || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI
         ) && purchaseId == 106) {
         strConfig.name = '靴子特惠';
     }
-    if (typeof PurchaseUiHelper !== "undefined" && PurchaseUiHelper) {
-        strConfig.name = PurchaseUiHelper.getPurchaseDisplayName(purchaseId, strConfig.name);
-    }
-    var displayBaseName = strConfig.name;
+    var displayBaseName = purchaseDisplayContext
+        ? purchaseDisplayContext.displayBaseName
+        : ((typeof PurchaseUiHelper !== "undefined" && PurchaseUiHelper)
+            ? PurchaseUiHelper.getPurchaseDisplayName(purchaseId, strConfig.name)
+            : strConfig.name);
 
-    var purchaseConfig = typeof PurchaseService !== "undefined" && PurchaseService
-        ? PurchaseService.getPurchaseConfig(purchaseId)
-        : null;
+    var purchaseConfig = purchaseDisplayContext
+        ? purchaseDisplayContext.purchaseConfig
+        : (typeof PurchaseService !== "undefined" && PurchaseService
+            ? PurchaseService.getPurchaseConfig(purchaseId)
+            : null);
 
     var bgName = "";
     if (purchaseId <= 120) {
@@ -1663,7 +1673,9 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     bg.y = node.height / 2;
     node.addChild(bg);
 
-    var talentDisplayInfo = uiUtil.getTalentDisplayInfo(purchaseId, displayBaseName);
+    var talentDisplayInfo = purchaseDisplayContext
+        ? purchaseDisplayContext.talentDisplayInfo
+        : uiUtil.getTalentDisplayInfo(purchaseId, displayBaseName);
     var itemDisplayName = talentDisplayInfo ? (talentDisplayInfo.cardName || talentDisplayInfo.displayName) : displayBaseName;
     var name = new cc.LabelTTF(itemDisplayName, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(node.width - 20, 44), cc.TEXT_ALIGNMENT_CENTER);
     name.anchorY = 1;
@@ -1764,9 +1776,31 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     node.addChild(unlock);
     unlock.setVisible(false);
     unlock.enableStroke(UITheme.colors.TEXT_TITLE, 8);
+    var resolvePurchaseDisplayContext = function (nextShopState) {
+        if (typeof PurchaseUiHelper !== "undefined"
+            && PurchaseUiHelper
+            && typeof PurchaseUiHelper.getPurchaseDisplayContext === "function") {
+            return PurchaseUiHelper.getPurchaseDisplayContext(purchaseId, purchaseConfig, nextShopState);
+        }
+        return null;
+    };
+    var resolvePurchaseUiSnapshot = function (nextShopState) {
+        if (typeof PurchaseUiHelper !== "undefined"
+            && PurchaseUiHelper
+            && typeof PurchaseUiHelper.getPurchaseUiSnapshot === "function") {
+            return PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId, purchaseConfig, nextShopState);
+        }
+        return null;
+    };
 
     node.purchaseId = purchaseId;
-    node.updateName = function () {
+    node.updateName = function (shopState) {
+        var nextDisplayContext = resolvePurchaseDisplayContext(shopState);
+        if (nextDisplayContext && nextDisplayContext.cardTitleText) {
+            name.setString(nextDisplayContext.cardTitleText);
+            return;
+        }
+
         var talentInfo = uiUtil.getTalentDisplayInfo(purchaseId, displayBaseName);
         if (talentInfo) {
             name.setString(talentInfo.cardName || talentInfo.displayName);
@@ -1775,20 +1809,29 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
         }
     };
     node.updateStatus = function (shopState) {
-        node.updateName();
+        node.updateName(shopState);
+        var snapshot = resolvePurchaseUiSnapshot(shopState);
+        if (snapshot) {
+            var badgeText = snapshot.badgeText ? snapshot.badgeText : "";
+            unlock.setString(badgeText || unlockName);
+            unlock.setVisible(!!(badgeText && !snapshot.hideBadge));
+            price.setString(snapshot.priceText || "");
+        } else {
 
         var state = shopState;
-        if (!state && typeof PurchaseService !== "undefined" && PurchaseService) {
+        if (!state
+            && typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getShopUiState === "function") {
             state = PurchaseService.getShopUiState(purchaseId);
         }
 
         if (state) {
-            if (state.badgeText) {
-                unlock.setString(state.badgeText);
-            }
-            unlock.setVisible(!state.hideBadge && !!state.badgeText);
-            if (state.priceText !== undefined && state.priceText !== null && state.priceText !== "") {
-                price.setString(state.priceText);
+            var fallbackBadgeText = state.badgeText ? state.badgeText : "";
+            unlock.setString(fallbackBadgeText || unlockName);
+            unlock.setVisible(!!(fallbackBadgeText && !state.hideBadge));
+            if (state.priceText !== undefined && state.priceText !== null) {
+                price.setString(state.priceText || "");
             }
         } else {
             var isExchangePurchase = typeof PurchaseService !== "undefined" && PurchaseService
@@ -1814,6 +1857,7 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
                 unlock.setVisible(false);
             }
         }
+        }
 
         var off = typeof PurchaseService !== "undefined" && PurchaseService
             ? PurchaseService.getPriceOff(purchaseId)
@@ -1834,9 +1878,11 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
         node.updateStatus(shopState);
     };
 
-    node.updateStatus(typeof PurchaseService !== "undefined" && PurchaseService
-        ? PurchaseService.getShopUiState(purchaseId)
-        : null);
+    node.updateStatus(purchaseDisplayContext
+        ? purchaseDisplayContext.shopState
+        : (typeof PurchaseService !== "undefined" && PurchaseService
+            ? PurchaseService.getShopUiState(purchaseId)
+            : null));
 
     return node;
 };
