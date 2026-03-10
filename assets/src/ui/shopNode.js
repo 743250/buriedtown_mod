@@ -52,28 +52,24 @@ var ShopNode = BottomFrameNode.extend({
         offset.y = scrollView.getViewSize().height - totalHeight;
         scrollView.setContentOffset(offset);
 
-        var self = this;
-        data.forEach(function (purchaseId, index) {
-            var payNode = uiUtil.createPayItemNode(purchaseId, self, self.onPayResult);
-            payNode.anchorX = 0;
-            payNode.anchorY = 1;
-            payNode.x = widthPadding + (index % 2) * (widthPadding + NODE_WIDTH);
-            payNode.y = totalHeight - Math.floor(index / 2) * (heightPadding + NODE_HEIGHT);
-            mycontainer.addChild(payNode);
-            self.nodeMap[purchaseId] = payNode;
+        this.nodeMap = PurchaseUiHelper.rebuildPayNodeGrid(mycontainer, data, this, this.onPayResult, {
+            columns: 2,
+            nodeScale: 1,
+            nodeWidth: NODE_WIDTH,
+            nodeHeight: NODE_HEIGHT,
+            widthPadding: widthPadding,
+            heightPadding: heightPadding,
+            totalHeight: totalHeight,
+            offsetX: widthPadding
         });
 
-        self._refreshAllNodes();
+        this._refreshAllNodes();
     },
     _refreshPointsLabel: function () {
-        if (!this.pointsLabel) {
-            return;
-        }
-        this.pointsLabel.setString(PurchaseUiHelper.getAchievementPointsText());
+        PurchaseUiHelper.refreshAchievementPointsLabel(this.pointsLabel);
     },
     _refreshAllNodes: function () {
-        PurchaseUiHelper.refreshPayNodeMap(this.nodeMap);
-        this._refreshPointsLabel();
+        PurchaseUiHelper.refreshPayNodeMapWithPoints(this.nodeMap, this.pointsLabel);
     },
     _bindShopStateListener: function () {
         PurchaseUiHelper.bindShopStateListener(this, this._refreshAllNodes);

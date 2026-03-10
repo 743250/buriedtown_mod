@@ -101,6 +101,26 @@ var PurchaseUiHelper = {
         return "\u6210\u5c31\u70b9 " + points;
     },
 
+    refreshAchievementPointsLabel: function (label) {
+        if (!label || typeof label.setString !== "function") {
+            return;
+        }
+        label.setString(this.getAchievementPointsText());
+    },
+
+    isPurchaseChangeRelevant: function (changeInfo, purchaseIds) {
+        var purchaseId = changeInfo && changeInfo.purchaseId;
+        if (purchaseId === null || purchaseId === undefined) {
+            return true;
+        }
+
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId) || !purchaseIds || !purchaseIds.length) {
+            return false;
+        }
+        return purchaseIds.indexOf(purchaseId) !== -1;
+    },
+
     getPurchaseUiSnapshot: function (purchaseId, purchaseConfig, shopState) {
         purchaseId = parseInt(purchaseId);
         if (isNaN(purchaseId)) {
@@ -358,6 +378,54 @@ var PurchaseUiHelper = {
             }
             this.applyPayNodeState(purchaseId, nodeMap[purchaseId]);
         }
+    },
+
+    refreshPayNodeMapWithPoints: function (nodeMap, pointsLabel) {
+        this.refreshPayNodeMap(nodeMap);
+        this.refreshAchievementPointsLabel(pointsLabel);
+    },
+
+    rebuildPayNodeGrid: function (container, purchaseIds, target, onPayResult, layoutConfig) {
+        if (!container || !purchaseIds || !purchaseIds.length) {
+            return {};
+        }
+
+        var config = layoutConfig || {};
+        var nodeMap = {};
+        var columns = Math.max(1, parseInt(config.columns) || 1);
+        var nodeScale = config.nodeScale !== undefined ? config.nodeScale : 1;
+        var nodeWidth = config.nodeWidth || 0;
+        var nodeHeight = config.nodeHeight || 0;
+        var widthPadding = config.widthPadding || 0;
+        var heightPadding = config.heightPadding || 0;
+        var totalHeight = config.totalHeight || nodeHeight;
+        var offsetX = config.offsetX || 0;
+
+        if (config.clearExisting !== false && typeof container.removeAllChildren === "function") {
+            container.removeAllChildren(true);
+        }
+
+        purchaseIds.forEach(function (purchaseId, index) {
+            try {
+                var payNode = uiUtil.createPayItemNode(purchaseId, target, onPayResult);
+                if (!payNode) {
+                    return;
+                }
+                payNode.anchorX = 0;
+                payNode.anchorY = 1;
+                if (typeof payNode.setScale === "function") {
+                    payNode.setScale(nodeScale);
+                }
+                payNode.x = offsetX + (index % columns) * (widthPadding + nodeWidth);
+                payNode.y = totalHeight - Math.floor(index / columns) * (heightPadding + nodeHeight);
+                container.addChild(payNode);
+                nodeMap[purchaseId] = payNode;
+            } catch (e) {
+                cc.e("createPayItemNode failed. purchaseId=" + purchaseId + ", err=" + e);
+            }
+        });
+
+        return nodeMap;
     },
 
     bindShopStateListener: function (host, handler) {

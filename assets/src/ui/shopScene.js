@@ -32,8 +32,7 @@ var ShopLayer = cc.Layer.extend({
         PurchaseUiHelper.unbindShopStateListener(this);
     },
     _onShopStateChanged: function (changeInfo) {
-        var purchaseId = changeInfo && changeInfo.purchaseId;
-        if (purchaseId !== null && purchaseId !== undefined && this.payData && this.payData.indexOf(parseInt(purchaseId)) === -1) {
+        if (!PurchaseUiHelper.isPurchaseChangeRelevant(changeInfo, this.payData)) {
             this._refreshPointsLabel();
             return;
         }
@@ -41,10 +40,7 @@ var ShopLayer = cc.Layer.extend({
         this._refreshAllPayNodesDeferred();
     },
     _refreshPointsLabel: function () {
-        if (!this.pointsLabel) {
-            return;
-        }
-        this.pointsLabel.setString(PurchaseUiHelper.getAchievementPointsText());
+        PurchaseUiHelper.refreshAchievementPointsLabel(this.pointsLabel);
     },
     _updateNodePrice: function (purchaseId, payNode) {
         PurchaseUiHelper.applyPayNodeState(purchaseId, payNode);
@@ -56,29 +52,19 @@ var ShopLayer = cc.Layer.extend({
         if (!this.payContainer || !this.payData) {
             return;
         }
-        this.payContainer.removeAllChildren(true);
-        this.nodeMap = {};
-        var columns = this._payColumns || 2;
-        var nodeScale = this._payNodeScale || 1;
+        this.nodeMap = PurchaseUiHelper.rebuildPayNodeGrid(this.payContainer, this.payData, this, this.onPayResult, {
+            columns: this._payColumns || 2,
+            nodeScale: this._payNodeScale || 1,
+            nodeWidth: this._payNodeWidth,
+            nodeHeight: this._payNodeHeight,
+            widthPadding: this._payWidthPadding,
+            heightPadding: this._payHeightPadding,
+            totalHeight: this._payTotalHeight
+        });
 
         var self = this;
-        this.payData.forEach(function (purchaseId, index) {
-            try {
-                var payNode = uiUtil.createPayItemNode(purchaseId, self, self.onPayResult);
-                if (!payNode) {
-                    return;
-                }
-                payNode.anchorX = 0;
-                payNode.anchorY = 1;
-                payNode.setScale(nodeScale);
-                payNode.x = (index % columns) * (self._payWidthPadding + self._payNodeWidth);
-                payNode.y = self._payTotalHeight - Math.floor(index / columns) * (self._payHeightPadding + self._payNodeHeight);
-                self.payContainer.addChild(payNode);
-                self.nodeMap[purchaseId] = payNode;
-                self._updateNodePrice(purchaseId, payNode);
-            } catch (e) {
-                cc.e("createPayItemNode failed. purchaseId=" + purchaseId + ", err=" + e);
-            }
+        Object.keys(this.nodeMap).forEach(function (purchaseId) {
+            self._updateNodePrice(parseInt(purchaseId), self.nodeMap[purchaseId]);
         });
     },
     _refreshAllPayNodes: function () {
