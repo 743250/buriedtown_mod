@@ -301,9 +301,7 @@ var BattleActors = (function () {
             }
 
             player.changeAttr("hp", -harm);
-            if (harm !== 0) {
-                player.changeAttr("injury", 1);
-            }
+            player.changeAttr("injury", 1);
         },
         die: function () {
             cc.e("player die");

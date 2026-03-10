@@ -34,8 +34,8 @@ var TalentConfigTable = {
         infectIncreaseMultiplierValues: [1, 1, 1, 0.8],
         tierEffectTextList: [
             "你的身体开始适应伤害，战斗防御+2",
-            "皮肤如石，轻微攻击已无法伤你，防御+3，最低受击伤害可降至0（0伤害不增加外伤）",
-            "钢筋铁骨，感染也难以侵蚀你的身体，防御+4，0伤免疫，感染增长×0.8"
+            "皮肤如石，轻微攻击已无法伤你，防御+3，最低受击伤害可降至0",
+            "钢筋铁骨，感染也难以侵蚀你的身体，防御+4，感染增长×0.8"
         ]
     },
 
@@ -80,13 +80,13 @@ var TalentConfigTable = {
         stringId: 'p_120',
         maxLevel: 3,
         effectType: 'precise_headshot_bonus',
-        preciseMultiplierValues: [1, 1.15, 1.25, 1.3],
-        headshotMultiplierValues: [1, 1.1, 1.2, 1.3],
+        preciseMultiplierValues: [1, 1.1, 1.15, 1.25],
+        headshotMultiplierValues: [1, 1.125, 1.2, 1.25],
         elitePistolUnlockLevel: 3,
         tierEffectTextList: [
-            "你重新找回了瞄准手感，精准+15%，偶尔能打出致命一击",
-            "即使在混乱中也能稳住准星，精准+25%，爆头逐渐成为本能",
-            "每次扣下扳机都像肌肉记忆，精准+30%，致命一击信手拈来，并解锁专属手枪（永不损坏，射速×0.8，精准+15%，爆头+5%）"
+            "你重新找回了瞄准手感，精准+10%，偶尔能打出致命一击",
+            "即使在混乱中也能稳住准星，精准+15%，爆头能力进一步提升",
+            "每次扣下扳机都像肌肉记忆，精准+25%，致命一击信手拈来，并解锁专属手枪（永不损坏，射速×0.8，精准+15%，爆头+5%）"
         ]
     },
 

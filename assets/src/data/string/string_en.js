@@ -1211,12 +1211,12 @@ var string = {
     "p_120": {
         "name": "Sharpshooter",
         "des": "Long before the outbreak, you spent countless mornings at the range. Breathing, recoil control, and lead timing are now instinct. The more chaotic things get, the steadier your aim becomes.\\n(Permanent after unlock. Can be selected when starting a new game.)",
-        "effect": "Gun precision up to x1.3 and headshot ability greatly improved; gain the Sharpshooter's exclusive pistol that never breaks, fires faster, and hits vital spots more easily."
+        "effect": "Gun precision up to x1.25 and headshot ability moderately improved; gain the Sharpshooter's exclusive pistol that never breaks, fires faster, and hits vital spots more easily."
     },
     "p_102": {
         "name": "Stone Skin",
         "des": "You have a tough body and can absorb incoming blows more effectively.\\n(Permanent after unlock. Can be selected when starting a new game.)",
-        "effect": "Defense increased by up to 4; minimum damage taken can be reduced to 0 (0 damage does not increase injuries); infection growth reduced to 80%"
+        "effect": "Defense increased by up to 4; minimum damage taken can be reduced to 0; infection growth reduced to 80%"
     },
     "p_121": {
         "name": "Bruiser",
