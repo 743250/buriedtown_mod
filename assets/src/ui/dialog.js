@@ -1126,19 +1126,8 @@ var PayDialog = DialogBig.extend({
         };
         this.purchaseId = purchaseId;
         var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
-        var strConfig = purchaseDisplayContext.strConfig;
-        var purchaseConfig = purchaseDisplayContext.purchaseConfig;
-        var shopState = purchaseDisplayContext.shopState;
         var purchaseUiState = purchaseDisplayContext.purchaseUiState;
         var titleIconConfig = purchaseDisplayContext.titleIconConfig;
-        if (false && (PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
-                || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
-                || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
-                || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI
-            ) && purchaseId == 106) {
-            strConfig.name = '靴子特惠';
-        }
-        strConfig.name = purchaseDisplayContext.displayBaseName;
         config.title.title = purchaseDisplayContext.titleText;
         if (titleIconConfig) {
             config.title.icon = titleIconConfig.iconName;
@@ -1173,38 +1162,7 @@ var PayDialog = DialogBig.extend({
                         uiUtil.showTip("当前没有可取消的已购等级");
                     }
 
-                    // 优先刷新调用方传入的商店层，避免按名称查找场景层导致误刷/漏刷。
-                    var refreshOwnerLayer = function (layer) {
-                        if (!layer) {
-                            return false;
-                        }
-                        if (typeof layer._onShopStateChanged === "function") {
-                            layer._onShopStateChanged({purchaseId: purchaseId, reason: "reset_dialog_owner"});
-                            return true;
-                        }
-                        if (typeof layer._refreshAllPayNodes === "function") {
-                            layer._refreshAllPayNodes();
-                            if (typeof layer._refreshAllPayNodesDeferred === "function") {
-                                layer._refreshAllPayNodesDeferred();
-                            }
-                            return true;
-                        }
-                        if (typeof layer._refreshAllNodes === "function") {
-                            layer._refreshAllNodes();
-                            return true;
-                        }
-                        return false;
-                    };
-
-                    if (PurchaseUiHelper.refreshShopOwnerLayer(ownerLayer, purchaseId, "reset_dialog_owner")) {
-                        return;
-                    }
-
-                    // 兜底：如果调用方没传层对象，再尝试从当前场景查找。
-                    var runningScene = cc.director.getRunningScene ? cc.director.getRunningScene() : null;
-                    if (runningScene && typeof runningScene.getChildByName === "function") {
-                        refreshOwnerLayer(runningScene.getChildByName("keyEventLayer"));
-                    }
+                    PurchaseUiHelper.refreshShopOwnerLayer(ownerLayer, purchaseId, "reset_dialog_owner");
                 }
             };
         }
@@ -1237,27 +1195,7 @@ var PayDialog = DialogBig.extend({
             titleLabel.updateView();
         }
 
-        var priceStr = "";
-        if (shopState && shopState.priceText !== undefined && shopState.priceText !== null && shopState.priceText !== "") {
-            priceStr = shopState.priceText;
-        } else {
-            if (purchaseDisplayContext.isExchangePurchase) {
-                var achievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
-                if (achievementPrice !== null && achievementPrice !== undefined) {
-                    priceStr = achievementPrice + " 成就点";
-                } else if (PurchaseService.isTalentPurchase(purchaseId)) {
-                    priceStr = "已满级";
-                } else {
-                    priceStr = "已购";
-                }
-            } else {
-                priceStr = purchaseConfig.productPriceStr;
-                if (!priceStr) {
-                    priceStr = stringUtil.getString(1191, purchaseConfig.price);
-                }
-            }
-        }
-        priceStr = purchaseDisplayContext.priceText;
+        var priceStr = purchaseDisplayContext.priceText || "";
         var price = new cc.LabelTTF(priceStr, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
         price.anchorX = 1;
         price.setPosition(this.rightEdge, 20);

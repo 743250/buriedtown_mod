@@ -636,16 +636,7 @@ var ButtonAtChooseScene = Button.extend({
     },
 
     showInfoDialog: function (purchaseId) {
-        var purchaseDisplayContext = (typeof PurchaseUiHelper !== "undefined"
-            && PurchaseUiHelper
-            && typeof PurchaseUiHelper.getPurchaseDisplayContext === "function")
-            ? PurchaseUiHelper.getPurchaseDisplayContext(purchaseId)
-            : null;
-        var strConfig = purchaseDisplayContext
-            ? purchaseDisplayContext.strConfig
-            : ((typeof uiUtil !== "undefined" && uiUtil && typeof uiUtil.getPurchaseStringConfig === "function")
-                ? uiUtil.getPurchaseStringConfig(purchaseId)
-                : (stringUtil.getString("p_" + purchaseId) || {}));
+        var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
 
         var config = {
             title: {},
@@ -654,10 +645,10 @@ var ButtonAtChooseScene = Button.extend({
         };
         config.title.title = purchaseDisplayContext
             ? purchaseDisplayContext.titleText
-            : (strConfig.name || ("ID " + purchaseId));
+            : ("ID " + purchaseId);
         config.content.des = purchaseDisplayContext
             ? purchaseDisplayContext.infoDialogContentText
-            : (strConfig.effect || strConfig.des || "");
+            : "";
         config.action.btn_1.txt = stringUtil.getString(1030);
         var d = new DialogSmall(config);
         d.show();

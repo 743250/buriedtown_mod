@@ -1630,31 +1630,11 @@ uiUtil.getTalentDisplayInfo = function (purchaseId, baseName) {
 
 uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     var node = new cc.Node();
-    var purchaseDisplayContext = (typeof PurchaseUiHelper !== "undefined"
-        && PurchaseUiHelper
-        && typeof PurchaseUiHelper.getPurchaseDisplayContext === "function")
-        ? PurchaseUiHelper.getPurchaseDisplayContext(purchaseId)
-        : null;
+    var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
 
-    var strConfig = purchaseDisplayContext
-        ? purchaseDisplayContext.strConfig
-        : uiUtil.getPurchaseStringConfig(purchaseId);
-    if (false && (PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
-            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
-            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
-            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI
-        ) && purchaseId == 106) {
-        strConfig.name = '靴子特惠';
-    }
-    var displayBaseName = purchaseDisplayContext
-        ? purchaseDisplayContext.displayBaseName
-        : ((typeof PurchaseUiHelper !== "undefined" && PurchaseUiHelper)
-            ? PurchaseUiHelper.getPurchaseDisplayName(purchaseId, strConfig.name)
-            : strConfig.name);
-
-    var purchaseConfig = purchaseDisplayContext
-        ? purchaseDisplayContext.purchaseConfig
-        : (typeof PurchaseService !== "undefined" && PurchaseService
+    var purchaseConfig = purchaseDisplayContext.purchaseConfig;
+    purchaseConfig = purchaseConfig
+        || (typeof PurchaseService !== "undefined" && PurchaseService
             ? PurchaseService.getPurchaseConfig(purchaseId)
             : null);
 
@@ -1673,10 +1653,7 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     bg.y = node.height / 2;
     node.addChild(bg);
 
-    var talentDisplayInfo = purchaseDisplayContext
-        ? purchaseDisplayContext.talentDisplayInfo
-        : uiUtil.getTalentDisplayInfo(purchaseId, displayBaseName);
-    var itemDisplayName = talentDisplayInfo ? (talentDisplayInfo.cardName || talentDisplayInfo.displayName) : displayBaseName;
+    var itemDisplayName = purchaseDisplayContext.cardTitleText || purchaseDisplayContext.displayBaseName;
     var name = new cc.LabelTTF(itemDisplayName, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(node.width - 20, 44), cc.TEXT_ALIGNMENT_CENTER);
     name.anchorY = 1;
     name.x = node.width / 2;
@@ -1749,9 +1726,7 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     node.addChild(offIcon);
     offIcon.setVisible(false);
 
-    if (typeof PurchaseUiHelper !== "undefined"
-        && PurchaseUiHelper
-        && PurchaseUiHelper.shouldShowSaleIcon(purchaseId)) {
+    if (PurchaseUiHelper.shouldShowSaleIcon(purchaseId)) {
         var saleIcon = autoSpriteFrameController.getSpriteFromSpriteName('icon_sale.png');
         saleIcon.x = 45;
         saleIcon.y = 54;
@@ -1776,89 +1751,18 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     node.addChild(unlock);
     unlock.setVisible(false);
     unlock.enableStroke(UITheme.colors.TEXT_TITLE, 8);
-    var resolvePurchaseDisplayContext = function (nextShopState) {
-        if (typeof PurchaseUiHelper !== "undefined"
-            && PurchaseUiHelper
-            && typeof PurchaseUiHelper.getPurchaseDisplayContext === "function") {
-            return PurchaseUiHelper.getPurchaseDisplayContext(purchaseId, purchaseConfig, nextShopState);
-        }
-        return null;
-    };
-    var resolvePurchaseUiSnapshot = function (nextShopState) {
-        if (typeof PurchaseUiHelper !== "undefined"
-            && PurchaseUiHelper
-            && typeof PurchaseUiHelper.getPurchaseUiSnapshot === "function") {
-            return PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId, purchaseConfig, nextShopState);
-        }
-        return null;
-    };
-
     node.purchaseId = purchaseId;
     node.updateName = function (shopState) {
-        var nextDisplayContext = resolvePurchaseDisplayContext(shopState);
-        if (nextDisplayContext && nextDisplayContext.cardTitleText) {
-            name.setString(nextDisplayContext.cardTitleText);
-            return;
-        }
-
-        var talentInfo = uiUtil.getTalentDisplayInfo(purchaseId, displayBaseName);
-        if (talentInfo) {
-            name.setString(talentInfo.cardName || talentInfo.displayName);
-        } else {
-            name.setString(displayBaseName);
-        }
+        var nextDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId, purchaseConfig, shopState);
+        name.setString(nextDisplayContext.cardTitleText || nextDisplayContext.displayBaseName || "");
     };
     node.updateStatus = function (shopState) {
         node.updateName(shopState);
-        var snapshot = resolvePurchaseUiSnapshot(shopState);
-        if (snapshot) {
-            var badgeText = snapshot.badgeText ? snapshot.badgeText : "";
-            unlock.setString(badgeText || unlockName);
-            unlock.setVisible(!!(badgeText && !snapshot.hideBadge));
-            price.setString(snapshot.priceText || "");
-        } else {
-
-        var state = shopState;
-        if (!state
-            && typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.getShopUiState === "function") {
-            state = PurchaseService.getShopUiState(purchaseId);
-        }
-
-        if (state) {
-            var fallbackBadgeText = state.badgeText ? state.badgeText : "";
-            unlock.setString(fallbackBadgeText || unlockName);
-            unlock.setVisible(!!(fallbackBadgeText && !state.hideBadge));
-            if (state.priceText !== undefined && state.priceText !== null) {
-                price.setString(state.priceText || "");
-            }
-        } else {
-            var isExchangePurchase = typeof PurchaseService !== "undefined" && PurchaseService
-                ? PurchaseService.isExchangePurchase(purchaseId)
-                : false;
-            var isTalentPurchase = typeof PurchaseService !== "undefined" && PurchaseService
-                ? PurchaseService.isTalentPurchase(purchaseId)
-                : false;
-            var isUnlocked = typeof PurchaseService !== "undefined" && PurchaseService
-                ? PurchaseService.isUnlocked(purchaseId)
-                : false;
-            if (isExchangePurchase && isTalentPurchase) {
-                var currentTalentLevel = Medal.getTalentLevel ? Medal.getTalentLevel(purchaseId) : 0;
-                if (currentTalentLevel >= 3) {
-                    unlock.setString("已满级");
-                    unlock.setVisible(true);
-                } else {
-                    unlock.setVisible(false);
-                }
-            } else if (isUnlocked) {
-                unlock.setVisible(true);
-            } else {
-                unlock.setVisible(false);
-            }
-        }
-        }
-
+        var snapshot = PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId, purchaseConfig, shopState);
+        var badgeText = snapshot.badgeText ? snapshot.badgeText : "";
+        unlock.setString(badgeText || unlockName);
+        unlock.setVisible(!!(badgeText && !snapshot.hideBadge));
+        price.setString(snapshot.priceText || "");
         var off = typeof PurchaseService !== "undefined" && PurchaseService
             ? PurchaseService.getPriceOff(purchaseId)
             : 0;
@@ -1878,11 +1782,7 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
         node.updateStatus(shopState);
     };
 
-    node.updateStatus(purchaseDisplayContext
-        ? purchaseDisplayContext.shopState
-        : (typeof PurchaseService !== "undefined" && PurchaseService
-            ? PurchaseService.getShopUiState(purchaseId)
-            : null));
+    node.updateStatus(purchaseDisplayContext.shopState);
 
     return node;
 };
