@@ -286,11 +286,6 @@ var TalentService = {
     },
     getTalentPurchaseIdList: function () {
         var talentIds = this._getSortedTalentIds();
-        if (typeof ConfigValidator !== "undefined" && ConfigValidator && typeof ConfigValidator.warnIfInvalid === "function") {
-            talentIds.forEach(function (talentId) {
-                ConfigValidator.warnIfInvalid("talent", talentId, "TalentService.getTalentPurchaseIdList");
-            });
-        }
         return [0].concat(talentIds);
     },
     getMaxChosenTalentCount: function () {

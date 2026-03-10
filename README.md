@@ -37,6 +37,45 @@ node tools/validate-content.js
 
 旧的 `assets/src/util/validateConfig.js` 和 `assets/src/util/validateSiteConfig.js` 仍可在游戏内控制台使用，但仓库级检查优先走 `tools/validate-content.js`。
 
+## Runtime 构建
+
+模块化运行时入口改为生成到 `assets/generated/`：
+
+```bash
+npm install
+npm run check:playable
+npm run build:runtime
+```
+
+会生成：
+
+- `assets/generated/manifest.json`
+- `assets/generated/runtime.bundle.js`
+- `assets/generated/platform.bundle.js`
+- `assets/generated/lang/*.bundle.js`
+
+`assets/src/util/preloading.js` 和 `assets/src/util/AssetsManager.js` 会优先读取这份 manifest，再加载 runtime bundle 和 legacy 兼容脚本。
+
+`npm run check:playable` 会跑一组当前主流程相关的 service 冒烟检查，重点覆盖 `session` / `navigation` 的新旧边界，适合在手工打包前先做一次快速回归。
+
+## Atlas 资源盘点
+
+用于快速确认 `.plist`、纹理包和解包目录 `assets/res/<atlas>/` 是否对齐：
+
+```bash
+node tools/atlas-inventory.js summary
+```
+
+常用命令：
+
+- `node tools/atlas-inventory.js summary`
+- `node tools/atlas-inventory.js check`
+- `node tools/atlas-inventory.js atlas icon`
+- `node tools/atlas-inventory.js find icon_day.png`
+- `node tools/atlas-inventory.js json`
+
+`check` 会逐个 atlas 对比 `.plist` 里的 frame 名和解包目录中的文件名，适合在补资源、重导出或整理 `assets/res` 后做一次快速回归。
+
 ## 工作原则
 
 1. 小步改动，一次只收口一条链路或一个小模块。

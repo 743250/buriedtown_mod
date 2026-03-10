@@ -24,10 +24,6 @@ var ItemType = {
 var Item = cc.Class.extend({
     ctor: function (id) {
         this.id = id;
-        if (typeof ConfigValidator !== "undefined" && ConfigValidator && typeof ConfigValidator.warnIfInvalid === "function") {
-            ConfigValidator.warnIfInvalid("item", this.id, "new Item");
-        }
-
         var itemDefinition = itemConfig[this.id];
         if (!itemDefinition) {
             cc.e("Item config missing. itemId=" + this.id);

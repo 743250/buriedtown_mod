@@ -5,10 +5,12 @@
 var Record = {
     recordObj: null,
     recordName: null,
+    recordEnvelope: null,
     SLOT_COUNT: 3,
     SLOT_STORAGE_KEY: "recordSlot",
     DEFAULT_SLOT: 1,
     LEGACY_RECORD_NAME: "record",
+    SAVE_VERSION: 2,
     _normalizeSlot: function (slot) {
         slot = parseInt(slot);
         if (isNaN(slot) || slot < 1) {
@@ -45,6 +47,38 @@ var Record = {
     getCurrentRecordName: function () {
         return this.getRecordNameBySlot(this.getCurrentSlot());
     },
+    _createEnvelope: function () {
+        var slot = this.getCurrentSlot();
+        if (typeof SaveGameV2Runtime !== "undefined"
+            && SaveGameV2Runtime
+            && typeof SaveGameV2Runtime.createEnvelope === "function") {
+            return SaveGameV2Runtime.createEnvelope(slot, this.recordObj, this.recordEnvelope || null);
+        }
+
+        var now = new Date().toISOString();
+        return {
+            saveVersion: this.SAVE_VERSION,
+            slot: slot,
+            createdAt: this.recordEnvelope && this.recordEnvelope.createdAt ? this.recordEnvelope.createdAt : now,
+            updatedAt: now,
+            data: this.recordObj || {},
+            meta: this.recordEnvelope && this.recordEnvelope.meta ? this.recordEnvelope.meta : {}
+        };
+    },
+    _parseEnvelope: function (recordObj) {
+        if (typeof SaveGameV2Runtime !== "undefined"
+            && SaveGameV2Runtime
+            && typeof SaveGameV2Runtime.isEnvelope === "function") {
+            return SaveGameV2Runtime.isEnvelope(recordObj) ? recordObj : null;
+        }
+        if (!recordObj || typeof recordObj !== "object") {
+            return null;
+        }
+        if (Number(recordObj.saveVersion) !== this.SAVE_VERSION || !recordObj.data || typeof recordObj.data !== "object") {
+            return null;
+        }
+        return recordObj;
+    },
     getRecordInfo: function (slot) {
         slot = this._normalizeSlot(slot);
         var recordName = this.getRecordNameBySlot(slot);
@@ -59,11 +93,16 @@ var Record = {
             return info;
         }
         try {
-            var recordObj = JSON.parse(recordStr);
-            if (recordObj && recordObj.player) {
+            var parsedRecord = JSON.parse(recordStr);
+            var recordEnvelope = this._parseEnvelope(parsedRecord);
+            if (!recordEnvelope) {
+                return info;
+            }
+            var recordObj = recordEnvelope.data || {};
+            if (recordObj.player) {
                 info.hasRecord = true;
             }
-            if (recordObj && recordObj.time && recordObj.time.time !== undefined && recordObj.time.time !== null) {
+            if (recordObj.time && recordObj.time.time !== undefined && recordObj.time.time !== null) {
                 info.day = Math.floor(recordObj.time.time / (24 * 60 * 60));
             }
         } catch (e) {
@@ -85,7 +124,16 @@ var Record = {
     },
     init: function (recordName) {
         this.recordName = recordName || this.getCurrentRecordName();
-        this.recordObj = SafetyHelper.safeJSONParse(cc.sys.localStorage.getItem(this.recordName), {}, "Record.init");
+        var storedRecord = SafetyHelper.safeJSONParse(cc.sys.localStorage.getItem(this.recordName), null, "Record.init");
+        var recordEnvelope = this._parseEnvelope(storedRecord);
+        if (recordEnvelope) {
+            this.recordEnvelope = recordEnvelope;
+            this.recordObj = recordEnvelope.data || {};
+            return;
+        }
+
+        this.recordEnvelope = this._createEnvelope();
+        this.recordObj = {};
     },
     saveAll: function () {
         this.save("player", player.save());
@@ -105,6 +153,7 @@ var Record = {
         }
         if (this.recordObj && this.recordName === recordName) {
             this.recordObj = {};
+            this.recordEnvelope = null;
         }
         cc.sys.localStorage.removeItem(recordName);
     },
@@ -112,7 +161,8 @@ var Record = {
         return this.recordObj[key];
     },
     flush: function () {
-        cc.sys.localStorage.setItem(this.recordName, JSON.stringify(this.recordObj));
+        this.recordEnvelope = this._createEnvelope();
+        cc.sys.localStorage.setItem(this.recordName, JSON.stringify(this.recordEnvelope));
     },
     uuid: null,
     getUUID: function () {

@@ -89,9 +89,6 @@ var role = {
     getRoleSelectionList: function () {
         var self = this;
         return this.getAllRoleTypes().map(function (roleType) {
-            if (typeof ConfigValidator !== "undefined" && ConfigValidator && typeof ConfigValidator.warnIfInvalid === "function") {
-                ConfigValidator.warnIfInvalid("role", roleType, "role.getRoleSelectionList");
-            }
             var config = self.getRoleConfig(roleType) || {};
             return {
                 id: roleType,

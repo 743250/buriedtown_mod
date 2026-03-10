@@ -1,4 +1,19 @@
-var jsList = [
+{
+  "version": 1,
+  "generatedAt": "2026-03-10T14:37:06.462Z",
+  "bundles": {
+    "runtime": "generated/runtime.bundle.js",
+    "platform": "generated/platform.bundle.js",
+    "lang": {
+      "en": "generated/lang/en.bundle.js",
+      "zh": "generated/lang/zh.bundle.js"
+    }
+  },
+  "locales": [
+    "en",
+    "zh"
+  ],
+  "legacyScripts": [
     "src/util/emitter.js",
     "src/util/utils.js",
     "src/util/iconHelper.js",
@@ -33,7 +48,6 @@ var jsList = [
     "src/data/specialItemConfig.js",
     "src/data/roleConfigTable.js",
     "src/data/talentConfigTable.js",
-
     "src/game/constants.js",
     "src/game/record.js",
     "src/game/RoleRuntimeService.js",
@@ -78,7 +92,6 @@ var jsList = [
     "src/game/buff.js",
     "src/game/role.js",
     "src/game/PurchaseService.js",
-
     "src/ui/baseScene.js",
     "src/ui/button.js",
     "src/ui/dialog.js",
@@ -131,22 +144,16 @@ var jsList = [
     "src/ui/MedalSceneView.js",
     "src/ui/medalLayer.js",
     "src/ui/SplashScene.js",
-
     "src/plugin/commonUtil.js",
     "src/plugin/jsb_pluginx.js",
     "src/plugin/purchase.js",
     "src/plugin/PurchaseAndroid.js",
-    //"src/plugin/locojoySdk.js",
     "src/plugin/purchaseList.js",
     "src/plugin/gameCenter.js",
     "src/plugin/purchaseTask.js",
     "src/plugin/ParamManager.js",
     "src/plugin/adHelper.js",
     "src/plugin/ads.js",
-    "src/plugin/facebook.js",
-
-    //"src/plugin/jsb_pluginx.js",
-    //"src/plugin/umeng.js",
-    //"src/plugin/purchase.js",
-
-]
+    "src/plugin/facebook.js"
+  ]
+}
