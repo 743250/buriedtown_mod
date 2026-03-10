@@ -15,50 +15,6 @@ var stringName = {
     "en": "English",
     "zh-Hant": "繁體中文"
 }
-var readBuriedTownManifestFromSearchPaths = function (searchPaths) {
-    for (var index = 0; index < searchPaths.length; index++) {
-        var fullPath = searchPaths[index] + BURIEDTOWN_MANIFEST_PATH;
-        if (!jsb.fileUtils.isFileExist(fullPath)) {
-            continue;
-        }
-        var manifestText = jsb.fileUtils.getStringFromFile(fullPath);
-        var manifest = SafetyHelper.safeJSONParse(manifestText, null, "AssetsManager.runtimeManifest");
-        if (manifest) {
-            return manifest;
-        }
-    }
-    return null;
-};
-var requireBuriedTownScriptFromSearchPaths = function (searchPaths, relativePath) {
-    for (var index = 0; index < searchPaths.length; index++) {
-        var fullPath = searchPaths[index] + relativePath;
-        var compiledPath = fullPath.replace(/\.js$/i, ".jsc");
-        if (!jsb.fileUtils.isFileExist(fullPath) && !jsb.fileUtils.isFileExist(compiledPath)) {
-            continue;
-        }
-        if (typeof __cleanScript === "function") {
-            __cleanScript(fullPath);
-        }
-        require(fullPath);
-        return true;
-    }
-    return false;
-};
-var syncBuriedTownSupportedLocales = function (manifest) {
-    lanSupports.length = 0;
-    var locales = manifest && manifest.locales ? manifest.locales : [];
-    locales.forEach(function (locale) {
-        if (locale === "zh") {
-            lanSupports.push(cc.sys.LANGUAGE_CHINESE);
-            return;
-        }
-        if (locale === "en") {
-            lanSupports.push(cc.sys.LANGUAGE_ENGLISH);
-            return;
-        }
-        lanSupports.push(locale);
-    });
-};
 var AssetsManagerLoaderScene = cc.Scene.extend({
     run: function () {
         var self = this;
@@ -194,59 +150,81 @@ var AssetsManagerLoaderScene = cc.Scene.extend({
 
     },
     loadGame: function () {
+
+        var self = this;
         cc.director.getScheduler().scheduleCallbackForTarget(this, function () {
-            var storagePaths = jsb.fileUtils.getSearchPaths();
-            var manifest = readBuriedTownManifestFromSearchPaths(storagePaths);
-            if (!manifest) {
-                cc.error("Failed to load runtime manifest from search paths.");
-                return;
-            }
 
-            syncBuriedTownSupportedLocales(manifest);
-            var locale = normalizeBuriedTownLocale(manifest, getBuriedTownRequestedLocale());
-            if (cc.sys && cc.sys.localStorage) {
-                cc.sys.localStorage.setItem("language", locale);
-            }
 
-            var bundleList = [];
-            if (manifest.bundles && manifest.bundles.runtime) {
-                bundleList.push(manifest.bundles.runtime);
-            }
-            if (manifest.bundles && manifest.bundles.platform) {
-                bundleList.push(manifest.bundles.platform);
-            }
-            if (manifest.bundles && manifest.bundles.lang && manifest.bundles.lang[locale]) {
-                bundleList.push(manifest.bundles.lang[locale]);
-            }
+            lanSupports.push(cc.sys.LANGUAGE_CHINESE);
+            lanSupports.push(cc.sys.LANGUAGE_ENGLISH);
+            lanSupports.push(cc.sys.LANGUAGE_ARABIC);
+            lanSupports.push(cc.sys.LANGUAGE_SPANISH);
+            lanSupports.push(cc.sys.LANGUAGE_FRENCH);
+            lanSupports.push(cc.sys.LANGUAGE_JAPANESE);
+            lanSupports.push(cc.sys.LANGUAGE_KOREAN);
+            lanSupports.push(cc.sys.LANGUAGE_PORTUGUESE);
+            lanSupports.push(cc.sys.LANGUAGE_RUSSIAN);
+            lanSupports.push(cc.sys.LANGUAGE_TURKISH);
+            lanSupports.push(cc.sys.LANGUAGE_VIETNAMESE);
+            lanSupports.push(cc.sys.LANGUAGE_GERMAN);
 
-            bundleList.forEach(function (bundlePath) {
-                requireBuriedTownScriptFromSearchPaths(storagePaths, bundlePath);
-            });
-            (manifest.legacyScripts || []).forEach(function (scriptPath) {
-                requireBuriedTownScriptFromSearchPaths(storagePaths, scriptPath);
-            });
-
-            if (typeof BuriedTownBootstrap !== "undefined" && BuriedTownBootstrap) {
-                if (typeof BuriedTownBootstrap.setManifest === "function") {
-                    BuriedTownBootstrap.setManifest(manifest);
+            cc.loader.loadJs(["src/jsList.js"], function (err) {
+                var storagePaths = jsb.fileUtils.getSearchPaths();
+                for (var key1 in jsList) {
+                    for (var key in storagePaths) {
+                        var jsFilename = jsList[key1];
+                        if (jsFilename.indexOf("string.js") !== -1) {
+                            var lan = cc.sys.localStorage.getItem("language");
+                            if (!lan)
+                                lan = cc.sys.language;
+                            cc.RTL = false;
+                            if (lanSupports.indexOf(lan) !== -1) {
+                                if (lan === cc.sys.LANGUAGE_ARABIC)
+                                    cc.RTL = true;
+                                if (lan === cc.sys.LANGUAGE_CHINESE) {
+                                    var fullLan = self.getLocaleLanguage();
+                                    var lanFlag = fullLan.split('-')[1];
+                                    if (lanFlag === 'Hant' || lanFlag === 'TW' || lanFlag === 'HK') {
+                                        lan = "zh-Hant";
+                                        jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_zh-Hant" + ".js";
+                                        cc.sys.LANGUAGE_CHINESE_HANT = true;
+                                    } else {
+                                        jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_" + lan + ".js";
+                                    }
+                                } else {
+                                    jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_" + lan + ".js";
+                                }
+                                cc.sys.localStorage.setItem("language", lan);
+                            } else if (lan == "zh-Hant") {
+                                jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_zh-Hant" + ".js";
+                                cc.sys.LANGUAGE_CHINESE_HANT = true;
+                            } else {
+                                jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_en.js";
+                                cc.sys.localStorage.setItem("language", "en");
+                            }
+                        }
+                        var filename = jsFilename.substring(0, jsFilename.lastIndexOf('.'));
+                        var jscFilename = filename + ".jsc";
+                        if (jsb.fileUtils.isFileExist(storagePaths[key] + jscFilename) || (cc.debug && jsb.fileUtils.isFileExist(storagePaths[key] + jsFilename))) {
+                            //cc.log("require string is " + storagePaths[key] + jsFilename);
+                            require(storagePaths[key] + jsFilename);
+                            break;
+                        }
+                    }
                 }
-                if (typeof BuriedTownBootstrap.afterLegacyRuntimeLoaded === "function") {
-                    BuriedTownBootstrap.afterLegacyRuntimeLoaded(locale);
+
+                if (cc.sys.os == cc.sys.OS_ANDROID) {
+                    cc.director.runScene(new SplashScene());
+                } else {
+                    cc.director.runScene(new MenuScene());
                 }
-            }
+            });
+            var searchPaths = jsb.fileUtils.getSearchPaths();
+            searchPaths.pop();
+            cc.sys.localStorage.setItem("assetSearchPath", JSON.stringify(searchPaths));
 
-            var persistedSearchPaths = jsb.fileUtils.getSearchPaths().slice();
-            if (persistedSearchPaths.length > 0) {
-                persistedSearchPaths.pop();
-            }
-            cc.sys.localStorage.setItem("assetSearchPath", JSON.stringify(persistedSearchPaths));
-
-            if (cc.sys.os == cc.sys.OS_ANDROID) {
-                cc.director.runScene(new SplashScene());
-            } else {
-                cc.director.runScene(new MenuScene());
-            }
         }, 1, 0);
+
     },
 
     getLocaleLanguage: function () {
@@ -278,3 +256,4 @@ var AssetsManagerLoaderScene = cc.Scene.extend({
         this._super();
     }
 });
+

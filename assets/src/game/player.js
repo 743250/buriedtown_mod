@@ -114,12 +114,133 @@ var Player = cc.Class.extend({
 
     save: function () {
         return PlayerPersistenceService.buildSaveData(this, AttrHelperRuntime);
+        var attrData = AttrHelperRuntime.saveAttrs(this, ['hp', 'spirit', 'starve', 'vigour', 'injury', 'infect', 'temperature']);
+        var opt = {
+            hp: attrData.hp,
+            hpMaxOrigin: AttrHelperRuntime.get(this, 'hpMaxOrigin'),
+            hpMax: attrData.hpMax,
+            spirit: attrData.spirit,
+            starve: attrData.starve,
+            vigour: attrData.vigour,
+            injury: attrData.injury,
+            infect: attrData.infect,
+            temperature: attrData.temperature,
+
+            //fix bug: 睡觉中强退后一直处于睡眠状态
+            //isInSleep: this.isInSleep,
+            cured: this.cured,
+            cureTime: this.cureTime,
+            binded: this.binded,
+            bindTime: this.bindTime,
+            navigationState: this.navigationState.save(),
+            deathCausedInfect: this.deathCausedInfect,
+
+            setting: this.setting,
+
+            bag: ErrorHandler.safeExecute(function() { return this.bag.save(); }.bind(this), "Player.save.bag", {}),
+            storage: ErrorHandler.safeExecute(function() { return this.storage.save(); }.bind(this), "Player.save.storage", {}),
+            dog: ErrorHandler.safeExecute(function() { return this.dog.save(); }.bind(this), "Player.save.dog", {}),
+            room: ErrorHandler.safeExecute(function() { return this.room.save(); }.bind(this), "Player.save.room", {}),
+            equip: ErrorHandler.safeExecute(function() { return this.equip.save(); }.bind(this), "Player.save.equip", {}),
+            map: ErrorHandler.safeExecute(function() { return this.map.save(); }.bind(this), "Player.save.map", {}),
+            ziplineNetwork: ErrorHandler.safeExecute(function() { return this.ziplineNetwork.save(); }.bind(this), "Player.save.ziplineNetwork", {}),
+            npcManager: ErrorHandler.safeExecute(function() { return this.npcManager.save(); }.bind(this), "Player.save.npcManager", {}),
+            weather: ErrorHandler.safeExecute(function() { return this.weather.save(); }.bind(this), "Player.save.weather", {}),
+            buffManager: ErrorHandler.safeExecute(function() { return this.buffManager.save(); }.bind(this), "Player.save.buffManager", {}),
+
+            isBombActive: this.isBombActive
+        };
+
+        return opt;
     },
 
     restore: function () {
         return PlayerPersistenceService.restore(this, AttrHelperRuntime);
+        var opt = Record.restore("player");
+        if (opt) {
+            AttrHelperRuntime.restoreAttrs(this, opt, ['hp', 'hpMaxOrigin', 'hpMax', 'spirit', 'starve', 'vigour', 'injury', 'infect', 'temperature']);
+            //fix bug: 睡觉中强退后一直处于睡眠状态
+            //this.isInSleep = opt.isInSleep;
+            this.cured = opt.cured;
+            this.cureTime = opt.cureTime;
+            this.binded = opt.binded;
+            this.bindTime = opt.bindTime;
+            this.navigationState.restore(opt.navigationState || opt);
+            this.deathCausedInfect = opt.deathCausedInfect;
+            this.setting = opt.setting;
+            ErrorHandler.safeExecute(function() { this.bag.restore(opt.bag); }.bind(this), "Player.restore.bag");
+            ErrorHandler.safeExecute(function() { this.storage.restore(opt.storage); }.bind(this), "Player.restore.storage");
+            ErrorHandler.safeExecute(function() { this.dog.restore(opt.dog); }.bind(this), "Player.restore.dog");
+            ErrorHandler.safeExecute(function() { this.equip.restore(opt.equip); }.bind(this), "Player.restore.equip");
+            ErrorHandler.safeExecute(function() { this.weather.restore(opt.weather); }.bind(this), "Player.restore.weather");
+            ErrorHandler.safeExecute(function() { this.buffManager.restore(opt.buffManager); }.bind(this), "Player.restore.buffManager");
+            this.isBombActive = opt.isBombActive;
+        } else {
+            // for test ---------begin------------
+            //var itemList = [1305023, 1305024, 1304024, 1305034, 1305044, 1305034, 1305044, 1305053, 1305064];
+            //for (var itemId in itemConfig) {
+            //    itemId = Number(itemId);
+            //    if (itemList.indexOf(itemId) == -1) {
+            //        this.storage.increaseItem(itemId, 100);
+            //    }
+            //}
+            //this.storage.increaseItem(1305064, 1);
+            // for test ---------end------------
+
+            IAPPackage.init(this);
+            Medal.improve(this);
+            //分享奖励
+            if (Record.getShareFlag() === ShareType.SHARED_CAN_REWARD) {
+                Record.setShareFlag(ShareType.SHARED_AND_REWARD);
+                this.storage.increaseItem(1106054, 1);
+            }
+        }
+
+        ErrorHandler.safeExecute(function() { this.room.restore(opt ? opt.room : null); }.bind(this), "Player.restore.room");
+        ErrorHandler.safeExecute(function() { this.npcManager.restore(opt ? opt.npcManager : null); }.bind(this), "Player.restore.npcManager");
+        ErrorHandler.safeExecute(function() { this.map.restore(opt ? opt.map : null); }.bind(this), "Player.restore.map");
+        ErrorHandler.safeExecute(function() {
+            var ziplineSaveObj = opt ? (opt.ziplineNetwork || opt.ziplineManager) : null;
+            this.ziplineNetwork.restore(ziplineSaveObj, this.map);
+        }.bind(this), "Player.restore.ziplineNetwork");
+        this.navigationState.syncMapEntityIdFromMap(this.map);
+
+        if (typeof IAPPackage !== "undefined"
+            && IAPPackage
+            && typeof IAPPackage.migrateLegacyElitePistol === "function") {
+            var migratedLegacyElitePistol = IAPPackage.migrateLegacyElitePistol(this);
+            if (migratedLegacyElitePistol && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
+                Record.saveAll();
+            }
+        }
+
+        if (typeof IAPPackage !== "undefined"
+            && IAPPackage
+            && typeof IAPPackage.reconcilePlayerHpByTalentSelection === "function") {
+            IAPPackage.reconcilePlayerHpByTalentSelection(this);
+        }
+
+        if (IAPPackage.isBigBagUnlocked() && !this.storage.validateItem(1305024, 1)) {
+            this.storage.increaseItem(1305024, 1);
+        }
+
+        if (IAPPackage.isBootUnlocked() && !this.storage.validateItem(1304024, 1)) {
+            this.storage.increaseItem(1304024, 1);
+        }
+
+        if (IAPPackage.isDogHouseUnlocked() && !player.room.isBuildExist(12, 0)) {
+            this.room.createBuild(12, -1);
+        }
+
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.ensureSpecialItems === "function") {
+            RoleRuntimeService.ensureSpecialItems(this);
+        }
+
     },
 
+    //包扎
     bindUp: function () {
         this.binded = true;
         this.bindTime = cc.timer.now();
@@ -271,50 +392,192 @@ var Player = cc.Class.extend({
 
     _applySleepRecoveryByHour: function () {
         return PlayerAttrService.applySleepRecoveryByHour(this);
+        var bedLevel = player.room.getBuildLevel(9);
+        var bedRate = buildActionConfig[9][bedLevel].rate;
+
+        //睡眠等级=床等级值*0.5+饱食度/100*0.2+心情值/100*0.3
+        bedRate = bedRate * 0.5 + memoryUtil.decode(this.starve) / memoryUtil.decode(this.starveMax) * 0.2 + memoryUtil.decode(this.spirit) / memoryUtil.decode(this.spiritMax) * 0.3;
+
+        //精力值
+        //每小时回复精力值=睡眠等级*10
+        var vigour = Math.ceil(bedRate * 15);
+        this.changeVigour(vigour);
+
+        //生命值
+        //每小时回血=睡眠等级*20
+        var hp = Math.ceil(bedRate * 20);
+        this.changeHp(hp)
     },
 
     _applyHourlyWeatherAttrChange: function () {
         return PlayerAttrService.applyHourlyWeatherAttrChange(this);
+        this.changeVigour(this.weather.getValue("vigour"));
+        this.changeSpirit(this.weather.getValue("spirit"));
     },
 
     updateByTime: function () {
         return PlayerAttrService.updateByTime(this);
+
+        var c = this.config["changeByTime"];
+
+        //扣减饥饿度
+        this.changeStarve(this._getHourlyStarveChange(c));
+        //扣减狗的饥饿度
+        this.dog.changeStarve(c[1][0]);
+
+        this.changeVigour(this._getHourlyVigourChange(c));
+
+        //在睡眠状态下的影响
+        if (this.isInSleep) {
+            this._applySleepRecoveryByHour();
+        }
+
+        this._applyHourlyWeatherAttrChange();
     },
 
     _getRangeEffect: function (attr, value) {
         return PlayerAttrService.getRangeEffect(this, attr, value);
+        var attrRangeInfo = this.getAttrRangeInfo(attr, value);
+        if (!attrRangeInfo) {
+            return null;
+        }
+        return attrRangeInfo.effect || null;
     },
 
     _applyEffectMap: function (effectMap, opt) {
         return PlayerAttrService.applyEffectMap(this, effectMap, opt);
+        if (!effectMap) {
+            return;
+        }
+        opt = opt || {};
+        var mapValue = opt.mapValue;
+        var canApply = opt.canApply;
+
+        for (var attr in effectMap) {
+            if (!this.hasOwnProperty(attr)) {
+                continue;
+            }
+
+            var value = effectMap[attr];
+            if (mapValue) {
+                value = mapValue.call(this, attr, value);
+            }
+            if (value === undefined || value === null) {
+                continue;
+            }
+
+            if (!canApply || canApply.call(this, attr, value)) {
+                this.changeAttr(attr, value);
+            }
+        }
     },
 
     updateStarve: function () {
         return PlayerAttrService.updateStarve(this);
+        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107042)) {
+            cc.d('ITEM_1107042 updateStarve');
+            return;
+        }
+
+        this._applyEffectMap(this._getRangeEffect("starve", this.starve));
+
     },
 
     updateInfect: function () {
         return PlayerAttrService.updateInfect(this);
+
+        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107022)) {
+            cc.d('ITEM_1107022 updateInfect');
+            return;
+        }
+
+        this._applyEffectMap(this._getRangeEffect("infect", this.infect), {
+            mapValue: function (attr, value) {
+                //感染属性影响中有公式；对血的影响按当前感染值比例计算
+                if (attr === 'hp') {
+                    value *= memoryUtil.decode(this.infect) / 100;
+                    value = Math.ceil(value);
+                    this.deathCausedInfect = true;
+                }
+                return value;
+            },
+            canApply: function (attr) {
+                //非服药状态才能影响感染与心情
+                if (attr === 'infect' || attr === 'spirit') {
+                    return !this.isInCure();
+                }
+                return true;
+            }
+        });
+
+        if (memoryUtil.decode(this.hp) === 0) {
+            this.log.addMsg(1108);
+        } else {
+            this.deathCausedInfect = false;
+        }
     },
 
     updateVigour: function () {
         return PlayerAttrService.updateVigour(this);
+        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107032)) {
+            cc.d('ITEM_1107032 updateVigour ');
+            return;
+        }
+
+        this._applyEffectMap(this._getRangeEffect("vigour", this.vigour));
+
     },
 
     updateInjure: function () {
         return PlayerAttrService.updateInjure(this);
+
+        this._applyEffectMap(this._getRangeEffect("injury", this.injury), {
+            canApply: function (attr) {
+                //非包扎状态才能影响感染与心情
+                if (attr === 'infect' || attr === 'spirit') {
+                    return !this.isInBind();
+                }
+                return true;
+            }
+        });
+
     },
 
     updateTemperature: function () {
         return PlayerAttrService.updateTemperature(this);
+
+        var c = this.config["temperature"];
+
+        var temperature = this.initTemperature();
+        temperature += RoleRuntimeService.getTemperatureBonus(this, c[4][0]);
+
+        //天气
+        temperature += this.weather.getValue("temperature");
+
+
+        this.changeTemperature(temperature - memoryUtil.decode(this.temperature));
     },
 
     updateTemperatureEffect: function () {
         return PlayerAttrService.updateTemperatureEffect(this);
+
+        this._applyEffectMap(this._getRangeEffect("temperature", this.temperature));
+
     },
 
     initTemperature: function () {
         return PlayerAttrService.initTemperature(this);
+        var c = this.config["temperature"];
+        //季节因素
+        var configBySeason = c[cc.timer.getSeason()];
+        var temperature = configBySeason[0];
+        //日夜因素
+        if (cc.timer.getStage() === "day") {
+            temperature += configBySeason[1];
+        } else {
+            temperature += configBySeason[2];
+        }
+        return temperature;
     },
 
     cost: function (list) {

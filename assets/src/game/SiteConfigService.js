@@ -51,6 +51,13 @@ var SiteConfigService = {
             return this._buildFallbackConfig(0);
         }
 
+        if (validationContext
+            && typeof ConfigValidator !== "undefined"
+            && ConfigValidator
+            && typeof ConfigValidator.warnIfInvalid === "function") {
+            ConfigValidator.warnIfInvalid("site", siteId, validationContext);
+        }
+
         var table = this._getSiteTable();
         if (!table || !table[siteId]) {
             cc.error("[SiteConfigService] missing site config for id=" + siteId);

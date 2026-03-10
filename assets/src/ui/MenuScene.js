@@ -14,17 +14,7 @@ var MenuLayer = cc.Layer.extend({
         ClientData.CHANNEL = "" + CommonUtil.getMetaDataInt("channelId");
         ClientData.CLIENT_VERSION = CommonUtil.getMetaData("versionName");
         paramManager.init();
-        var appContext = typeof getBuriedTownAppContext === "function"
-            ? getBuriedTownAppContext()
-            : null;
-        if (appContext
-            && appContext.services
-            && appContext.services.commerce
-            && typeof appContext.services.commerce.initPackage === "function") {
-            appContext.services.commerce.initPackage();
-        } else {
-            PurchaseService.initPackage();
-        }
+        PurchaseService.initPackage();
         var sdkType = CommonUtil.getMetaData("sdk_type");
         // Google Play native pay init will eagerly surface the platform profile/account prompt.
         // Keep payType for UI branching, but skip startup init so launch stays silent.
@@ -326,45 +316,23 @@ var MenuLayer = cc.Layer.extend({
         });
         this.addChild(slotLayer, 1000);
     },
-    getSessionService: function () {
-        var appContext = this.appContext;
-        if (!appContext && typeof getBuriedTownAppContext === "function") {
-            appContext = getBuriedTownAppContext();
-        }
-        return appContext && appContext.services ? appContext.services.session : null;
-    },
     onSelectNewGameSlot: function (slot) {
-        var sessionService = this.getSessionService();
+        Record.setCurrentSlot(slot);
         if (Record.hasRecord(slot)) {
             var self = this;
             uiUtil.showNewGameDialog(function () {
-                if (sessionService && typeof sessionService.startNewGame === "function") {
-                    sessionService.startNewGame(slot);
-                    return;
-                }
-                Record.setCurrentSlot(slot);
                 self.newGame();
             });
             return;
         }
-        if (sessionService && typeof sessionService.startNewGame === "function") {
-            sessionService.startNewGame(slot);
-            return;
-        }
-        Record.setCurrentSlot(slot);
         this.newGame();
     },
     onSelectContinueGameSlot: function (slot) {
+        Record.setCurrentSlot(slot);
         if (!Record.hasRecord(slot)) {
             uiUtil.showTinyInfoDialog(getSaveSlotLangConfig().emptyContinueWarn);
             return;
         }
-        var sessionService = this.getSessionService();
-        if (sessionService && typeof sessionService.continueGame === "function") {
-            sessionService.continueGame(slot);
-            return;
-        }
-        Record.setCurrentSlot(slot);
         audioManager.stopMusic(audioManager.music.MAIN_PAGE);
         game.init();
         game.start();
@@ -397,12 +365,7 @@ var MenuLayer = cc.Layer.extend({
     newGame: function () {
         audioManager.stopMusic(audioManager.music.MAIN_PAGE);
         DataLog.increaseRound();
-        var sessionService = this.getSessionService();
-        if (sessionService && typeof sessionService.prepareNewGame === "function") {
-            sessionService.prepareNewGame();
-        } else {
-            game.newGame();
-        }
+        game.newGame();
         cc.director.runScene(new ChooseScene());
     },
     getVersionString: function (cb, target) {
@@ -898,11 +861,8 @@ var SettingLayer = cc.Layer.extend({
         listView.setAnchorPoint(0.5, 1);
 
 
-        var lans = typeof BuriedTownBootstrap !== "undefined"
-            && BuriedTownBootstrap
-            && typeof BuriedTownBootstrap.getSupportedLocales === "function"
-            ? BuriedTownBootstrap.getSupportedLocales()
-            : utils.clone(lanSupports);
+        var lans = utils.clone(lanSupports);
+        lans.push("zh-Hant");
         for (var key in lans) {
             if (lans[key] != this.lan)
                 listView.pushBackDefaultItem();
@@ -919,20 +879,19 @@ var SettingLayer = cc.Layer.extend({
             button.lan = lans[lanIndex];
             button.addTouchEventListener(function (sender, type) {
                 if (type == ccui.Widget.TOUCH_ENDED) {
-                    if (typeof BuriedTownBootstrap !== "undefined"
-                        && BuriedTownBootstrap
-                        && typeof BuriedTownBootstrap.loadLanguageBundle === "function") {
-                        BuriedTownBootstrap.loadLanguageBundle(sender.lan, function (resolvedLan) {
-                            cc.RTL = false;
-                            uiUtil.fontFamily.normal = cc.sys.isNative && ((resolvedLan === cc.sys.LANGUAGE_CHINESE && !cc.sys.LANGUAGE_CHINESE_HANT) || resolvedLan === cc.sys.LANGUAGE_ENGLISH)
-                                ? "FZDaHei-B02S"
-                                : "";
-                            cc.director.runScene(new MenuScene(true));
-                        });
-                        return;
-                    }
-
                     cc.sys.localStorage.setItem("language", sender.lan);
+
+                    if (jsb.fileUtils.isFileExist("src/data/string/string_" + sender.lan + ".js") || jsb.fileUtils.isFileExist("src/data/string/string_" + sender.lan + ".jsc")) {
+                        __cleanScript("src/data/string/string_" + self.lan + ".js");
+                        require("src/data/string/string_" + sender.lan + ".js")
+                        if (sender.lan == cc.sys.LANGUAGE_ARABIC) {
+                            cc.RTL = true;
+                        } else {
+                            cc.RTL = false;
+                        }
+                    }
+                    uiUtil.fontFamily.normal = cc.sys.isNative && ((cc.sys.localStorage.getItem("language") === cc.sys.LANGUAGE_CHINESE && !cc.sys.LANGUAGE_CHINESE_HANT) || cc.sys.localStorage.getItem("language") === cc.sys.LANGUAGE_ENGLISH) ? "FZDaHei-B02S" : ""
+
                     cc.director.runScene(new MenuScene(true));
                 }
             }, this)

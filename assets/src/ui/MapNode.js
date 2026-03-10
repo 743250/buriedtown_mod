@@ -200,13 +200,6 @@ var MapView = cc.ScrollView.extend({
         this.refreshZiplineOverlay();
     },
     supportsZiplineFramework: function () {
-        if (typeof getBuriedTownAppService === "function") {
-            var worldService = getBuriedTownAppService("world");
-            if (worldService
-                && typeof worldService.supportsZiplineFramework === "function") {
-                return worldService.supportsZiplineFramework();
-            }
-        }
         return RoleRuntimeService.isZiplineFrameworkAvailable(player);
     },
     attachZiplineUi: function (hostNode) {

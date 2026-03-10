@@ -1,24 +1,8 @@
 /**
  * User: Alex
  * Date: 15/1/5
- * Time: 4:07 PM
+ * Time: 下午4:07
  */
-var getBuriedTownNavigationService = function () {
-    if (typeof getBuriedTownAppService !== "function") {
-        return null;
-    }
-    return getBuriedTownAppService("navigation");
-};
-
-var invokeBuriedTownNavigation = function (methodName, args, defaultValue) {
-    var navigationService = getBuriedTownNavigationService();
-    if (navigationService && typeof navigationService[methodName] === "function") {
-        return navigationService[methodName].apply(navigationService, args || []);
-    }
-    cc.error("[Navigation] service unavailable: " + methodName);
-    return defaultValue;
-};
-
 var Navigation = {
     _array: null,
     _map: {},
@@ -46,43 +30,143 @@ var Navigation = {
     },
     siteMusic: null,
     forward: function (nodeName, userData) {
-        return invokeBuriedTownNavigation("forward", [nodeName, userData], null);
+        this._array.push({nodeName: nodeName, userData: userData});
+        return this.current();
     },
     back: function () {
-        return invokeBuriedTownNavigation("back", [], null);
+        this._array.pop();
+        return this.current();
     },
     current: function () {
-        return invokeBuriedTownNavigation("current", [], null);
+        if (this._array.length === 0) {
+            return this.forward(this.nodeName.HOME_NODE);
+        } else {
+            var nodeInfo = this._array[this._array.length - 1];
+            var clz = this.getClz(nodeInfo.nodeName);
+            var node = new clz(nodeInfo.userData);
+            node.setName("bottom");
+
+            var musicName;
+            switch (nodeInfo.nodeName) {
+                case this.nodeName.HOME_NODE:
+                case this.nodeName.BUILD_NODE:
+                case this.nodeName.STORAGE_NODE:
+                case this.nodeName.GATE_NODE:
+                case this.nodeName.RADIO_NODE:
+                case this.nodeName.GATE_OUT_NODE:
+                    musicName = audioManager.music.HOME;
+                    break;
+                case this.nodeName.DEATH_NODE:
+                    musicName = audioManager.music.DEATH;
+                    this.changeSiteMusic();
+                    break;
+                case this.nodeName.MAP_NODE:
+                    musicName = audioManager.music.MAP;
+                    this.changeSiteMusic();
+                    break;
+                case this.nodeName.NPC_NODE:
+                case this.nodeName.NPC_STORAGE_NODE:
+                    musicName = audioManager.music.NPC;
+                    break;
+                case this.nodeName.SITE_NODE:
+                case this.nodeName.AD_SITE_NODE:
+                case this.nodeName.WORK_SITE_NODE:
+                case this.nodeName.BOSS_SITE_NODE:
+                case this.nodeName.SITE_STORAGE_NODE:
+                case this.nodeName.BATTLE_AND_WORK_NODE:
+                case this.nodeName.WORK_ROOM_STORAGE_NODE:
+                    musicName = this.getSiteMusic();
+                    break;
+            }
+            if (musicName && musicName != this.currentMusic) {
+                audioManager.stopMusic(this.currentMusic);
+                this.currentMusic = musicName;
+                audioManager.playMusic(this.currentMusic, true);
+            }
+
+            this.save();
+
+            node.afterInit();
+
+            return node;
+        }
     },
     getSiteMusic: function () {
-        return invokeBuriedTownNavigation("getSiteMusic", [], null);
+        if (!this.siteMusic) {
+            var musicPool = [audioManager.music.SITE_1, audioManager.music.SITE_2, audioManager.music.SITE_3];
+            this.siteMusic = musicPool[utils.getRandomInt(0, musicPool.length - 1)];
+        }
+        return this.siteMusic;
     },
     changeSiteMusic: function () {
-        return invokeBuriedTownNavigation("changeSiteMusic", [], null);
+        this.siteMusic = null;
     },
     stopMusic: function () {
-        return invokeBuriedTownNavigation("stopMusic", [], null);
+        if (this.currentMusic) {
+            audioManager.stopMusic(this.currentMusic);
+        }
     },
     root: function (nodeName, userData) {
-        return invokeBuriedTownNavigation("root", [nodeName, userData], null);
+        this._array = [];
+        return this.forward(nodeName, userData);
     },
     replace: function (nodeName, userData) {
-        return invokeBuriedTownNavigation("replace", [nodeName, userData], null);
+        this._array.pop();
+        return this.forward(nodeName, userData);
     },
     init: function () {
-        return invokeBuriedTownNavigation("init", [], this);
+        this._array = [];
+        this._map["BottomFrameNode"] = BottomFrameNode.prototype.constructor;
+        this._map["HomeNode"] = HomeNode.prototype.constructor;
+        this._map["BuildNode"] = BuildNode.prototype.constructor;
+        this._map["StorageNode"] = StorageNode.prototype.constructor;
+        this._map["GateNode"] = GateNode.prototype.constructor;
+        this._map["MapNode"] = MapNode.prototype.constructor;
+        this._map["SiteNode"] = SiteNode.prototype.constructor;
+        this._map["AdSiteNode"] = AdSiteNode.prototype.constructor;
+        this._map["WorkSiteNode"] = WorkSiteNode.prototype.constructor;
+        this._map["BossSiteNode"] = BossSiteNode.prototype.constructor;
+        this._map["SiteStorageNode"] = SiteStorageNode.prototype.constructor;
+        this._map["NpcNode"] = NpcNode.prototype.constructor;
+        this._map["NpcStorageNode"] = NpcStorageNode.prototype.constructor;
+        this._map["BattleAndWorkNode"] = BattleAndWorkNode.prototype.constructor;
+        this._map["WorkRoomStorageNode"] = WorkRoomStorageNode.prototype.constructor;
+        this._map["DeathNode"] = DeathNode.prototype.constructor;
+        this._map["RadioNode"] = RadioNode.prototype.constructor;
+        this._map["GateOutNode"] = GateOutNode.prototype.constructor;
+        this._map["ShopNode"] = ShopNode.prototype.constructor;
+        this.restore();
     },
     getClz: function (nodeName) {
-        return invokeBuriedTownNavigation("getClz", [nodeName], null);
+        return this._map[nodeName];
     },
     gotoDeathNode: function () {
-        return invokeBuriedTownNavigation("gotoDeathNode", [], null);
+        //去除所有dialog
+        var runningScene = cc.director.getRunningScene ? cc.director.getRunningScene() : null;
+        if (!runningScene) {
+            return;
+        }
+        runningScene.removeChildByName("dialog");
+
+        var layer = runningScene.getChildByName("main");
+        if (!layer) {
+            return;
+        }
+        layer.removeChildByName("bottom");
+        layer.addChild(Navigation.root(Navigation.nodeName.DEATH_NODE));
     },
     save: function () {
-        return invokeBuriedTownNavigation("save", [], null);
+        var saveObj = {
+            _array: this._array
+        };
+        Record.save("navigation", saveObj);
+        Record.saveAll();
     },
     restore: function () {
-        return invokeBuriedTownNavigation("restore", [], null);
+        var saveObj = Record.restore("navigation");
+        if (saveObj) {
+            this._array = saveObj._array;
+        }
     }
 };
 
@@ -91,9 +175,6 @@ var BottomFrameNode = cc.Node.extend({
         this._super();
 
         this.userData = userData;
-        this.appContext = typeof getBuriedTownAppContext === "function"
-            ? getBuriedTownAppContext()
-            : null;
 
         this.initRes();
 
@@ -118,6 +199,9 @@ var BottomFrameNode = cc.Node.extend({
         this.leftBtn.setClickListener(this, this.onClickLeftBtn);
         this.leftBtn.setPosition(60, actionBarBaseHeight);
         this.bg.addChild(this.leftBtn, 2);
+
+
+
 
         this.rightBtn = new SpriteButton(cc.size(100, 70), "btn_forward.png", null, "btn_forward_disabled.png");
         this.rightBtn.setClickListener(this, this.onClickRightBtn);
@@ -144,62 +228,23 @@ var BottomFrameNode = cc.Node.extend({
     },
     onClickRightBtn: function () {
         //this.forward(Navigation.nodeName.HOME_NODE);
+
     },
-    getAppContext: function () {
-        if (!this.appContext && typeof getBuriedTownAppContext === "function") {
-            this.appContext = getBuriedTownAppContext();
-        }
-        return this.appContext || null;
-    },
-    getAppService: function (serviceName) {
-        var appContext = this.getAppContext();
-        if (!appContext || !appContext.services || !serviceName) {
-            return null;
-        }
-        return appContext.services[serviceName] || null;
-    },
-    getNavigationService: function () {
-        return this.getAppService("navigation");
-    },
-    getSessionService: function () {
-        return this.getAppService("session");
-    },
-    swapBottomNode: function (node) {
-        if (!node) {
-            cc.error("[Navigation] target node missing, keep current node");
-            return null;
-        }
-        var parent = this.getParent();
-        if (!parent) {
-            cc.error("[Navigation] parent missing for bottom node swap");
-            return null;
-        }
-        this.removeFromParent();
-        if (parent) {
-            parent.addChild(node);
-        }
-        return node;
-    },
+
     forward: function (nodeName, userData) {
-        var navigationService = this.getNavigationService();
-        var node = navigationService && typeof navigationService.forward === "function"
-            ? navigationService.forward(nodeName, userData)
-            : Navigation.forward(nodeName, userData);
-        return this.swapBottomNode(node);
+        var parent = this.getParent();
+        this.removeFromParent();
+        parent.addChild(Navigation.forward(nodeName,userData));
     },
     back: function () {
-        var navigationService = this.getNavigationService();
-        var node = navigationService && typeof navigationService.back === "function"
-            ? navigationService.back()
-            : Navigation.back();
-        return this.swapBottomNode(node);
+        var parent = this.getParent();
+        this.removeFromParent();
+        parent.addChild(Navigation.back());
     },
     replace: function (nodeName, userData) {
-        var navigationService = this.getNavigationService();
-        var node = navigationService && typeof navigationService.replace === "function"
-            ? navigationService.replace(nodeName, userData)
-            : Navigation.replace(nodeName, userData);
-        return this.swapBottomNode(node);
+        var parent = this.getParent();
+        this.removeFromParent();
+        parent.addChild(Navigation.replace(nodeName,userData));
     },
 
     onExit: function () {
@@ -210,6 +255,7 @@ var BottomFrameNode = cc.Node.extend({
     },
 
     onEnter: function () {
+        var self = this;
         this._super();
         this.func = this.setLeftBtnEnabled();
         utils.emitter.on("left_btn_enabled", this.func);

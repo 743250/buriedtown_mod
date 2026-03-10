@@ -6,19 +6,11 @@
 var MainLayer = cc.Layer.extend({
     ctor: function () {
         this._super();
-        this.appContext = typeof getBuriedTownAppContext === "function"
-            ? getBuriedTownAppContext()
-            : null;
 
         this.topFrame = new TopFrameNode();
         this.addChild(this.topFrame, 1);
 
-        var navigationService = this.appContext && this.appContext.services
-            ? this.appContext.services.navigation
-            : null;
-        this.bottomFrame = navigationService && typeof navigationService.current === "function"
-            ? navigationService.current()
-            : Navigation.current();
+        this.bottomFrame = Navigation.current();
         this.addChild(this.bottomFrame, 0);
 
         return true;
@@ -67,13 +59,6 @@ var MainScene = BaseScene.extend({
     },
     onExit: function () {
         this._super();
-        var navigationService = this.appContext && this.appContext.services
-            ? this.appContext.services.navigation
-            : null;
-        if (navigationService && typeof navigationService.stopMusic === "function") {
-            navigationService.stopMusic();
-        } else {
-            Navigation.stopMusic();
-        }
+        Navigation.stopMusic();
     }
 });

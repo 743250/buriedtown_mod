@@ -2,54 +2,49 @@
  * Created by lancelot on 15/5/16.
  */
 var player;
-var getBuriedTownSessionService = function () {
-    if (typeof BuriedTownBootstrap === "undefined"
-        || !BuriedTownBootstrap
-        || typeof BuriedTownBootstrap.getAppContext !== "function") {
-        return null;
-    }
-
-    var appContext = BuriedTownBootstrap.getAppContext();
-    if (!appContext || !appContext.services) {
-        return null;
-    }
-    return appContext.services.session || null;
-};
 var game = {
     init: function () {
-        var sessionService = getBuriedTownSessionService();
-        if (sessionService && typeof sessionService.initRuntime === "function") {
-            return sessionService.initRuntime();
+        Record.init(Record.getCurrentRecordName());
+        Navigation.init();
+        if (utils.emitter) {
+            utils.emitter.removeAllListeners();
         }
-        cc.error("[game] session service unavailable: init");
-        return null;
+        utils.emitter = new Emitter();
+        cc.timer = new TimerManager();
+        player = new Player();
+        player.restore();
+        userGuide.init();
+        Medal.initCompletedForOneGame(false);
+        if (!Record.restore('randomPack')) {
+            Record.save('randomPack', utils.getRandomInt(1, 2));
+        }
     },
     start: function () {
-        var sessionService = getBuriedTownSessionService();
-        if (sessionService && typeof sessionService.startRuntime === "function") {
-            return sessionService.startRuntime();
+        player.start();
+        if (typeof IAPPackage !== "undefined"
+            && IAPPackage
+            && typeof IAPPackage.applyActiveTalentStartGifts === "function") {
+            var gifted = IAPPackage.applyActiveTalentStartGifts(player);
+            if (gifted && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
+                Record.saveAll();
+            }
         }
-        cc.error("[game] session service unavailable: start");
     },
     stop: function () {
-        var sessionService = getBuriedTownSessionService();
-        if (sessionService && typeof sessionService.stopRuntime === "function") {
-            return sessionService.stopRuntime();
+        if (cc.timer) {
+            cc.timer.stop();
         }
-        cc.error("[game] session service unavailable: stop");
     },
     newGame: function () {
-        var sessionService = getBuriedTownSessionService();
-        if (sessionService && typeof sessionService.prepareNewGame === "function") {
-            return sessionService.prepareNewGame();
-        }
-        cc.error("[game] session service unavailable: newGame");
+        Record.deleteRecord(Record.getCurrentRecordName());
+        Record.setType(-1);
+        IAPPackage.resetConsumeIAP();
+        Medal.newGameReset();
+        Medal.initCompletedForOneGame(true);
     },
     relive: function () {
-        var sessionService = getBuriedTownSessionService();
-        if (sessionService && typeof sessionService.reliveRuntime === "function") {
-            return sessionService.reliveRuntime();
-        }
-        cc.error("[game] session service unavailable: relive");
+        this.init();
+        this.start();
+        player.relive();
     }
 };

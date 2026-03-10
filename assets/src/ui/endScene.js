@@ -182,14 +182,7 @@ var EndLayer = cc.Layer.extend({
         btn1.setVisible(false);
 
         var btn2 = uiUtil.createSpriteBtn({normal: "btn_home.png"}, this, function () {
-            var sessionService = typeof getBuriedTownAppService === "function"
-                ? getBuriedTownAppService("session")
-                : null;
-            if (sessionService && typeof sessionService.prepareNewGame === "function") {
-                sessionService.prepareNewGame();
-            } else {
-                game.newGame();
-            }
+            game.newGame();
             cc.director.runScene(new MenuScene());
         });
         btn2.x = leftEdge + (rightEdge - leftEdge) / 4 * 2;

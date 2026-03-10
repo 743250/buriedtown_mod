@@ -3,13 +3,6 @@
  * Date: 15/1/5
  * Time: 下午4:07
  */
-var getBuriedTownStorySessionService = function () {
-    if (typeof getBuriedTownAppService !== "function") {
-        return null;
-    }
-    return getBuriedTownAppService("session");
-};
-
 var StoryLayer = cc.Layer.extend({
     ctor: function () {
         this._super();
@@ -35,14 +28,8 @@ var StoryLayer = cc.Layer.extend({
             bg.setEnabled(false);
 
             try {
-                var sessionService = getBuriedTownStorySessionService();
-                if (sessionService && typeof sessionService.initRuntime === "function") {
-                    sessionService.initRuntime();
-                    sessionService.startRuntime();
-                } else {
-                    game.init();
-                    game.start();
-                }
+                game.init();
+                game.start();
                 userGuide.initUserGuide();
                 cc.director.runScene(new MainScene());
             } catch (e) {

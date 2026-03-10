@@ -69,12 +69,7 @@ var DeathNode = BottomFrameNode.extend({
         //label2.y = btn2.y + btn2.height / 2 + 10;
         //this.bg.addChild(label2);
 
-        var sessionService = this.getSessionService();
-        if (sessionService && typeof sessionService.stopRuntime === "function") {
-            sessionService.stopRuntime();
-        } else {
-            game.stop();
-        }
+        game.stop();
 
     },
     onClickBtn1: function () {
@@ -137,19 +132,9 @@ var DeathNode = BottomFrameNode.extend({
     onClickRightBtn: function () {
     },
     goHome: function () {
-        var navigationService = this.getNavigationService();
-        var sessionService = this.getSessionService();
-        if (navigationService && typeof navigationService.root === "function") {
-            navigationService.root(Navigation.nodeName.HOME_NODE, -1);
-        } else {
-            Navigation.root(Navigation.nodeName.HOME_NODE, -1);
-        }
+        Navigation.root(Navigation.nodeName.HOME_NODE, -1);
 
-        if (sessionService && typeof sessionService.reliveRuntime === "function") {
-            sessionService.reliveRuntime();
-        } else {
-            game.relive();
-        }
+        game.relive();
         cc.director.runScene(new MainScene());
         player.log.addMsg(1123, player.getItemNumInPlayer(RELIVE_ITEMID));
     },

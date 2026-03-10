@@ -10,23 +10,6 @@ var APP_NAVIGATION = {
     MENU_THIRD: 5,
 };
 
-var getBuriedTownAppContext = function () {
-    if (typeof BuriedTownBootstrap === "undefined"
-        || !BuriedTownBootstrap
-        || typeof BuriedTownBootstrap.getAppContext !== "function") {
-        return null;
-    }
-    return BuriedTownBootstrap.getAppContext();
-};
-
-var getBuriedTownAppService = function (serviceName) {
-    var appContext = getBuriedTownAppContext();
-    if (!appContext || !appContext.services || !serviceName) {
-        return null;
-    }
-    return appContext.services[serviceName] || null;
-};
-
 var BaseLayer = cc.Layer.extend({
     ctor: function (navigationType) {
         this._super();
@@ -66,14 +49,7 @@ var BaseLayer = cc.Layer.extend({
                             }
 
                             uiUtil.showBackMenuDialog(function () {
-                                var sessionService = self.appContext && self.appContext.services
-                                    ? self.appContext.services.session
-                                    : getBuriedTownAppService("session");
-                                if (sessionService && typeof sessionService.stopRuntime === "function") {
-                                    sessionService.stopRuntime();
-                                } else {
-                                    game.stop();
-                                }
+                                game.stop();
                                 cc.director.runScene(new MenuScene());
                             });
                             break;
@@ -93,11 +69,9 @@ var BaseLayer = cc.Layer.extend({
 var BaseScene = cc.Scene.extend({
     ctor: function (navigationType) {
         this._super();
-        this.appContext = getBuriedTownAppContext();
 
         var layer = new BaseLayer(navigationType);
         layer.setName("keyEventLayer");
-        layer.appContext = this.appContext;
         this.addChild(layer);
 
         return true;

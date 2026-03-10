@@ -1395,26 +1395,92 @@ uiUtil.createSaleOffIcon = function () {
 };
 
 uiUtil.getPurchaseStringConfig = function (purchaseId) {
-    if (typeof PurchaseUiHelper !== "undefined"
-        && PurchaseUiHelper
-        && typeof PurchaseUiHelper.getPurchaseStringConfig === "function") {
-        return PurchaseUiHelper.getPurchaseStringConfig(purchaseId);
-    }
     purchaseId = parseInt(purchaseId);
-    return {
-        name: "ID " + purchaseId,
-        des: "",
-        effect: ""
-    };
+    var strConfig = stringUtil.getString("p_" + purchaseId);
+    if (!strConfig || typeof strConfig !== "object") {
+        strConfig = {};
+    } else {
+        strConfig = utils.clone(strConfig);
+    }
+
+    if (typeof strConfig.name !== "string" || strConfig.name.length === 0) {
+        strConfig.name = "ID " + purchaseId;
+    }
+    if (typeof strConfig.des !== "string") {
+        strConfig.des = "";
+    }
+    if (typeof strConfig.effect !== "string") {
+        strConfig.effect = "";
+    }
+
+    if (/^ID\s+\d+$/.test(strConfig.name)
+        && typeof ConfigValidator !== "undefined"
+        && ConfigValidator
+        && typeof ConfigValidator.warnIfInvalid === "function") {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isTalentPurchase === "function"
+            && PurchaseService.isTalentPurchase(purchaseId)) {
+            ConfigValidator.warnIfInvalid("talent", purchaseId, "uiUtil.getPurchaseStringConfig");
+        } else if (typeof role !== "undefined"
+            && role
+            && typeof role.getRoleTypeByPurchaseId === "function") {
+            var roleType = role.getRoleTypeByPurchaseId(purchaseId);
+            if (roleType !== null && roleType !== undefined) {
+                ConfigValidator.warnIfInvalid("role", roleType, "uiUtil.getPurchaseStringConfig");
+            }
+        }
+    }
+
+    // For exchange-only character purchase ids without p_xxx string entries,
+    // fallback to role metadata so shop titles/descriptions remain meaningful.
+    if (/^ID\s+\d+$/.test(strConfig.name)
+        && typeof PurchaseService !== "undefined"
+        && PurchaseService) {
+        var exchangeIds = PurchaseService.getExchangeIdsByPurchaseId(purchaseId);
+        if (exchangeIds.length > 0 && typeof ExchangeAchievementConfig !== "undefined" && ExchangeAchievementConfig) {
+            var exchangeConfig = ExchangeAchievementConfig[exchangeIds[0]];
+            if (exchangeConfig && exchangeConfig.type === "character") {
+                var roleInfo = null;
+                if (typeof role !== "undefined" && role && typeof role.getRoleInfo === "function") {
+                    roleInfo = role.getRoleInfo(exchangeConfig.targetId);
+                }
+                if (roleInfo) {
+                    strConfig.name = roleInfo.name || strConfig.name;
+                    if (!strConfig.des) {
+                        strConfig.des = roleInfo.des || "";
+                    }
+                    if (!strConfig.effect) {
+                        strConfig.effect = roleInfo.effect || "";
+                    }
+                } else if (exchangeConfig.name) {
+                    strConfig.name = exchangeConfig.name;
+                }
+            }
+        }
+    }
+    return strConfig;
 };
 
 uiUtil.getRoleTypeByPurchaseId = function (purchaseId) {
-    if (typeof PurchaseUiHelper !== "undefined"
-        && PurchaseUiHelper
-        && typeof PurchaseUiHelper.getRoleTypeByPurchaseId === "function") {
-        return PurchaseUiHelper.getRoleTypeByPurchaseId(purchaseId);
+    if (typeof PurchaseService === "undefined"
+        || !PurchaseService
+        || typeof ExchangeAchievementConfig === "undefined"
+        || !ExchangeAchievementConfig) {
+        return null;
     }
-    return null;
+
+    var exchangeIds = PurchaseService.getExchangeIdsByPurchaseId(purchaseId);
+    if (exchangeIds.length === 0) {
+        return null;
+    }
+
+    var exchangeConfig = ExchangeAchievementConfig[exchangeIds[0]];
+    if (!exchangeConfig || exchangeConfig.type !== "character") {
+        return null;
+    }
+
+    return exchangeConfig.targetId;
 };
 
 uiUtil.getCharacterPortraitByPurchaseId = function (purchaseId) {
@@ -1477,13 +1543,89 @@ uiUtil.createSupportPackPreviewIcon = function (effectList) {
     return node;
 };
 
+uiUtil._talentLevelTextMap = {
+    1: "一",
+    2: "二",
+    3: "三"
+};
+
 uiUtil.getTalentDisplayInfo = function (purchaseId, baseName) {
-    if (typeof PurchaseUiHelper !== "undefined"
-        && PurchaseUiHelper
-        && typeof PurchaseUiHelper.getTalentDisplayInfo === "function") {
-        return PurchaseUiHelper.getTalentDisplayInfo(purchaseId, baseName);
+    if (typeof PurchaseService === "undefined"
+        || !PurchaseService
+        || !PurchaseService.isTalentPurchase(purchaseId)) {
+        return null;
     }
-    return null;
+
+    purchaseId = parseInt(purchaseId);
+    var currentLevel = Medal.getTalentLevel(purchaseId);
+    var maxLevel = (typeof TalentService !== "undefined"
+        && TalentService
+        && typeof TalentService.getTalentMaxLevel === "function")
+        ? TalentService.getTalentMaxLevel(purchaseId)
+        : 3;
+    var nextLevel = currentLevel >= maxLevel ? maxLevel : (currentLevel + 1);
+
+    var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
+    var levelTextMap = uiUtil._talentLevelTextMap;
+    var talentName = baseName || strConfig.name || "";
+    var baseDes = (strConfig.des || "").replace(/\\n/g, "\n");
+
+    var effectList = (typeof TalentService !== "undefined"
+        && TalentService
+        && typeof TalentService.getTalentTierEffectTextList === "function")
+        ? TalentService.getTalentTierEffectTextList(purchaseId)
+        : [];
+    if (effectList.length === 0) {
+        var fallbackEffect = (strConfig.effect || "").replace(/\\n/g, "\n") || "效果增强";
+        effectList = [];
+        for (var effectIndex = 0; effectIndex < maxLevel; effectIndex++) {
+            effectList.push(fallbackEffect);
+        }
+    }
+    var tierLines = [];
+    for (var level = 1; level <= maxLevel; level++) {
+        var tierEffectText = effectList[level - 1] || effectList[effectList.length - 1] || "效果增强";
+        tierLines.push((levelTextMap[level] || String(level)) + "级: " + tierEffectText);
+    }
+
+    var currentEffectText = currentLevel >= 1
+        ? (effectList[Math.max(0, Math.min(effectList.length - 1, currentLevel - 1))] || "")
+        : "无";
+    var nextEffectText = currentLevel >= maxLevel
+        ? "无"
+        : (effectList[Math.max(0, Math.min(effectList.length - 1, nextLevel - 1))] || "");
+
+    var desParts = [];
+    if (baseDes) {
+        desParts.push(baseDes);
+    }
+    if (desParts.length === 0) {
+        desParts.push("能力描述: 暂无");
+    }
+
+    var effectParts = [];
+    effectParts.push("当前能力效果: " + currentEffectText);
+    effectParts.push("下一阶段能力效果: " + nextEffectText);
+
+    var cardName = talentName;
+    if (currentLevel >= maxLevel) {
+        cardName = talentName + "（已满级）";
+    } else if (currentLevel >= 1) {
+        cardName = talentName + "（升至" + (levelTextMap[nextLevel] || String(nextLevel)) + "级）";
+    } else {
+        cardName = talentName + "（解锁" + (levelTextMap[nextLevel] || String(nextLevel)) + "级）";
+    }
+
+    return {
+        currentLevel: currentLevel,
+        nextLevel: nextLevel,
+        isMaxLevel: currentLevel >= maxLevel,
+        displayName: talentName,
+        cardName: cardName,
+        desText: desParts.join("\n\n"),
+        effectText: effectParts.join("\n"),
+        tierLines: tierLines
+    };
 };
 
 uiUtil.createPayItemNode = function (purchaseId, target, cb) {

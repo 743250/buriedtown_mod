@@ -1,7 +1,12 @@
 var jsList = [
+    "src/util/EnvironmentConfig.js",
     "src/util/emitter.js",
     "src/util/utils.js",
+    "src/util/safetyHelper.js",
     "src/util/iconHelper.js",
+    "src/util/contentBlueprint.js",
+    "src/util/configValidator.js",
+    "src/util/resourceFallback.js",
     "src/util/uiTheme.js",
     "src/util/stringUtil.js",
     "src/util/range.js",
@@ -11,6 +16,8 @@ var jsList = [
     "src/util/memoryUtil.js",
     "src/util/attrHelper.js",
     "src/util/timerHelper.js",
+
+    "src/data/string/string.js",
     "src/data/blackList.js",
     "src/data/npcConfig.js",
     "src/data/itemConfig.js",
