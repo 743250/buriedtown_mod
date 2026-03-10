@@ -284,6 +284,10 @@ var TalentService = {
         var level104 = this._getActiveTalentLevel(104);
         return this._getTalentValueByLevel(104, "socialExtraGiftChanceValues", level104, 0);
     },
+    getSocialTradeQuantityMultiplier: function () {
+        var level104 = this._getActiveTalentLevel(104);
+        return this._getTalentValueByLevel(104, "socialTradeQuantityMultiplierValues", level104, 1);
+    },
     getTalentPurchaseIdList: function () {
         var talentIds = this._getSortedTalentIds();
         return [0].concat(talentIds);
@@ -491,6 +495,7 @@ var TalentService = {
             "getElitePistolHeadshotBonus",
             "isSocialEffectUnlocked",
             "getSocialExtraGiftChance",
+            "getSocialTradeQuantityMultiplier",
             "getTalentConfig",
             "getTalentPurchaseIdList",
             "getTalentMaxLevel",

@@ -99,6 +99,21 @@ var NPC = BaseSite.extend({
             this.maxRep = this.reputation;
         }
     },
+    _getSocialTradeQuantityMultiplier: function () {
+        if (typeof TalentService === "undefined"
+            || !TalentService
+            || typeof TalentService.getSocialTradeQuantityMultiplier !== "function") {
+            return 1;
+        }
+        return TalentService.getSocialTradeQuantityMultiplier();
+    },
+    _getTradingGrantNum: function (baseNum) {
+        baseNum = Number(baseNum) || 0;
+        if (baseNum <= 0) {
+            return 0;
+        }
+        return Math.max(1, Math.floor(baseNum * this._getSocialTradeQuantityMultiplier()));
+    },
 
     unlockGift: function (index) {
         var gift = this.giftInfo[index];
@@ -137,7 +152,7 @@ var NPC = BaseSite.extend({
             for (var i = 0; i < tradingList.length; i++) {
                 var itemInfo = tradingList[i];
                 if (itemInfo) {
-                    this.storage.increaseItem(itemInfo.itemId, itemInfo.num);
+                    this.storage.increaseItem(itemInfo.itemId, this._getTradingGrantNum(itemInfo.num));
                 }
             }
         }

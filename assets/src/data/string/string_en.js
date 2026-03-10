@@ -1245,7 +1245,7 @@ var string = {
     "p_104": {
         "name": "Communicator",
         "des": "You are good with interacting with people. You're able to quickly earn their trust and aid. \\n (Unlocking this permanently allows you to choose this character).",
-        "effect": "Refusing an NPC's request will not lower relationship points; bonus gifts trigger at 50% from level 2 and always trigger at level 3."
+        "effect": "Refusing an NPC's request will not lower relationship points; from level 2, NPC trade goods quantity increases by 50% and bonus gifts trigger at 50%; at level 3, bonus gifts always trigger and NPC trade goods quantity increases by 100%."
     },
     "p_105": {
         "name": "Military Grade Backpack ",
