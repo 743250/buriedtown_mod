@@ -1,8 +1,27 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const esbuild = require("esbuild");
 
 const repoRoot = path.resolve(__dirname, "..");
+const legacyBundleChecks = [
+    {
+        pattern: /=>/,
+        description: "arrow function"
+    },
+    {
+        pattern: /(^|[^\w$])const\s+[A-Za-z_$]/m,
+        description: "const declaration"
+    },
+    {
+        pattern: /(^|[^\w$])let\s+[A-Za-z_$]/m,
+        description: "let declaration"
+    },
+    {
+        pattern: /(^|[^\w$])class\s+[A-Za-z_$]/m,
+        description: "class declaration"
+    }
+];
 
 function loadRuntimeClasses() {
     const result = esbuild.buildSync({
@@ -314,7 +333,50 @@ function runSessionSmokeTest() {
     assert.ok(calls.some((call) => call[0] === "player.relive"));
 }
 
+function runGeneratedBundleCompatibilityTest() {
+    const generatedDir = path.join(repoRoot, "assets", "generated");
+    const runtimeBundlePath = path.join(generatedDir, "runtime.bundle.js");
+    const platformBundlePath = path.join(generatedDir, "platform.bundle.js");
+    const langDir = path.join(generatedDir, "lang");
+    const bundlePaths = [runtimeBundlePath, platformBundlePath];
+
+    bundlePaths.forEach((bundlePath) => {
+        assert.ok(fs.existsSync(bundlePath), "Missing generated bundle: " + path.relative(repoRoot, bundlePath));
+        const sourceText = fs.readFileSync(bundlePath, "utf8");
+        assert.ok(sourceText.trim().length > 0, path.relative(repoRoot, bundlePath) + " is empty");
+        legacyBundleChecks.forEach((check) => {
+            assert.equal(
+                check.pattern.test(sourceText),
+                false,
+                path.relative(repoRoot, bundlePath) + " still contains legacy-incompatible syntax: " + check.description
+            );
+        });
+    });
+
+    if (!fs.existsSync(langDir)) {
+        throw new Error("Missing generated language bundle directory: " + path.relative(repoRoot, langDir));
+    }
+
+    fs.readdirSync(langDir)
+        .filter((fileName) => /\.bundle\.js$/i.test(fileName))
+        .forEach((fileName) => {
+            const bundlePath = path.join(langDir, fileName);
+            const sourceText = fs.readFileSync(bundlePath, "utf8");
+            assert.equal(
+                sourceText.indexOf("})(typeof window !== 'undefined' ? window : globalThis);") !== -1,
+                false,
+                path.relative(repoRoot, bundlePath) + " still uses an unsafe global fallback"
+            );
+            assert.notEqual(
+                sourceText.indexOf("typeof globalThis !== 'undefined' ? globalThis"),
+                -1,
+                path.relative(repoRoot, bundlePath) + " is missing the guarded global fallback"
+            );
+        });
+}
+
 try {
+    runGeneratedBundleCompatibilityTest();
     runNavigationSmokeTest();
     runSessionSmokeTest();
     console.log("Playable smoke checks passed.");

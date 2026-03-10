@@ -5,7 +5,7 @@
     "build": "node tools/build-runtime.js",
     "build:runtime": "node tools/build-runtime.js",
     "check:runtime": "node tools/build-runtime.js",
-    "check:playable": "node tools/smoke-playable.js"
+    "check:playable": "node tools/build-runtime.js && node tools/smoke-playable.js"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

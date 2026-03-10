@@ -1398,4 +1398,4 @@ var string = {
         }
     }
     global.__BURIEDTOWN_ACTIVE_LANG__ = "zh";
-})(typeof window !== 'undefined' ? window : globalThis);
+})(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this)));

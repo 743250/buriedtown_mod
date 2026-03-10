@@ -16,7 +16,11 @@ export class CommerceAppService {
         if (!value || typeof value !== "object") {
             return {};
         }
-        return Object.assign({}, value);
+        const clone: Record<string, any> = {};
+        Object.keys(value).forEach((key) => {
+            clone[key] = value[key];
+        });
+        return clone;
     }
 
     initPackage(): void {
