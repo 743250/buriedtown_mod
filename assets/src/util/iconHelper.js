@@ -23,7 +23,7 @@ var IconHelper = {
         4: "npc_dig_4.png",  // 雅子
         5: "npc_dig_5.png",  // 比尔
         6: "npc_dig_6.png",  // 老罗
-        8: "npc_dig_7.png"   // 贝尔
+        8: "npc_dig_8.png"   // 贝尔
     },
 
     // 内联配置表 - 角色头像fallback映射
@@ -34,7 +34,7 @@ var IconHelper = {
         4: "npc_dig_4.png",
         5: "npc_dig_5.png",
         6: "npc_dig_6.png",
-        8: "npc_dig_7.png"
+        8: "npc_dig_8.png"
     },
 
     _getRoleConfig: function(roleType) {

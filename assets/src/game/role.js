@@ -23,7 +23,7 @@ var _fallbackRoleConfigTable = {
     5: {roleType: 5, exchangeId: 1004, purchaseId: 111, nameStringId: 1327, selectionDescriptionStringId: 1328, infoDescriptionStringId: 1329, infoEffectStringId: 1330, avatarFallback: "npc_dig_5.png", selectionOrder: 4, npcId: 5},
     6: {roleType: 6, exchangeId: null, purchaseId: null, nameStringId: 1311, selectionDescriptionStringId: 1312, infoDescriptionStringId: 1317, infoEffectStringId: 1318, avatarFallback: "npc_dig_6.png", selectionOrder: 0, npcId: 6},
     7: {roleType: 7, exchangeId: 1006, purchaseId: 113, nameStringId: 1342, selectionDescriptionStringId: 1343, infoDescriptionStringId: 1343, infoEffectStringId: 1344, avatarFallback: "npc_dig_6.png", selectionOrder: 7, npcId: 7},
-    8: {roleType: 8, exchangeId: 1007, purchaseId: 114, nameStringId: 1345, selectionDescriptionStringId: 1346, infoDescriptionSource: {type: "purchase", purchaseId: 114, field: "des"}, infoEffectSource: {type: "purchase", purchaseId: 114, field: "effect"}, avatarFallback: "npc_dig_7.png", mapRoleType: 7, selectionOrder: 6, npcId: 8}
+    8: {roleType: 8, exchangeId: 1007, purchaseId: 114, nameStringId: 1345, selectionDescriptionStringId: 1346, infoDescriptionSource: {type: "purchase", purchaseId: 114, field: "des"}, infoEffectSource: {type: "purchase", purchaseId: 114, field: "effect"}, avatarFallback: "npc_dig_8.png", mapRoleType: 8, selectionOrder: 6, npcId: 8}
 };
 
 var _defaultRoleInfo = {

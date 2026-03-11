@@ -4,6 +4,38 @@
  */
 
 var SafetyHelper = {
+    normalizeSpriteName: function(spriteName) {
+        if (this.isEmpty(spriteName)) {
+            return "";
+        }
+        return spriteName.charAt(0) === '#' ? spriteName.substr(1) : spriteName;
+    },
+
+    resolveStandaloneSpritePath: function(spriteName) {
+        var normalizedName = this.normalizeSpriteName(spriteName);
+        if (/^npc_dig_\d+\.png$/.test(normalizedName) || /^npc_\d+\.png$/.test(normalizedName)) {
+            return "res/npc/" + normalizedName;
+        }
+        return null;
+    },
+
+    loadStandaloneSprite: function(spriteName) {
+        var spritePath = this.resolveStandaloneSpritePath(spriteName);
+        if (!spritePath) {
+            return null;
+        }
+        try {
+            var sprite = new cc.Sprite(spritePath);
+            var size = sprite && typeof sprite.getContentSize === 'function' ? sprite.getContentSize() : null;
+            if (sprite && size && (size.width > 0 || size.height > 0)) {
+                return sprite;
+            }
+        } catch (e) {
+            cc.error("loadStandaloneSprite failed: " + spritePath + ", " + e);
+        }
+        return null;
+    },
+
     safeCall: function(fn, defaultValue) {
         if (typeof fn !== 'function') {
             return defaultValue;
@@ -83,8 +115,16 @@ var SafetyHelper = {
             if (sprite) {
                 return sprite;
             }
+            sprite = this.loadStandaloneSprite(spriteName);
+            if (sprite) {
+                return sprite;
+            }
             return fallbackName ? this.safeLoadSprite(fallbackName, null) : null;
         } catch (e) {
+            var standaloneSprite = this.loadStandaloneSprite(spriteName);
+            if (standaloneSprite) {
+                return standaloneSprite;
+            }
             cc.error("safeLoadSprite failed: " + spriteName + ", " + e);
             return fallbackName ? this.safeLoadSprite(fallbackName, null) : null;
         }
