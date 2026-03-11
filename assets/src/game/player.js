@@ -793,18 +793,76 @@ var Player = cc.Class.extend({
         new DayLayer(homeRes).show();
     },
 
+    _getEncounterDayNumber: function () {
+        var timeObj = cc.timer.formatTime();
+        return (timeObj && typeof timeObj.d === "number") ? (timeObj.d + 1) : 1;
+    },
+    _clampEncounterDifficulty: function (value) {
+        value = Math.round(Number(value) || 1);
+        return Math.max(1, Math.min(value, 12));
+    },
+    _getRandomEncounterDifficultyRange: function (stage) {
+        var config = RandomBattleConfig[stage] || {};
+        var defaultRange = Array.isArray(config.difficulty) ? config.difficulty.slice() : [1, 1];
+        var progression = RandomBattleConfig.progression || {};
+        var stageProgression = progression[stage];
+        var currentDay = this._getEncounterDayNumber();
+        var startDay = Number(progression.startDay) || 0;
+        var endDay = Number(progression.endDay) || startDay;
+
+        if (!stageProgression || currentDay < startDay) {
+            return defaultRange;
+        }
+
+        var startDifficulty = Array.isArray(stageProgression.startDifficulty)
+            ? stageProgression.startDifficulty.slice()
+            : defaultRange;
+        var endDifficulty = Array.isArray(stageProgression.endDifficulty)
+            ? stageProgression.endDifficulty.slice()
+            : startDifficulty;
+
+        if (currentDay >= endDay) {
+            return endDifficulty;
+        }
+
+        var progress = 0;
+        if (endDay > startDay) {
+            progress = (currentDay - startDay) / (endDay - startDay);
+        }
+
+        var minDifficulty = this._clampEncounterDifficulty(
+            startDifficulty[0] + (endDifficulty[0] - startDifficulty[0]) * progress
+        );
+        var maxDifficulty = this._clampEncounterDifficulty(
+            startDifficulty[1] + (endDifficulty[1] - startDifficulty[1]) * progress
+        );
+
+        return [Math.min(minDifficulty, maxDifficulty), Math.max(minDifficulty, maxDifficulty)];
+    },
+    _getRandomEncounterProbability: function (stage) {
+        var config = RandomBattleConfig[stage] || {};
+        var probability = Number(config.probability) || 0;
+        var flashlightItemId = RandomBattleConfig.flashlightItemId;
+
+        if (stage === "night" && flashlightItemId && this.getItemNumInPlayer(flashlightItemId) > 0) {
+            probability -= Number(RandomBattleConfig.flashlightNightProbabilityReduction) || 0;
+        }
+
+        return Math.max(0, Math.min(probability, 1));
+    },
     randomAttack: function (cb) {
         var stage = cc.timer.getStage();
-        var config = RandomBattleConfig[stage];
         var rand = Math.random();
+        var difficultyRange = this._getRandomEncounterDifficultyRange(stage);
+        var probability = this._getRandomEncounterProbability(stage);
         cc.d(rand);
-        if (rand <= config.probability) {
+        if (rand <= probability) {
 
-            player.log.addMsg(1113);
+            this.log.addMsg(1113);
 
-            var diff = utils.getRandomInt(config.difficulty[0], config.difficulty[1]);
-            var list = utils.getMonsterListByDifficulty(diff)
-            cc.e("action")
+            var diff = utils.getRandomInt(difficultyRange[0], difficultyRange[1]);
+            var list = utils.getMonsterListByDifficulty(diff);
+            cc.e("action");
             uiUtil.showRandomBattleDialog({
                 difficulty: diff,
                 list: list
