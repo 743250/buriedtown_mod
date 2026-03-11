@@ -6,23 +6,12 @@ var AdSiteNode = BottomFrameNode.extend({
         this._super(userData);
     },
     _init: function () {
-        this.site = player.map.getSite(this.userData);
-        this.setName(Navigation.nodeName.SITE_NODE);
-        this.uiConfig = {
-            title: this.site.getName(),
-            leftBtn: true,
-            rightBtn: false
-        };
-
-        player.enterSite(this.site.id);
+        this.initSiteNodeContext();
 
         var leftEdge = 40;
         var rightEdge = this.bgRect.width - leftEdge;
 
-        this.title.anchorX = 0;
-        this.title.anchorY = 1;
-        this.title.x = this.leftBtn.x + this.leftBtn.width / 2 + 10;
-        this.title.y = this.bgRect.height - 5;
+        this.alignTitleToLeftButton();
 
         this.txt2 = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
         this.txt2.setAnchorPoint(1, 1);
@@ -111,11 +100,7 @@ var AdSiteNode = BottomFrameNode.extend({
     },
 
     onClickLeftBtn: function () {
-        if (this.site.canClose()) {
-            player.map.closeSite(this.site.id);
-        }
-        this.back();
-        player.leaveSite();
+        this.exitCurrentSiteNode();
     },
     onClickRightBtn: function () {
     }

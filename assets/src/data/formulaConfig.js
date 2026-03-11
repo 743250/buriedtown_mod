@@ -161,8 +161,11 @@ var formulaConfig = {
             "itemId": 1101073,
             "num": 5
         }],
-        "makeTime": 120
-     },
+        "makeTime": 120,
+        "runtimeRule": {
+            "hideWhenOwnedItems": [1305044]
+        }
+      },
     "1202063": {
         "id": "1202063",
         "produce": [{
@@ -1111,7 +1114,14 @@ var formulaConfig = {
             "itemId": 1101041,
             "num": 4
         }],
-        "makeTime": 30
+        "makeTime": 30,
+        "runtimeRule": {
+            "hideWhenOwnedItems": [1304024],
+            "purchaseLock": {
+                "purchaseId": 106,
+                "checkFn": "isBootUnlocked"
+            }
+        }
     },
     "1405011": {
         "id": 1405011,
@@ -1147,7 +1157,10 @@ var formulaConfig = {
             "itemId": 1101041,
             "num": 2
         }],
-        "makeTime": 60
+        "makeTime": 60,
+        "runtimeRule": {
+            "hideWhenOwnedItems": [1305023]
+        }
     },
     "1405024": {
         "id": "1405024",
@@ -1165,7 +1178,15 @@ var formulaConfig = {
             "itemId": 1101041,
             "num": 4
         }],
-        "makeTime": 30
+        "makeTime": 30,
+        "runtimeRule": {
+            "hideWhenOwnedItems": [1305024],
+            "requireOwnedItems": [1305023],
+            "purchaseLock": {
+                "purchaseId": 105,
+                "checkFn": "isBigBagUnlocked"
+            }
+        }
     },
     "1405044": {
         "id": "1405044",
@@ -1186,7 +1207,10 @@ var formulaConfig = {
             "itemId": 1101073,
             "num": 8
         }],
-        "makeTime": 240
+        "makeTime": 240,
+        "runtimeRule": {
+            "hideWhenOwnedItems": [1305044]
+        }
     },
     "1405053": {
         "id": "1405053",
@@ -1207,6 +1231,9 @@ var formulaConfig = {
             "itemId": 1101041,
             "num": 8
         }],
-        "makeTime": 60
+        "makeTime": 60,
+        "runtimeRule": {
+            "hideWhenOwnedItems": [1305053]
+        }
     }
 };

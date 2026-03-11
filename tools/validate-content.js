@@ -7,7 +7,7 @@ function printHelp() {
     console.log("Commands:");
     console.log("  all                    Run item-ui and ContentBlueprint link checks.");
     console.log("  item-ui                Validate item config text and sprite links.");
-    console.log("  links [type|all]       Validate role/talent/item/site links.");
+    console.log("  links [type|all]       Validate role/talent/item/site/build/build-action links.");
     console.log("  weapon-links           Validate weapon item links (1301xxx-1305xxx).");
     console.log("  site-links             Validate all site links.");
     console.log("  checklist <type> <id>  Print required/optional dependency status for one id.");

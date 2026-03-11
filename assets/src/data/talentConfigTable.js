@@ -4,7 +4,7 @@
  */
 
 var TalentConfigTable = {
-    // 武器保护
+    // 武器大师
     101: {
         talentId: 101,
         purchaseId: 101,
@@ -21,7 +21,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 防御强化
+    // 石肤者
     102: {
         talentId: 102,
         purchaseId: 102,
@@ -39,7 +39,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 家园产出
+    // 家里蹲
     103: {
         talentId: 103,
         purchaseId: 103,
@@ -55,7 +55,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 社交天赋
+    // 万人迷
     104: {
         talentId: 104,
         purchaseId: 104,
@@ -72,7 +72,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 精准射击（含爆头）
+    // 神枪手
     120: {
         talentId: 120,
         purchaseId: 120,
@@ -90,7 +90,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 负重增强（含近战伤害）
+    // 大块头
     121: {
         talentId: 121,
         purchaseId: 121,
@@ -124,7 +124,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 交易专家
+    // 谈判专家
     123: {
         talentId: 123,
         purchaseId: 123,
@@ -140,7 +140,7 @@ var TalentConfigTable = {
         ]
     },
 
-    // 战后恢复
+    // 金刚狼
     124: {
         talentId: 124,
         purchaseId: 124,

@@ -1,5 +1,5 @@
 /**
- * ConfigValidator validates role / talent / item content links against
+ * ConfigValidator validates role / talent / item / site / build content links against
  * ContentBlueprint and reports missing pieces once per content id.
  */
 var ConfigValidator = {
@@ -57,6 +57,12 @@ var ConfigValidator = {
     validateSite: function (id) {
         return this.validate("site", id);
     },
+    validateBuild: function (id) {
+        return this.validate("build", id);
+    },
+    validateBuildAction: function (id) {
+        return this.validate("build-action", id);
+    },
     validateMany: function (type, ids) {
         var self = this;
         var normalizedIds = Array.isArray(ids) ? ids : [];
@@ -77,6 +83,44 @@ var ConfigValidator = {
     },
     validateSites: function (ids) {
         return this.validateMany("site", ids);
+    },
+    validateBuilds: function (ids) {
+        return this.validateMany("build", ids);
+    },
+    validateBuildActions: function (ids) {
+        return this.validateMany("build-action", ids);
+    },
+    getChecklist: function (type, id) {
+        var blueprint = ContentBlueprint.getBlueprint(type);
+        if (!blueprint) {
+            return { error: "未知类型: " + type };
+        }
+
+        var checklist = {
+            type: type,
+            id: id,
+            items: []
+        };
+
+        blueprint.fields.forEach(function (field) {
+            var status = false;
+            try {
+                status = !!field.validator(id);
+            } catch (e) {
+                status = false;
+            }
+
+            checklist.items.push({
+                name: field.name,
+                file: field.file,
+                location: field.location ? field.location.replace("{id}", id) : "",
+                required: field.required,
+                template: field.template ? field.template.replace(/{id}/g, id) : "",
+                status: status
+            });
+        });
+
+        return checklist;
     },
     buildReport: function (type, results) {
         var report = {
@@ -106,6 +150,45 @@ var ConfigValidator = {
         });
 
         return report;
+    },
+    printChecklist: function (type, id) {
+        if (!this.isEnabled()) {
+            return;
+        }
+
+        var checklist = this.getChecklist(type, id);
+        if (checklist.error) {
+            cc.error("[ConfigValidator] " + checklist.error);
+            return;
+        }
+
+        cc.log("=== " + type + " " + id + " 配置清单 ===\n");
+
+        var allComplete = true;
+        checklist.items.forEach(function (item) {
+            var status = item.status ? "✓" : "✗";
+            var required = item.required ? "[必需]" : "[可选]";
+
+            cc.log(status + " " + required + " " + item.name);
+            cc.log("   文件: " + item.file);
+            if (item.location) {
+                cc.log("   位置: " + item.location);
+            }
+            if (item.template) {
+                cc.log("   示例: " + item.template);
+            }
+            cc.log("");
+
+            if (!item.status && item.required) {
+                allComplete = false;
+            }
+        });
+
+        if (allComplete) {
+            cc.log("✓ 所有必需配置已完成\n");
+        } else {
+            cc.warn("✗ 还有必需配置项未完成\n");
+        }
     },
     printReport: function (report) {
         if (!report) {

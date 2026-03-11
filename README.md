@@ -31,11 +31,13 @@ node tools/validate-content.js
 
 - `node tools/validate-content.js all --lang zh`
 - `node tools/validate-content.js item-ui --strict-text`
+- `node tools/validate-content.js links build --lang zh`
+- `node tools/validate-content.js links build-action --lang zh`
 - `node tools/validate-content.js weapon-links --lang zh`
 - `node tools/validate-content.js site-links --lang zh`
 - `node tools/validate-content.js checklist role 1 --lang zh`
 
-旧的 `assets/src/util/validateConfig.js` 和 `assets/src/util/validateSiteConfig.js` 仍可在游戏内控制台使用，但仓库级检查优先走 `tools/validate-content.js`。
+仓库级检查统一走 `tools/validate-content.js`；如果只是想在游戏内临时看单个配置，可直接调用 `ConfigValidator.printResult(type, id)` 或 `ConfigValidator.printChecklist(type, id)`。
 
 ## 工作原则
 

@@ -8,7 +8,9 @@ const TYPE_TO_GLOBAL = {
     role: "RoleConfigTable",
     talent: "TalentConfigTable",
     item: "itemConfig",
-    site: "siteConfig"
+    site: "siteConfig",
+    build: "buildConfig",
+    "build-action": "buildActionConfig"
 };
 
 function deepClone(value) {
@@ -137,6 +139,9 @@ function createRuntime(lang) {
         blackList: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/blackList.js"), "blackList")),
         npcConfig: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/npcConfig.js"), "npcConfig")),
         siteConfig: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/siteConfig.js"), "siteConfig")),
+        buildConfig: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/buildConfig.js"), "buildConfig")),
+        buildActionConfig: deepClone(require(path.join(rootDir, "assets/src/data/buildActionConfig.js"))),
+        formulaConfig: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/formulaConfig.js"), "formulaConfig")),
         secretRooms: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/secretRooms.js"), "secretRooms")),
         RoleConfigTable: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/roleConfigTable.js"), "RoleConfigTable")),
         TalentConfigTable: deepClone(gameData.loadVar(path.join(rootDir, "assets/src/data/talentConfigTable.js"), "TalentConfigTable")),
@@ -159,7 +164,6 @@ function createRuntime(lang) {
     loadScriptIntoContext(rootDir, context, "assets/src/game/WeaponCraftService.js");
     loadScriptIntoContext(rootDir, context, "assets/src/util/contentBlueprint.js");
     loadScriptIntoContext(rootDir, context, "assets/src/util/configValidator.js");
-    loadScriptIntoContext(rootDir, context, "assets/src/util/dependencyChecker.js");
     return context;
 }
 
@@ -235,7 +239,7 @@ function buildValidationResult(type, lang, scope, ids, report) {
 function validateLinks(type, options) {
     const opts = options || {};
     const languages = expandLanguages(opts.lang);
-    const types = type === "all" ? ["role", "talent", "item", "site"] : [type];
+    const types = type === "all" ? ["role", "talent", "item", "site", "build", "build-action"] : [type];
     const results = [];
 
     types.forEach(function (oneType) {
@@ -273,7 +277,7 @@ function getChecklist(type, id, options) {
 
     return languages.map(function (lang) {
         const context = createRuntime(lang);
-        const checklist = context.DependencyChecker.check(type, normalizedId);
+        const checklist = context.ConfigValidator.getChecklist(type, normalizedId);
         return buildChecklistResult(type, lang, normalizedId, checklist);
     });
 }

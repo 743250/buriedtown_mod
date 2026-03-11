@@ -286,22 +286,128 @@ var RoleRuntimeService = {
         return false;
     },
 
-    _getBuildActionVisibilityRule: function (actionId) {
-        actionId = Number(actionId);
-        for (var i = 0; i < this._buildActionVisibilityGroups.length; i++) {
-            var rule = this._buildActionVisibilityGroups[i];
-            if (rule.actionIds.indexOf(actionId) !== -1) {
-                return rule;
+    _normalizeActionId: function (actionOrId) {
+        if (actionOrId && typeof actionOrId === "object") {
+            return Number(actionOrId.id);
+        }
+        return Number(actionOrId);
+    },
+
+    _appendUniqueList: function (targetList, extraList) {
+        if (!Array.isArray(extraList) || extraList.length === 0) {
+            return targetList;
+        }
+        targetList = Array.isArray(targetList) ? targetList : [];
+        extraList.forEach(function (value) {
+            if (targetList.indexOf(value) === -1) {
+                targetList.push(value);
             }
+        });
+        return targetList;
+    },
+
+    _mergeBuildActionRule: function (baseRule, extraRule) {
+        if (!extraRule || typeof extraRule !== "object") {
+            return baseRule || {};
+        }
+        var mergedRule = baseRule || {};
+        mergedRule.includeAnyTags = this._appendUniqueList(mergedRule.includeAnyTags, extraRule.includeAnyTags);
+        mergedRule.excludeAnyTags = this._appendUniqueList(mergedRule.excludeAnyTags, extraRule.excludeAnyTags);
+        mergedRule.hideWhenPoweredWorksiteForTags = this._appendUniqueList(
+            mergedRule.hideWhenPoweredWorksiteForTags,
+            extraRule.hideWhenPoweredWorksiteForTags
+        );
+        mergedRule.hideWhenOwnedItems = this._appendUniqueList(mergedRule.hideWhenOwnedItems, extraRule.hideWhenOwnedItems);
+        mergedRule.requireOwnedItems = this._appendUniqueList(mergedRule.requireOwnedItems, extraRule.requireOwnedItems);
+
+        if (extraRule.requirePoweredWorksite) {
+            mergedRule.requirePoweredWorksite = true;
+        }
+        if (extraRule.purchaseLock) {
+            mergedRule.purchaseLock = extraRule.purchaseLock;
+        }
+        return mergedRule;
+    },
+
+    _getConfiguredBuildActionRule: function (actionOrId) {
+        if (!actionOrId || typeof actionOrId !== "object") {
+            return null;
+        }
+        if (actionOrId.runtimeRule && typeof actionOrId.runtimeRule === "object") {
+            return actionOrId.runtimeRule;
+        }
+        if (actionOrId.config && actionOrId.config.runtimeRule && typeof actionOrId.config.runtimeRule === "object") {
+            return actionOrId.config.runtimeRule;
         }
         return null;
     },
 
-    isBuildActionVisible: function (actionId, roleType, context) {
-        var rule = this._getBuildActionVisibilityRule(actionId);
-        if (!rule) {
+    _getBuildActionRules: function (actionOrId) {
+        var actionId = this._normalizeActionId(actionOrId);
+        var rules = [];
+        var configuredRule = this._getConfiguredBuildActionRule(actionOrId);
+        if (configuredRule) {
+            rules.push(configuredRule);
+        }
+        if (isNaN(actionId)) {
+            return rules;
+        }
+        for (var i = 0; i < this._buildActionVisibilityGroups.length; i++) {
+            var rule = this._buildActionVisibilityGroups[i];
+            if (rule.actionIds.indexOf(actionId) !== -1) {
+                rules.push(rule);
+            }
+        }
+        return rules;
+    },
+
+    _getBuildActionRule: function (actionOrId) {
+        var mergedRule = {};
+        this._getBuildActionRules(actionOrId).forEach(function (rule) {
+            mergedRule = this._mergeBuildActionRule(mergedRule, rule);
+        }, this);
+        return mergedRule;
+    },
+
+    _hasStorageItem: function (context, itemId) {
+        if (!context) {
+            return false;
+        }
+        if (typeof context.hasStorageItem === "function") {
+            return !!context.hasStorageItem(itemId);
+        }
+        if (context.inventoryState && Object.prototype.hasOwnProperty.call(context.inventoryState, itemId)) {
+            return !!context.inventoryState[itemId];
+        }
+        return false;
+    },
+
+    _hasAnyOwnedItem: function (context, itemIds) {
+        if (!Array.isArray(itemIds) || itemIds.length === 0) {
+            return false;
+        }
+        for (var i = 0; i < itemIds.length; i++) {
+            if (this._hasStorageItem(context, itemIds[i])) {
+                return true;
+            }
+        }
+        return false;
+    },
+
+    _hasAllOwnedItems: function (context, itemIds) {
+        if (!Array.isArray(itemIds) || itemIds.length === 0) {
             return true;
         }
+        for (var i = 0; i < itemIds.length; i++) {
+            if (!this._hasStorageItem(context, itemIds[i])) {
+                return false;
+            }
+        }
+        return true;
+    },
+
+    isBuildActionVisible: function (actionOrId, roleType, context) {
+        var rule = this._getBuildActionRule(actionOrId);
         var roleTags = this.getActionTags(roleType);
         context = context || {};
 
@@ -319,7 +425,45 @@ var RoleRuntimeService = {
             && this._hasAnyTag(roleTags, rule.hideWhenPoweredWorksiteForTags)) {
             return false;
         }
+        if (rule.hideWhenOwnedItems && this._hasAnyOwnedItem(context, rule.hideWhenOwnedItems)) {
+            return false;
+        }
+        if (rule.requireOwnedItems && !this._hasAllOwnedItems(context, rule.requireOwnedItems)) {
+            return false;
+        }
         return true;
+    },
+
+    getBuildActionLockState: function (actionOrId) {
+        var state = {
+            isLocked: false,
+            purchaseId: null
+        };
+        var rule = this._getBuildActionRule(actionOrId);
+        var purchaseLock = rule.purchaseLock;
+        if (!purchaseLock) {
+            return state;
+        }
+
+        state.purchaseId = purchaseLock.purchaseId || null;
+        var checkFn = purchaseLock.checkFn
+            && typeof IAPPackage !== "undefined"
+            && IAPPackage
+            && typeof IAPPackage[purchaseLock.checkFn] === "function"
+            ? IAPPackage[purchaseLock.checkFn]
+            : null;
+        state.isLocked = checkFn ? !checkFn.call(IAPPackage) : false;
+        return state;
+    },
+
+    applyBuildActionRuntimeState: function (action, roleType, context) {
+        if (!action) {
+            return false;
+        }
+        var lockState = this.getBuildActionLockState(action);
+        action.isLocked = lockState.isLocked;
+        action.purchaseId = lockState.purchaseId;
+        return this.isBuildActionVisible(action, roleType, context);
     },
 
     ensureSpecialItems: function (playerObj) {

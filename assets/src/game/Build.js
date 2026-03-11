@@ -14,12 +14,6 @@ if (typeof GameEvents === "undefined" || !GameEvents) {
     };
 }
 
-// Action锁定配置表
-var _actionLockConfig = {
-    1405024: { purchaseId: 105, checkFn: 'isBigBagUnlocked' },
-    1404024: { purchaseId: 106, checkFn: 'isBootUnlocked' }
-};
-
 var Build = cc.Class.extend({
     ctor: function (bid, level, saveObj) {
         this.id = bid;
@@ -166,59 +160,15 @@ var Build = cc.Class.extend({
         var workSite = player.map.getSite(WORK_SITE);
         return !!(workSite && workSite.isActive);
     },
-
-    _markActionLockState: function (action) {
-        action.isLocked = false;
-        action.purchaseId = null;
-
-        var config = _actionLockConfig[action.id];
-        if (config) {
-            action.purchaseId = config.purchaseId;
-            var checkFn = IAPPackage[config.checkFn];
-            action.isLocked = checkFn ? !checkFn.call(IAPPackage) : false;
-        }
-    },
-
-    _isActionVisibleByInventory: function (actionId, inventoryState) {
-        if (actionId === 1405023 && inventoryState.hasSmallBag) {
-            return false;
-        }
-        if (actionId === 1405024 && (inventoryState.hasBigBag || !inventoryState.hasSmallBag)) {
-            return false;
-        }
-        if (actionId === 1404024 && inventoryState.hasBoot) {
-            return false;
-        }
-        if (inventoryState.hasFalcon && (actionId === 1405044 || actionId === 1202053)) {
-            return false;
-        }
-        if (inventoryState.hasFlashlight && actionId === 1405053) {
-            return false;
-        }
-        return true;
-    },
-
-    _isActionVisibleByRoleAndState: function (actionId, roleType, isWorkSitePowered) {
-        return RoleRuntimeService.isBuildActionVisible(actionId, roleType, {
-            isWorkSitePowered: isWorkSitePowered
-        });
-    },
     _buildActionFilterContext: function () {
+        var self = this;
         return {
             roleType: this._getRoleType(),
             isWorkSitePowered: this._isWorkSitePowered(),
-            inventoryState: {
-                hasSmallBag: this._hasStorageItem(1305023),
-                hasBigBag: this._hasStorageItem(1305024),
-                hasBoot: this._hasStorageItem(1304024),
-                hasFalcon: this._hasStorageItem(1305044),
-                hasFlashlight: this._hasStorageItem(1305053)
+            hasStorageItem: function (itemId) {
+                return self._hasStorageItem(itemId);
             }
         };
-    },
-    _isActionVisible: function (action, context) {
-        return this._isActionVisibleByInventory(action.id, context.inventoryState)
-            && this._isActionVisibleByRoleAndState(action.id, context.roleType, context.isWorkSitePowered);
     },
     _getMaxLevel: function () {
         var defaultMaxLevel = this.configs.length - 1;
@@ -303,13 +253,9 @@ var Build = cc.Class.extend({
         }
     },
     getBuildActions: function () {
-        var self = this;
         var context = this._buildActionFilterContext();
-        this.actions.forEach(function (action) {
-            self._markActionLockState(action);
-        });
         return this.actions.filter(function (action) {
-            return self._isActionVisible(action, context);
+            return RoleRuntimeService.applyBuildActionRuntimeState(action, context.roleType, context);
         });
     },
     isActionActive: function (actionId) {

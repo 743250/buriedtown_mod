@@ -246,6 +246,47 @@ var BottomFrameNode = cc.Node.extend({
         this.removeFromParent();
         parent.addChild(Navigation.replace(nodeName,userData));
     },
+    initSiteNodeContext: function (options) {
+        options = options || {};
+
+        this.site = options.site || player.map.getSite(this.userData);
+        this.setName(Navigation.nodeName.SITE_NODE);
+        this.uiConfig = {
+            title: options.title !== undefined && options.title !== null
+                ? options.title
+                : (this.site ? this.site.getName() : ""),
+            leftBtn: options.leftBtn === undefined ? true : !!options.leftBtn,
+            rightBtn: options.rightBtn === undefined ? false : !!options.rightBtn
+        };
+
+        if (this.site) {
+            player.enterSite(this.site.id);
+        }
+        return this.site;
+    },
+    alignTitleToLeftButton: function () {
+        this.title.anchorX = 0;
+        this.title.anchorY = 1;
+        this.title.x = this.leftBtn.x + this.leftBtn.width / 2 + 10;
+        this.title.y = this.bgRect.height - 5;
+    },
+    exitCurrentSiteNode: function (options) {
+        options = options || {};
+
+        var site = options.site || this.site;
+        if (site
+            && options.closeIfPossible !== false
+            && typeof site.canClose === "function"
+            && site.canClose()) {
+            player.map.closeSite(site.id);
+        }
+
+        this.back();
+
+        if (options.leaveSite !== false) {
+            player.leaveSite();
+        }
+    },
 
     onExit: function () {
         this._super();

@@ -6,15 +6,10 @@ var BossSiteNode = BottomFrameNode.extend({
         this._super(userData);
     },
     _init: function () {
-        this.site = player.map.getSite(this.userData);
-        this.setName(Navigation.nodeName.SITE_NODE);
-        this.uiConfig = {
-            title: this.site.getName(),
+        this.initSiteNodeContext({
             leftBtn: false,
             rightBtn: false
-        };
-
-        player.enterSite(this.site.id);
+        });
 
         var bossSiteBg = autoSpriteFrameController.getSpriteFromSpriteName("new_site_bg.png");
         bossSiteBg.setAnchorPoint(0.5, 0);
@@ -92,11 +87,7 @@ var BossSiteNode = BottomFrameNode.extend({
     },
 
     onClickLeftBtn: function () {
-        if (this.site.canClose()) {
-            player.map.closeSite(this.site.id);
-        }
-        this.back();
-        player.leaveSite();
+        this.exitCurrentSiteNode();
     },
     onClickRightBtn: function () {
     }

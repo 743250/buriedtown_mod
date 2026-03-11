@@ -1,319 +1,379 @@
 # BuriedTown 渐进式重构计划
 
-## 1. 当前项目状态
+## 1. 计划前提
 
-### 当前基线
+这份计划以当前最真实的开发目标为准：
 
-- 当前启动链已经回退到 legacy 方案，主入口仍然依赖 `assets/src/jsList.js`、`assets/src/util/preloading.js`、`assets/src/util/AssetsManager.js`
-- 近期保留的有效改动主要集中在：
-  - 购买展示与图标修正
-  - 社交天赋 trade 数量加成
-  - zipline 相关稳定性修正
-  - 若干 battle / cooldown / content 修正
-- 当前仓库不存在第二套 runtime 架构；后续默认不再重新引入
+- 后续主要工作是**增加人物**
+- 增加**天赋**
+- 增加**物品**
+- 增加**建筑 / 建筑动作**
+- 增加一些**特定机制**
 
-### 当前真实问题
+所以重构优先级不再按“哪里最乱就先改哪里”，而是按：
 
-- 项目已经有不少“像 service 一样”的 helper / manager / holder，但边界还不够清楚
-- 部分重构停在中间态：新 helper 已加，但同一条链上旧逻辑还散在多个 UI 文件里
-- 仓库级自动检查主要覆盖内容配置，缺少真正的运行时自动回归
-- 一些基础设施已经有重叠趋势，如果不先管理，会继续形成新的“工具堆”
+1. **以后会不会反复改到**
+2. **每次加内容会不会都要全仓库 grep**
+3. **是否容易因为缺校验而静默出错**
+4. **是否会迫使我们继续把逻辑塞回旧屎山文件**
 
-### 当前目标
+结论先写在前面：
 
-不是追求“架构彻底重做”，而是把项目一步步推进到更稳定、更少重复、更容易继续维护的状态。
+- **地图 / 站点不是当前主线**
+- **购买链也不是当前主线**
+- 当前最值得投入的是：
+  - **建筑 / 动作链**
+  - **角色 / 天赋配置边界**
+  - **特殊物品 / 武器机制归口**
+  - **内容校验覆盖面**
 
-关键要求：
+关键要求仍然不变：
 
 - 不破坏当前可打包的 legacy 基线
 - 不制造第二套平行实现
-- 每一阶段结束后都比上一阶段更接近终态，而不是新的中间态
+- 每一轮结束后都更接近“新增内容时只改局部”的状态
 
-## 2. 工具层治理
+## 2. 基于代码阅读的热点判断
 
-这里的“工具”不只指 `tools/` 目录，也包括运行时里的 helper、fallback、validator、error handler、theme、dialog helper 这类基础设施。
+下面不是拍脑袋排序，而是根据当前仓库里真实的耦合位置做的判断。
 
-### 2.1 仓库级工具
+### 2.1 真正该优先改的热点
 
-#### 主入口
+#### A. 建筑 / 动作链：这是以后最容易反复碰的屎山
 
-- `tools/validate-content.js`
+重点文件：
 
-它是当前唯一应该继续扩展的仓库级验证入口，负责：
+- `assets/src/game/Build.js`
+- `assets/src/game/buildAction.js`
+- `assets/src/game/RoleRuntimeService.js`
+- `assets/src/data/buildConfig.js`
+- `assets/src/data/buildActionConfig.js`
+- `assets/src/game/BuildActionEffectService.js`
 
-- `item-ui`
-- `links`
-- `weapon-links`
-- `site-links`
-- `checklist`
-- `all`
+为什么它优先级最高：
 
-#### 库文件
+- `Build.js` 里还有动作可见性、背包状态、购买解锁、并发动作等多种规则混在一起
+- `RoleRuntimeService.js` 里仍然维护大量按 `actionId` 分组的硬编码规则
+- `buildAction.js` 体量很大，虽然已经抽出 `BuildActionEffectService`，但仍然保留不少特殊行为和旧式分支
+- 以后你增加建筑、增加建筑动作、增加角色特定动作、增加工地 / 产线机制时，大概率都会碰这里
 
-- `tools/lib/content-validator.js`
-- `tools/lib/validate-item-ui.js`
-- `tools/lib/game-data.js`
+这块如果不先收，后面每加一个内容点都容易变成：
 
-#### 兼容入口
+- 改配置
+- 改 `Build.js`
+- 改 `RoleRuntimeService.js`
+- 必要时再改 `buildAction.js`
 
-- `tools/validate-item-ui.js`
+这就是最典型的“内容可扩展性差”。
 
-这个文件现在只是兼容壳，后续不应继续往它上面叠新逻辑；如果 item-ui 检查要增强，应直接扩展 `validate-content.js` 和 `tools/lib/validate-item-ui.js`。
+#### B. 角色 / 天赋配置边界：方向对了，但还停在半新半旧
 
-### 2.2 运行时基础工具
+重点文件：
 
-#### 容错与错误处理
+- `assets/src/data/roleConfigTable.js`
+- `assets/src/game/role.js`
+- `assets/src/data/talentConfigTable.js`
+- `assets/src/game/TalentService.js`
+- `assets/src/game/IAPPackage.js`
+- `assets/src/game/PurchaseService.js`
 
-- `assets/src/util/safetyHelper.js`
-  - `SafetyHelper`
-  - `ErrorHandler`
-- `assets/src/util/errorProbe.js`
+为什么它必须进主计划：
 
-治理原则：
+- `RoleConfigTable` / `TalentConfigTable` 已经是正确方向
+- 但 `role.js` 里还保留着一整套 `_fallbackRoleConfigTable`，属于明显的重复数据源
+- `TalentService.js` 里除了天赋本身逻辑，还承担了旧存档迁移、已选天赋恢复、IAP 兼容 API 绑定等职责
+- `IAPPackage.js` 仍然知道太多角色 / 天赋 / 解锁细节
 
-- `SafetyHelper` / `ErrorHandler` 负责局部容错和安全调用
-- `ErrorProbe` 只负责诊断和留痕，不承载业务逻辑
-- 不再新增新的通用错误容器，例如 `ErrorHolderV2`、`SafeHelper2` 这类平行层
-- 如果确实需要补能力，优先在现有 `SafetyHelper` / `ErrorHandler` 内收口
+这意味着以后加人物 / 天赋时，虽然已经不是纯硬编码时代了，但仍然可能出现：
 
-#### 资源与显示兜底
+- 配置表加了
+- 服务层还要补兼容
+- 兑换 / 解锁那边也要再摸一遍
 
-- `assets/src/util/iconHelper.js`
-- `assets/src/util/resourceFallback.js`
-- `assets/src/util/uiTheme.js`
-- `assets/src/util/stringUtil.js`
+这块不收口，新增内容时会一直有“明明已经数据驱动了一半，但还得去旧逻辑里补洞”的痛感。
 
-治理原则：
+#### C. 特殊物品 / 武器机制：目前散得最厉害
 
-- `IconHelper` 负责名字映射
-- `ResourceFallback` 负责资源兜底
-- `UITheme` 负责视觉常量
-- `stringUtil` 负责文案读取
-- 不允许把“业务判断 + 图标映射 + fallback”重新散回 `uiUtil.js`
+重点文件：
 
-#### 配置与验证
+- `assets/src/game/BattleEquipmentSystem.js`
+- `assets/src/game/player.js`
+- `assets/src/game/site.js`
+- `assets/src/game/TravelService.js`
+- `assets/src/game/Storage.js`
+- `assets/src/game/PlayerPersistenceService.js`
+- `assets/src/game/WeaponCraftService.js`
+- `assets/src/game/PurchaseService.js`
 
-- `assets/src/util/configValidator.js`
-- `assets/src/util/validateConfig.js`
-- `assets/src/util/validateSiteConfig.js`
+为什么它很危险：
+
+- 仓库里仍有大量按 `itemId` 直接写死的逻辑
+- 武器类别、特殊枪械、特殊道具、旅行加成、密室探测、背包扩容、购买奖励等效果分散在多个系统里
+- 这类逻辑平时不显眼，但你一旦开始加“特殊物品 / 特殊武器 / 特殊工具”，就会立刻变成全仓库追踪
+
+如果这一块不治理，以后新增一个“有特殊效果的物品”，很可能不是改 `itemConfig`，而是：
+
+- 改 `itemConfig.js`
+- 改 `BattleEquipmentSystem.js`
+- 改 `player.js`
+- 改 `TravelService.js`
+- 改 `Storage.js`
+- 有时还要碰 `site.js` 或存档修复逻辑
+
+这对后续加机制最伤维护性。
+
+#### D. 内容校验覆盖面不够：这是“慢性高风险”
+
+重点文件：
+
 - `assets/src/util/contentBlueprint.js`
-- `assets/src/util/dependencyChecker.js`
+- `assets/src/util/configValidator.js`
+- `tools/validate-content.js`
+- `tools/lib/content-validator.js`
 
-治理原则：
+当前判断：
 
-- `ConfigValidator` 是运行时验证核心
-- `validateConfig.js` / `validateSiteConfig.js` 只是 legacy 调试入口
-- 仓库级检查优先走 `tools/validate-content.js`
-- 后续新增验证项，优先扩展仓库 CLI，不继续堆新的运行时脚本
+- 现有 CLI 和运行时校验对 `role / talent / item / site` 已经有一定帮助
+- 但**对你后续最常改的 `build / build-action / role runtime rule / special item mechanic` 还没有形成同等级兜底**
 
-#### 业务辅助 helper
+这会导致一个很典型的问题：
 
-- `assets/src/ui/PurchaseUiHelper.js`
-- `assets/src/ui/NpcDialogHelper.js`
-- `assets/src/ui/MapTravelDialogHelper.js`
-- `assets/src/util/timerHelper.js`
-- `assets/src/util/attrHelper.js`
+- 表面上“配置化”了
+- 但因为缺少跨文件检查，改错了引用、漏了资源、漏了 unlock 关系，不一定马上爆
+- 最后还是得靠手动回归和记忆排查
 
-治理原则：
+如果只从长期效率看，这一块并不“最乱”，但它的 ROI 很高。
 
-- 这类 helper 必须围绕一条明确业务链存在
-- 如果 helper 已经成为这条链的统一入口，就继续收口
-- 如果 helper 只被 1 处调用且没有形成稳定边界，就不要继续膨胀
+### 2.2 值得保留并继续扩展的部分
 
-### 2.3 当前建议保留 / 收口 / 警惕名单
+这些不是当前屎山重点，应该尽量沿着已有边界继续做，而不是推倒重来：
 
-#### 建议保留并继续收口
+- `assets/src/game/PlayerAttrService.js`
+- `assets/src/game/BuildActionEffectService.js`
+- `assets/src/game/SiteConfigService.js`
+- `assets/src/game/SiteRewardService.js`
+- `assets/src/game/SiteRoomGenerator.js`
+- `assets/src/data/roleConfigTable.js`
+- `assets/src/data/talentConfigTable.js`
+- `assets/src/util/configValidator.js`
 
-- `PurchaseUiHelper`
-- `NpcDialogHelper`
-- `MapTravelDialogHelper`
-- `SafetyHelper`
-- `ErrorHandler`
-- `IconHelper`
-- `ResourceFallback`
-- `ConfigValidator`
-- `UITheme`
+判断标准：
 
-#### 暂时保留，但不要继续放大职责
+- 已经在往“服务 / 配置入口”方向收口
+- 后续可以继续扩展，不必再回退到旧的大文件里加分支
 
-- `utils.js`
-- `CommonUtil`
-- `memoryUtil`
-- `EnvironmentConfig`
-- `errorProbe`
+### 2.3 当前不该优先的部分
 
-#### 重点警惕
+#### 地图 / 站点链
 
-- 在 `uiUtil.js` 里继续塞业务判断
-- 为同一问题再新增一个 helper / manager / holder
-- 把 debug / validation 逻辑混回核心业务流
+- 它有重复逻辑，但**不是你接下来最常改的地方**
+- 除非你下一步要做新站点类型、地图事件、特殊旅行规则、地图建筑交互，否则不该继续深挖
+
+#### 购买展示 / 原生支付链
+
+- 当前主要购买路径已经转向成就点兑换
+- 原生支付兼容仍要保留，但不是当前内容扩展主战场
+
+#### 战斗展示文案层
+
+- 可以以后再瘦身
+- 但它对“新增人物 / 天赋 / 物品 / 建筑 / 特定机制”的帮助不如前面几项直接
 
 ## 3. 渐进式重构原则
 
-### 3.1 什么叫“渐进式推进”
+### 3.1 什么样的改动才算“值得做”
 
-每一轮只处理一个窄边界，例如：
+优先做这类改动：
 
-- 购买展示
-- 购买动作
-- 地图进入站点
-- 死亡 / 复活
-- 战斗结算展示
+- 改完后，**新增一个人物 / 天赋 / 物品 / 建筑 / 机制时，改动文件数明显减少**
+- 改完后，**新增内容优先走配置，而不是继续往旧服务里堆分支**
+- 改完后，**校验能更早发现错误**
 
-每一轮都必须满足：
+不优先做这类改动：
+
+- 只是让结构“看起来更整洁”，但不影响以后加内容的效率
+- 为未来可能用到的抽象先造层
+- 纯 UI 层瘦身，但对内容扩展没直接帮助
+
+### 3.2 这轮计划里的统一约束
 
 1. 不改启动链。
-2. 不新建平行架构层。
-3. 改动文件尽量围绕同一条链。
-4. 结束后这条链的主入口更清晰，旧重复逻辑更少。
-
-### 3.2 什么叫“不是中间态”
-
-一个阶段只有在下面这些条件成立时才算完成：
-
-- 目标链路已有明确主入口
-- 目标范围内的重复逻辑已经删掉，而不是只新增 helper
-- 相关调用方都已切到统一入口
-- 验证方式已经固定
-- 后续继续扩展时，默认会走这条新入口，而不是回到旧散点逻辑
-
-也就是说：
-
-- 不是“加了 helper，但旧逻辑还留 5 份”
-- 不是“新旧两套都能走，但没人知道该走哪套”
-- 不是“为了以后可能用到，先造一层抽象”
+2. 不新建第二套 runtime。
+3. 每一轮只收一个窄边界。
+4. 新逻辑优先收进已有服务 / 配置表，不再新增平行 helper。
+5. 只要新增一种内容类型，就同步补最小校验能力。
 
 ## 4. 分阶段路线
 
-### Phase 0: 基线与工具治理
+### Phase 0: 基线与工具主入口固定
 
 目标：
 
 - 固定当前 legacy 基线
-- 固定工具主入口
-- 明确哪些 helper 是正式边界，哪些只是临时辅助
+- 固定仓库级验证主入口
+- 明确“哪些旧层只做兼容，不再继续放大”
 
 完成定义：
 
-- `PLAN.md` 对工具和边界有清晰说明
-- 仓库级验证默认只推荐 `tools/validate-content.js`
-- 新增检查不再随手新建平行脚本
+- `PLAN.md` 已反映真实开发优先级
+- `tools/validate-content.js` 仍是唯一默认推荐的仓库验证入口
+- 不再新增随手脚本替代它
 
-### Phase 1: 购买展示链收口
+### Phase 1: 内容校验覆盖扩展
 
 目标：
 
-- 让购买展示相关数据只从一处组装出来
-- `uiUtil.js` 和 `dialog.js` 不再各自重复拼 `strConfig / title / icon / talentDisplayInfo / price text`
+- 把校验重点从 `role / talent / item / site` 扩到你最常新增的内容链
+- 为 `build / build-action / role runtime rule / special item reference` 建立最小可用校验
 
 主入口：
 
-- `assets/src/ui/PurchaseUiHelper.js`
-
-当前状态：
-
-- 已开始把购买展示上下文往 `PurchaseUiHelper` 收口
-- `button.js`、`dialog.js`、`uiUtil.js` 已优先从 `PurchaseUiHelper.getPurchaseDisplayContext()` 读取标题、文案、价格和展示状态
-- 购买卡片的名称、徽标、价格已经优先走 `PurchaseUiHelper.getPurchaseUiSnapshot()`，旧状态分支只保留为 fallback
-- 运营商促销名已经统一回到 `PurchaseUiHelper.getPurchaseDisplayName()`，避免不同 UI 各写一份特殊名
+- `tools/validate-content.js`
+- `assets/src/util/contentBlueprint.js`
 
 范围文件：
 
-- `assets/src/ui/PurchaseUiHelper.js`
-- `assets/src/ui/uiUtil.js`
-- `assets/src/ui/dialog.js`
-- `assets/src/ui/button.js`
-- `assets/src/ui/shopScene.js`
-- `assets/src/ui/shopNode.js`
+- `tools/validate-content.js`
+- `tools/lib/content-validator.js`
+- `assets/src/util/contentBlueprint.js`
+- `assets/src/util/configValidator.js`
+- `assets/src/data/buildConfig.js`
+- `assets/src/data/buildActionConfig.js`
+- `assets/src/data/roleConfigTable.js`
+- 视需要补充 `assets/src/data/itemConfig.js`
 
 完成定义：
 
-- 购买卡片、支付弹窗、购买信息弹窗都从统一展示上下文取数据
-- 购买标题、图标、天赋展示文本的重复拼装明显减少
-- `uiUtil.js` 只负责展示，不再承载过多购买业务规则
-- 允许保留最小 legacy fallback，但默认入口必须已经明确且优先使用统一 helper
+- 能校验建筑配置里的 `condition / cost / produceList / build refs`
+- 能校验建筑动作配置里的 `cost / produce / effect` 结构
+- 能校验角色运行时配置里的 `roomBuilds / unlockSites / unlockNpcs / specialItems / zipline`
+- 校验失败能明确指出 `id` 和来源文件
 
-### Phase 2: 购买动作链收口
+优先级说明：
+
+- 这不是最“脏”的代码，但它是后续所有内容扩展的基础兜底，ROI 很高
+
+### Phase 2: 建筑 / 动作链收口
 
 目标：
 
-- 把购买、取消购买、同步购买、失败原因解释继续收口到 `PurchaseService.js`
+- 把“新增建筑 / 新增动作 / 新增角色特定动作”时最容易扩散的硬编码点收掉
 
 主入口：
 
-- `assets/src/game/PurchaseService.js`
-
-范围文件：
-
-- `assets/src/game/PurchaseService.js`
-- `assets/src/game/IAPPackage.js`
-- `assets/src/ui/shopScene.js`
-- `assets/src/ui/shopNode.js`
-- `assets/src/ui/deathNode.js`
-- `assets/src/ui/home.js`
-- `assets/src/ui/buildNode.js`
-
-完成定义：
-
-- UI 不再直接解释旧 `payResult`
-- UI 只消费结构化购买结果
-- 购买失败提示和刷新行为尽量统一
-
-### Phase 3: 地图 / 站点边界收口
-
-目标：
-
-- 把地图进入站点、站点返回、站点刷新这条链的重复导航和状态判断收口
-
-范围文件：
-
-- `assets/src/ui/MapNode.js`
-- `assets/src/ui/siteNode.js`
-- `assets/src/ui/battleAndWorkNode.js`
-- `assets/src/game/site.js`
-- `assets/src/game/game.js`
-
-完成定义：
-
-- 目标链不再在多个节点里各写一套进入/返回逻辑
-- 参数和刷新顺序更统一
-
-### Phase 4: 玩家生命周期外围收口
-
-目标：
-
-- 不拆 `player.js` 主体，只收初始化、恢复、死亡/复活、时间推进外围边界
-
-范围文件：
-
-- `assets/src/game/player.js`
-- `assets/src/game/record.js`
+- `assets/src/game/Build.js`
+- `assets/src/game/RoleRuntimeService.js`
 - `assets/src/game/buildAction.js`
-- `assets/src/ui/deathNode.js`
-- `assets/src/ui/home.js`
 
-完成定义：
+当前判断：
 
-- UI 不再散落调用多套恢复/复活流程
-- 高风险 save / restore 路径更集中
-
-### Phase 5: 战斗展示层瘦身
-
-目标：
-
-- 只收战斗展示、日志、结算文案，不碰核心公式和主循环
+- 这是当前最该动的业务屎山
+- 以后新增建筑与特定机制，最容易被这里反复卡住
 
 范围文件：
 
-- `assets/src/ui/battleAndWorkNode.js`
-- `assets/src/game/Battle.js`
-- `assets/src/ui/dialog.js`
-- `assets/src/ui/uiUtil.js`
+- `assets/src/game/Build.js`
+- `assets/src/game/buildAction.js`
+- `assets/src/game/RoleRuntimeService.js`
+- `assets/src/game/BuildActionEffectService.js`
+- `assets/src/data/buildConfig.js`
+- `assets/src/data/buildActionConfig.js`
 
 完成定义：
 
-- 战斗展示拼装重复减少
-- 不再把过多展示文本拼装塞在按钮回调和临时分支里
+- 动作显隐规则不再主要依赖 `RoleRuntimeService.js` 里的大段 `actionIds` 硬编码列表
+- 背包 / 特殊解锁 / 角色标签相关的动作门槛尽量从 `Build.js` 挪到可配置或集中注册的位置
+- 新增一个普通建筑动作时，默认不需要再改 `buildAction.js` 的旧分支骨架
+- `BuildActionEffectService.js` 继续作为通用定时动作入口，而不是只抽一半停住
+
+### Phase 3: 角色 / 天赋边界定型
+
+目标：
+
+- 让 `RoleConfigTable` / `TalentConfigTable` 真正成为唯一配置主源
+- 把旧兼容层缩回“兼容”职责，不再继续承载主逻辑
+
+主入口：
+
+- `assets/src/game/role.js`
+- `assets/src/game/TalentService.js`
+
+范围文件：
+
+- `assets/src/game/role.js`
+- `assets/src/data/roleConfigTable.js`
+- `assets/src/game/TalentService.js`
+- `assets/src/data/talentConfigTable.js`
+- `assets/src/game/IAPPackage.js`
+- `assets/src/game/PurchaseService.js`
+
+完成定义：
+
+- `role.js` 不再保留与 `RoleConfigTable` 平行的一整套 fallback 数据表
+- 新增角色主要改 `roleConfigTable.js`，最多补一处运行时解释，不再多处同步
+- 新增天赋主要改 `talentConfigTable.js` 与天赋服务，不再被购买兼容细节牵着走
+- `IAPPackage.js` 只保留解锁 / 兑换 / 兼容职责，不继续吞角色 / 天赋效果逻辑
+
+### Phase 4: 特殊物品 / 武器机制归口
+
+目标：
+
+- 把散落在各处的特殊 `itemId` / 武器行为 / 工具效果收成可追踪入口
+
+主入口：
+
+- `assets/src/game/BattleEquipmentSystem.js`
+- `assets/src/game/player.js`
+
+范围文件：
+
+- `assets/src/game/BattleEquipmentSystem.js`
+- `assets/src/game/player.js`
+- `assets/src/game/site.js`
+- `assets/src/game/TravelService.js`
+- `assets/src/game/Storage.js`
+- `assets/src/game/PlayerPersistenceService.js`
+- `assets/src/game/WeaponCraftService.js`
+- `assets/src/data/itemConfig.js`
+
+完成定义：
+
+- 新增一个特殊武器 / 特殊工具 / 特殊掉落道具时，不需要全仓库 grep 一遍 `itemId`
+- 武器分类、特殊音效、特殊伤害效果、特殊掉落效果尽量有集中注册点
+- 特定机制优先挂在“机制注册 / 服务入口”上，而不是继续在 `player.js` 或 `BattleEquipmentSystem.js` 里写散分支
+
+### Phase 5: 解锁 / 兑换 / 兼容链收口
+
+目标：
+
+- 只处理那些会妨碍内容扩展的旧购买 / 兑换兼容逻辑
+- 不把这条链重新抬成主战场
+
+范围文件：
+
+- `assets/src/game/IAPPackage.js`
+- `assets/src/game/PurchaseService.js`
+- `assets/src/game/TalentService.js`
+- `assets/src/game/role.js`
+
+完成定义：
+
+- 新增角色 / 天赋 / 可兑换道具时，不需要同时改多套平行映射
+- 成就点兑换路径稳定
+- 原生支付兼容保留，但不再反向支配内容结构
+
+### Phase 6: 按需处理的次级路线
+
+这些不是当前主线，只在对应需求真的出现时再推进：
+
+- 地图 / 站点边界
+- 玩家生命周期外围
+- 战斗展示层瘦身
+- 商店展示与购买弹窗 UI
+
+判断条件：
+
+- 只有当新需求直接落在这些链路上，才把它们临时拉升优先级
 
 ## 5. 验证策略
 
@@ -321,31 +381,50 @@
 
 - `node tools/validate-content.js all --lang zh`
 - `node tools/validate-content.js all --lang en`
+- 后续补充：
+  - `build`
+  - `build-action`
+  - 必要时补 `role-runtime`
 - 针对改动文件做最小语法检查
 
-### 运行时验证
+### 内容扩展专项回归
 
-- 如需运行时配置核验，可继续使用：
-  - `assets/src/util/validateConfig.js`
-  - `assets/src/util/validateSiteConfig.js`
+当改动与内容扩展相关时，优先做这些回归：
 
-但这两者默认只作为 legacy 调试入口，不作为新的主工作流。
+- 新角色可选择、可解锁、角色特性生效
+- 新天赋可解锁、可选择、等级效果生效
+- 新物品有图标、有文案、可获取、效果生效
+- 新建筑可建造、可升级、可执行动作
+- 新机制在对应服务挂点上能触发
 
-### 人工回归
+### 地图 / 商店回归
 
-- 新游戏 -> 角色选择 -> 开场 -> 主场景
-- 家中 -> 地图 -> 站点 -> 战斗/工作 -> 返回
-- 死亡 -> 复活 -> 回主场景
-- 商店打开 -> 支付弹窗 -> 角色购买卡显示
-- 语言切换后关键文案正常
+- 只有当本轮真的改动地图 / 商店链时才做完整人工回归
+- 对纯内容扩展，不再默认把地图 / 商店作为第一优先回归项
 
 ## 6. 当前下一步
 
-下一轮继续完成 `Phase 1`，但只做“购买展示链终态”，不顺手扩散到购买动作链。
+这一轮已经把 `Phase 1` 的仓库级校验主入口补到位：
+
+- `tools/validate-content.js` 已覆盖 `build` / `build-action`
+- `role` 校验已补上 `roomBuilds / unlockSites / unlockNpcs / specialItems / zipline` 这类运行时配置边界
+- `all` 默认检查现在会把建筑链一起纳入
+
+这一轮已经完成 `Phase 2` 的第一刀：
+
+- `Build.js` 不再自己维护那几组背包 / 购买动作显隐硬编码
+- 动作锁定态与显隐规则已统一收口到 `RoleRuntimeService.js`
+- 已为一批特殊配方补上动作级 `runtimeRule`，后续新增同类内容可以优先改动作配置
+
+所以下一轮不再继续做第一刀收口，而是直接进入建筑动作链的第二刀。
 
 具体顺序：
 
-1. 继续把购买展示上下文从 `PurchaseUiHelper` 作为唯一主入口推进完。
-2. 把 `button.js`、`dialog.js`、`uiUtil.js` 里剩余的重复购买展示拼装继续收掉。
-3. 明确 `PurchaseUiHelper` 的职责上限，只保留展示层逻辑，不把支付执行塞进去。
-4. 做完后跑内容校验和最小商店人工回归，再进入 `Phase 2`。
+1. 先做 `Phase 2` 的第二刀：继续把 `buildAction.js` 里可复用的定时效果动作往 `BuildActionEffectService.js` 收。
+2. 然后继续清理建筑动作链里仍按动作类型 / 特例散落的旧分支。
+3. 等建筑 / 动作链明显稳定后，再进入 `Phase 3`，处理角色 / 天赋与旧购买兼容的边界问题。
+4. 地图 / 购买链继续维持“按需回归，不主动深挖”的优先级。
+
+一句话版：
+
+- **Phase 1 已补完，Phase 2 第一刀已落地；下一步继续收 `buildAction.js`，再碰角色 / 天赋兼容。**

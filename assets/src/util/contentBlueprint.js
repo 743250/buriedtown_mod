@@ -1,6 +1,6 @@
 /**
  * ContentBlueprint describes the real content sources used by the current
- * role / talent / item pipelines so validators can catch missing links early.
+ * role / talent / item / build pipelines so validators can catch missing links early.
  */
 var ContentBlueprint = {
     _normalizeId: function (id) {
@@ -34,6 +34,27 @@ var ContentBlueprint = {
             return null;
         }
         return npcConfig[id] || null;
+    },
+    _getBuildConfig: function (id) {
+        id = this._normalizeId(id);
+        if (id === null || typeof buildConfig === "undefined" || !buildConfig) {
+            return null;
+        }
+        return buildConfig[id] || null;
+    },
+    _getBuildActionConfig: function (id) {
+        id = this._normalizeId(id);
+        if (id === null || typeof buildActionConfig === "undefined" || !buildActionConfig) {
+            return null;
+        }
+        return buildActionConfig[id] || null;
+    },
+    _getFormulaConfig: function (id) {
+        id = this._normalizeId(id);
+        if (id === null || typeof formulaConfig === "undefined" || !formulaConfig) {
+            return null;
+        }
+        return formulaConfig[id] || null;
     },
     _getStringValue: function (stringId) {
         if (stringId === undefined
@@ -161,6 +182,65 @@ var ContentBlueprint = {
         var normalizedItemId = this._normalizeId(itemIdStr);
         return normalizedItemId !== null && !!itemConfig[normalizedItemId];
     },
+    _hasValidItemStackList: function (list, allowEmpty) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        if (list.length === 0) {
+            return !!allowEmpty;
+        }
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            if (!item || !ContentBlueprint._hasResolvableItemId(item.itemId)) {
+                return false;
+            }
+            if (!ContentBlueprint._isFiniteNumber(item.num) || Number(item.num) <= 0) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidBuildRef: function (buildRef, allowEmpty) {
+        if (buildRef === undefined || buildRef === null) {
+            return !!allowEmpty;
+        }
+        if (Array.isArray(buildRef)) {
+            return !!allowEmpty && buildRef.length === 0;
+        }
+        if (typeof buildRef !== "object") {
+            return false;
+        }
+
+        var buildId = ContentBlueprint._normalizeId(buildRef.bid !== undefined ? buildRef.bid : buildRef.id);
+        var buildLevel = Number(buildRef.level);
+        var configs = ContentBlueprint._getBuildConfig(buildId);
+        return !!configs
+            && ContentBlueprint._isFiniteNumber(buildLevel)
+            && buildLevel >= -1
+            && buildLevel < configs.length;
+    },
+    _hasValidBuildStateList: function (list) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._hasValidBuildRef(list[i])) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidFormulaIdList: function (list) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._getFormulaConfig(list[i])) {
+                return false;
+            }
+        }
+        return true;
+    },
     _getItemDisplayId: function (itemId) {
         itemId = this._normalizeId(itemId);
         if (itemId === null) {
@@ -263,6 +343,51 @@ var ContentBlueprint = {
             return true;
         }
         return typeof config.timeRatio === "number" && config.timeRatio > 0;
+    },
+    _hasValidPositiveNumberList: function (list) {
+        if (!Array.isArray(list) || list.length === 0) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._isFiniteNumber(list[i]) || Number(list[i]) <= 0) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidBuildActionEffect: function (effect) {
+        if (!effect || typeof effect !== "object" || Array.isArray(effect)) {
+            return false;
+        }
+        var hasAnyEffectKey = false;
+        for (var key in effect) {
+            hasAnyEffectKey = true;
+            if (!ContentBlueprint._isFiniteNumber(effect[key])) {
+                return false;
+            }
+        }
+        return hasAnyEffectKey;
+    },
+    _walkBuildActionEntries: function (configList, entryValidator) {
+        if (!Array.isArray(configList) || configList.length === 0) {
+            return false;
+        }
+        for (var i = 0; i < configList.length; i++) {
+            var entry = configList[i];
+            if (Array.isArray(entry)) {
+                if (!ContentBlueprint._walkBuildActionEntries(entry, entryValidator)) {
+                    return false;
+                }
+                continue;
+            }
+            if (!entry || typeof entry !== "object") {
+                return false;
+            }
+            if (entryValidator && !entryValidator(entry)) {
+                return false;
+            }
+        }
+        return true;
     },
     _isSpecialSiteWithoutRooms: function (id) {
         id = this._normalizeId(id);
@@ -388,6 +513,30 @@ var ContentBlueprint = {
                 }
             },
             {
+                name: "角色初始房间建筑配置",
+                file: "data/roleConfigTable.js / data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var roleConfig = ContentBlueprint._getRoleConfig(id);
+                    if (!roleConfig || roleConfig.roomBuilds === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidBuildStateList(roleConfig.roomBuilds);
+                }
+            },
+            {
+                name: "角色初始解锁站点配置",
+                file: "data/roleConfigTable.js / data/siteConfig.js",
+                required: false,
+                validator: function (id) {
+                    var roleConfig = ContentBlueprint._getRoleConfig(id);
+                    if (!roleConfig || roleConfig.unlockSites === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidSiteIdList(roleConfig.unlockSites);
+                }
+            },
+            {
                 name: "初始解锁NPC配置",
                 file: "data/roleConfigTable.js",
                 required: false,
@@ -432,6 +581,188 @@ var ContentBlueprint = {
                         return true;
                     }
                     return ContentBlueprint._hasValidZiplineConfig(roleConfig.zipline);
+                }
+            }
+        ]
+    },
+    build: {
+        fields: [
+            {
+                name: "建筑配置",
+                file: "data/buildConfig.js",
+                required: true,
+                validator: function (id) {
+                    return !!ContentBlueprint._getBuildConfig(id);
+                }
+            },
+            {
+                name: "建筑等级结构配置",
+                file: "data/buildConfig.js",
+                required: true,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (!configs[i] || parseInt(configs[i].id) !== parseInt(id)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
+            {
+                name: "建筑升级成本配置",
+                file: "data/buildConfig.js",
+                required: true,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (!ContentBlueprint._hasValidItemStackList(configs[i].cost || [], true)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
+            {
+                name: "建筑升级条件引用",
+                file: "data/buildConfig.js",
+                required: true,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (!ContentBlueprint._hasValidBuildRef(configs[i].condition, true)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
+            {
+                name: "建筑产线公式引用",
+                file: "data/buildConfig.js / data/formulaConfig.js",
+                required: true,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (!ContentBlueprint._hasValidFormulaIdList(configs[i].produceList)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
+            {
+                name: "建筑建造时间配置",
+                file: "data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (configs[i].createTime === undefined) {
+                            continue;
+                        }
+                        if (!ContentBlueprint._isFiniteNumber(configs[i].createTime) || Number(configs[i].createTime) < 0) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            }
+        ]
+    },
+    "build-action": {
+        fields: [
+            {
+                name: "建筑动作配置",
+                file: "data/buildActionConfig.js",
+                required: true,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildActionConfig(id);
+                    return ContentBlueprint._walkBuildActionEntries(configs, function () {
+                        return true;
+                    });
+                }
+            },
+            {
+                name: "建筑动作所属建筑引用",
+                file: "data/buildActionConfig.js / data/buildConfig.js",
+                required: true,
+                validator: function (id) {
+                    return !!ContentBlueprint._getBuildConfig(id);
+                }
+            },
+            {
+                name: "建筑动作成本配置",
+                file: "data/buildActionConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildActionConfig(id);
+                    return ContentBlueprint._walkBuildActionEntries(configs, function (entry) {
+                        return entry.cost === undefined || ContentBlueprint._hasValidItemStackList(entry.cost, true);
+                    });
+                }
+            },
+            {
+                name: "建筑动作产出配置",
+                file: "data/buildActionConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildActionConfig(id);
+                    return ContentBlueprint._walkBuildActionEntries(configs, function (entry) {
+                        return entry.produce === undefined || ContentBlueprint._hasValidItemStackList(entry.produce, true);
+                    });
+                }
+            },
+            {
+                name: "建筑动作效果配置",
+                file: "data/buildActionConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildActionConfig(id);
+                    return ContentBlueprint._walkBuildActionEntries(configs, function (entry) {
+                        return entry.effect === undefined || ContentBlueprint._hasValidBuildActionEffect(entry.effect);
+                    });
+                }
+            },
+            {
+                name: "建筑动作时间/倍率配置",
+                file: "data/buildActionConfig.js",
+                required: true,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildActionConfig(id);
+                    return ContentBlueprint._walkBuildActionEntries(configs, function (entry) {
+                        if (entry.makeTime !== undefined
+                            && (!ContentBlueprint._isFiniteNumber(entry.makeTime) || Number(entry.makeTime) < 0)) {
+                            return false;
+                        }
+                        if (entry.max !== undefined
+                            && (!ContentBlueprint._isFiniteNumber(entry.max) || Number(entry.max) < 0)) {
+                            return false;
+                        }
+                        if (entry.rate !== undefined
+                            && (!ContentBlueprint._isFiniteNumber(entry.rate) || Number(entry.rate) <= 0)) {
+                            return false;
+                        }
+                        if (entry.placedTime !== undefined && !ContentBlueprint._hasValidPositiveNumberList(entry.placedTime)) {
+                            return false;
+                        }
+                        return true;
+                    });
                 }
             }
         ]
