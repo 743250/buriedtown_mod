@@ -156,7 +156,3 @@ var TalentConfigTable = {
         ]
     }
 };
-
-if (typeof module !== "undefined" && module.exports) {
-    module.exports = TalentConfigTable;
-}

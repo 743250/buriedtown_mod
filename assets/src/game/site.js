@@ -5,7 +5,6 @@
 
 if (typeof cc === "undefined" || !cc) {
     var cc = require("../test/testBattle");
-    var SiteRewardService = require("./SiteRewardService");
     var SiteRoomGenerator = require("./SiteRoomGenerator");
     var SiteConfigService = require("./SiteConfigService");
 }
@@ -22,6 +21,132 @@ var HOME_SITE = 100;
 var AD_SITE = 202;
 var BOSS_SITE = 61;
 var WORK_SITE = 204;
+
+var hasExternalSiteServices = typeof SiteRewardService !== "undefined" && SiteRewardService
+    && typeof SiteRoomGenerator !== "undefined" && SiteRoomGenerator;
+
+var siteRewardServiceRef = hasExternalSiteServices ? SiteRewardService : {
+    buildWorkRoomLoot: function (itemIds) {
+        var roomItemIds = itemIds ? itemIds.slice() : [];
+        var scavengerDoubleTriggered = roomItemIds.length > 0
+            && IAPPackage.rollScavengerDoubleDrop
+            && IAPPackage.rollScavengerDoubleDrop();
+        if (scavengerDoubleTriggered) {
+            roomItemIds = roomItemIds.concat(roomItemIds);
+        }
+        return {
+            list: utils.convertItemIds2Item(roomItemIds),
+            scavengerDoubleTriggered: !!scavengerDoubleTriggered
+        };
+    },
+    buildFixedValueWorkLoot: function (produceValue, produceList) {
+        return this.buildWorkRoomLoot(utils.getFixedValueItemIds(produceValue, produceList));
+    },
+    buildSiteWorkRooms: function (siteConfig) {
+        var workRooms = [];
+        if (!siteConfig || siteConfig.workRoom <= 0) {
+            return workRooms;
+        }
+
+        var itemIds = utils.getFixedValueItemIds(siteConfig.produceValue, siteConfig.produceList);
+        var fixedProduceList = siteConfig.fixedProduceList || [];
+        fixedProduceList.forEach(function (item) {
+            for (var i = 0; i < item.num; i++) {
+                itemIds.push(item.itemId);
+            }
+        });
+
+        for (var roomIndex = 0; roomIndex < siteConfig.workRoom; roomIndex++) {
+            workRooms.push({list: []});
+        }
+        itemIds.forEach(function (itemId) {
+            var index = utils.getRandomInt(0, workRooms.length - 1);
+            workRooms[index].list.push(itemId);
+        });
+
+        return workRooms.map(function (workRoom) {
+            return siteRewardServiceRef.buildWorkRoomLoot(workRoom.list);
+        });
+    }
+};
+
+var siteRoomGeneratorRef = hasExternalSiteServices ? SiteRoomGenerator : {
+    buildRooms: function (siteConfig, options) {
+        options = options || {};
+        var workRoomTypeLen = options.workRoomTypeLen || 3;
+        var battleRooms = this.buildBattleRooms(siteConfig);
+        var workRooms = siteRewardServiceRef.buildSiteWorkRooms(siteConfig);
+        var roomLen = siteConfig.battleRoom + siteConfig.workRoom;
+        var rooms = [];
+
+        if (workRooms.length > 0) {
+            var endWorkRoomIndex = utils.getRandomInt(0, workRooms.length - 1);
+            rooms.unshift(this._createWorkRoom(workRooms.splice(endWorkRoomIndex, 1)[0], workRoomTypeLen));
+            roomLen--;
+        }
+
+        while (roomLen-- > 0) {
+            var index = utils.getRandomInt(0, roomLen);
+            if (index > battleRooms.length - 1) {
+                index -= battleRooms.length;
+                rooms.unshift(this._createWorkRoom(workRooms.splice(index, 1)[0], workRoomTypeLen));
+            } else {
+                rooms.unshift(this._createBattleRoom(battleRooms.splice(index, 1)[0]));
+            }
+        }
+        return rooms;
+    },
+    buildBattleRooms: function (siteConfig) {
+        var rooms = [];
+        for (var i = 0; i < siteConfig.battleRoom; i++) {
+            var difficulty = utils.getRandomInt(siteConfig.difficulty[0], siteConfig.difficulty[1]);
+            rooms.push({
+                list: utils.getMonsterListByDifficulty(difficulty),
+                difficulty: difficulty
+            });
+        }
+        return rooms;
+    },
+    buildSecretRooms: function (siteConfig, secretRoomsConfig, options) {
+        options = options || {};
+        var workRoomTypeLen = options.workRoomTypeLen || 3;
+        var rooms = [];
+        var secretRoomsLength = utils.getRandomInt(secretRoomsConfig.minRooms, secretRoomsConfig.maxRooms);
+
+        for (var i = 0; i < secretRoomsLength - 1; i++) {
+            var difficulty = utils.getRandomInt(
+                siteConfig.difficulty[0] + secretRoomsConfig.minDifficultyOffset,
+                siteConfig.difficulty[1] + secretRoomsConfig.maxDifficultyOffset
+            );
+            difficulty = cc.clampf(difficulty, 1, 12);
+            rooms.push(this._createBattleRoom({
+                list: utils.getMonsterListByDifficulty(difficulty),
+                difficulty: difficulty
+            }));
+        }
+
+        rooms.push(this._createWorkRoom(
+            siteRewardServiceRef.buildFixedValueWorkLoot(secretRoomsConfig.produceValue, secretRoomsConfig.produceList),
+            workRoomTypeLen
+        ));
+        return rooms;
+    },
+    _createBattleRoom: function (battleRoom) {
+        return {
+            list: battleRoom.list,
+            difficulty: battleRoom.difficulty,
+            type: "battle"
+        };
+    },
+    _createWorkRoom: function (workRoom, workRoomTypeLen) {
+        return {
+            list: workRoom.list,
+            type: "work",
+            workType: utils.getRandomInt(0, workRoomTypeLen - 1),
+            scavengerDoubleTriggered: !!workRoom.scavengerDoubleTriggered
+        };
+    }
+};
 
 var Site = BaseSite.extend({
     ctor: function (siteId) {
@@ -102,7 +227,7 @@ var Site = BaseSite.extend({
         return this.secretRoomsStep >= this.secretRooms.length;
     },
     genSecretRooms: function () {
-        this.secretRooms = SiteRoomGenerator.buildSecretRooms(this.config, this.secretRoomsConfig, {
+        this.secretRooms = siteRoomGeneratorRef.buildSecretRooms(this.config, this.secretRoomsConfig, {
             workRoomTypeLen: WorkRoomTypeLen
         });
     },
@@ -157,7 +282,7 @@ var Site = BaseSite.extend({
         return stringUtil.getString("site_" + this.id).des;
     },
     genRooms: function () {
-        this.rooms = SiteRoomGenerator.buildRooms(this.config, {
+        this.rooms = siteRoomGeneratorRef.buildRooms(this.config, {
             workRoomTypeLen: WorkRoomTypeLen
         });
     },

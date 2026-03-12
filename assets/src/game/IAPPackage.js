@@ -86,43 +86,50 @@ var IAPPackage = {
             return [];
         }
 
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.getExchangeIdsByPurchaseId === "function") {
-            var talentExchangeIds = TalentService.getExchangeIdsByPurchaseId(purchaseId);
-            if (talentExchangeIds.length > 0) {
-                return talentExchangeIds;
+        var exchangeType = null;
+        var targetId = purchaseId;
+
+        if (this.isTalentPurchaseId(purchaseId)) {
+            exchangeType = "talent";
+        } else if (typeof role !== "undefined" && role && typeof role.getRoleTypeByPurchaseId === "function") {
+            var roleType = role.getRoleTypeByPurchaseId(purchaseId);
+            if (roleType !== null && roleType !== undefined) {
+                exchangeType = "character";
+                targetId = roleType;
             }
         }
 
-        if (typeof role !== "undefined"
-            && role
-            && typeof role.getExchangeIdsByPurchaseId === "function") {
-            var roleExchangeIds = role.getExchangeIdsByPurchaseId(purchaseId);
-            if (roleExchangeIds.length > 0) {
-                return roleExchangeIds;
-            }
+        if (!exchangeType && purchaseId >= 100 && purchaseId < 200) {
+            exchangeType = "item";
         }
 
-        if (!(purchaseId >= 100 && purchaseId < 200)) {
+        if (!exchangeType) {
             return [];
         }
 
         var exchangeIds = [];
         for (var exchangeId in ExchangeAchievementConfig) {
             var exchangeConfig = ExchangeAchievementConfig[exchangeId];
-            if (!exchangeConfig || exchangeConfig.type !== "item") {
+            if (!exchangeConfig || exchangeConfig.type !== exchangeType) {
                 continue;
             }
-            if (parseInt(exchangeConfig.targetId) !== purchaseId) {
+            if (parseInt(exchangeConfig.targetId) !== targetId) {
                 continue;
             }
             exchangeIds.push(parseInt(exchangeId));
         }
 
         exchangeIds.sort(function (a, b) {
+            var configA = ExchangeAchievementConfig[a] || {};
+            var configB = ExchangeAchievementConfig[b] || {};
+            var levelA = isFinite(configA.level) ? parseInt(configA.level) : 1;
+            var levelB = isFinite(configB.level) ? parseInt(configB.level) : 1;
+            if (levelA !== levelB) {
+                return levelA - levelB;
+            }
             return a - b;
         });
+
         return exchangeIds;
     },
     getExchangeIdsByPurchaseId: function (purchaseId) {
@@ -228,12 +235,119 @@ var IAPPackage = {
         return price;
     },
     getShopUiState: function (purchaseId) {
-        if (typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.getShopUiState === "function") {
-            return PurchaseService.getShopUiState(purchaseId);
+        purchaseId = parseInt(purchaseId);
+        var isExchangePurchase = this.isExchangePurchase(purchaseId);
+        var isTalentPurchase = this.isTalentPurchaseId(purchaseId);
+        var isUnlocked = this.isIAPUnlocked(purchaseId);
+        var nextAchievementPrice = null;
+        var achievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
+        var priceText = "";
+        var canBuy = false;
+        var canCancel = false;
+        var shouldHideBuyButton = false;
+        var badgeText = "";
+        var hideBadge = false;
+        var disabledReason = "";
+
+        if (isExchangePurchase) {
+            nextAchievementPrice = this.getAchievementPriceByPurchaseId(purchaseId);
+            shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
+
+            if (shouldHideBuyButton) {
+                canBuy = false;
+                if (isTalentPurchase) {
+                    priceText = "已满级";
+                    disabledReason = "MAX_LEVEL";
+                } else {
+                    priceText = "已购";
+                    disabledReason = "ALREADY_UNLOCKED";
+                }
+            } else {
+                priceText = nextAchievementPrice + " 成就点";
+                canBuy = achievementPoints >= nextAchievementPrice;
+                if (!canBuy) {
+                    disabledReason = "INSUFFICIENT_POINTS";
+                }
+            }
+
+            canCancel = purchaseId < 200 && purchaseId !== 0 && this.hasExchangeUnlock(purchaseId);
+            if (isTalentPurchase) {
+                if (shouldHideBuyButton) {
+                    badgeText = "已满级";
+                    hideBadge = false;
+                } else {
+                    hideBadge = true;
+                }
+            } else if (isUnlocked) {
+                badgeText = "已购";
+            }
+        } else if (purchaseId >= 200) {
+            nextAchievementPrice = this.getConsumableAchievementPrice(purchaseId);
+            shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
+
+            if (shouldHideBuyButton) {
+                canBuy = false;
+                disabledReason = "NO_PRICE";
+            } else {
+                priceText = nextAchievementPrice + " 成就点";
+                if (isUnlocked) {
+                    canBuy = false;
+                    disabledReason = "ALREADY_UNLOCKED";
+                } else {
+                    canBuy = achievementPoints >= nextAchievementPrice;
+                    if (!canBuy) {
+                        disabledReason = "INSUFFICIENT_POINTS";
+                    }
+                }
+            }
+
+            canCancel = false;
+            if (isUnlocked) {
+                badgeText = "已购";
+            }
+        } else {
+            var purchaseConfig = this.getPurchaseConfig(purchaseId);
+            if (purchaseConfig) {
+                priceText = purchaseConfig.productPriceStr;
+                if (!priceText) {
+                    if (typeof stringUtil !== "undefined" && stringUtil && typeof stringUtil.getString === "function") {
+                        priceText = stringUtil.getString(1191, purchaseConfig.price);
+                    } else {
+                        priceText = "" + purchaseConfig.price;
+                    }
+                }
+            }
+
+            canBuy = !isUnlocked;
+            if (!canBuy) {
+                disabledReason = "ALREADY_UNLOCKED";
+            }
+            canCancel = this.isPaySdkBypassedForTest
+                && this.isPaySdkBypassedForTest()
+                && purchaseId < 200
+                && purchaseId !== 0
+                && isUnlocked;
+            if (isUnlocked) {
+                badgeText = "已购";
+            }
         }
-        return null;
+
+        return {
+            purchaseId: purchaseId,
+            isExchangePurchase: isExchangePurchase,
+            isTalentPurchase: isTalentPurchase,
+            isUnlocked: isUnlocked,
+            currentTalentLevel: isTalentPurchase ? Medal.getTalentLevel(purchaseId) : 0,
+            nextAchievementPrice: nextAchievementPrice,
+            achievementPoints: achievementPoints,
+            priceText: priceText,
+            canBuy: !!canBuy,
+            canCancel: !!canCancel,
+            shouldHideBuyButton: !!shouldHideBuyButton,
+            badgeText: badgeText,
+            hideBadge: !!hideBadge,
+            disabledReason: disabledReason
+        };
     },
     tryExchangePurchase: function (purchaseId) {
         if (!this.isExchangePurchase(purchaseId)) {
@@ -496,13 +610,13 @@ var IAPPackage = {
 
         if (purchaseId === 107) {
             if (player.room && typeof player.room.createBuild === "function") {
-                // 恢复到未解锁状态，避免保留狗舍购买收益�?
+                // 恢复到未解锁状态，避免保留狗舍购买收益。
                 player.room.createBuild(12, -1);
             }
             return;
         }
 
-        // 当前局之外的存档也同步处理，避免菜单商店重置后读取旧状态�?
+        // 当前局之外的存档也同步处理，避免菜单商店重置后读取旧状态。
         this._removeSingleUnlockRewardFromSavedRecord(purchaseId);
     },
     resetIAPPaid: function (purchaseId) {
@@ -540,7 +654,7 @@ var IAPPackage = {
             this._syncChosenRoleAfterReset();
             if (typeof Record !== "undefined" && Record) {
                 try {
-                    // 菜单商店场景通常没有 player 对象，直接调�?saveAll 会抛错并中断后续UI刷新事件�?
+                    // 菜单商店场景通常没有 player 对象，直接调用 saveAll 会抛错并中断后续UI刷新事件。
                     if (typeof player !== "undefined" && player && typeof Record.saveAll === "function") {
                         Record.saveAll();
                     } else if (typeof Record.flush === "function" && Record.recordObj) {
@@ -570,7 +684,7 @@ var IAPPackage = {
             return false;
         }
 
-        // 消耗品成就点价格与现实货币价格 1:1（例�?3�?3点）
+        // 消耗品成就点价格与现实货币价格 1:1（例如 3元=3点）
         var cost = this.getConsumableAchievementPrice(purchaseId);
         if (cost === null || cost === undefined) {
             return false;
@@ -596,7 +710,7 @@ var IAPPackage = {
             return true;
         }
 
-        // 天赋通过成就点解�?
+        // 天赋通过成就点解锁
         if (this.isTalentPurchaseId(purchaseId)) {
             return Medal.getTalentLevel(purchaseId) >= 1;
         }
@@ -656,4 +770,3 @@ var IAPPackage = {
 };
 
 TalentService.bindIAPCompatApi(IAPPackage);
-

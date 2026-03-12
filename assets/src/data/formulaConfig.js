@@ -12,10 +12,7 @@ var formulaConfig = {
             "itemId": 1101012,
             "num": 10
         }],
-        "makeTime": 180,
-        "runtimeRule": {
-            "includeAnyTags": ["jie"]
-        }
+        "makeTime": 180
       },
       "1201022": {
         "id": "1201022",
@@ -27,10 +24,7 @@ var formulaConfig = {
             "itemId": 1302011,
             "num": 1
         }],
-        "makeTime": 300,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi"]
-        }
+        "makeTime": 300
       },
       "1201021": {
         "id": "1201021",
@@ -45,10 +39,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 180,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi"]
-        }
+        "makeTime": 180
       },
       "1201041": {
         "id": "1201041",
@@ -63,10 +54,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 180,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi"]
-        }
+        "makeTime": 180
       },
       "1201051": {
         "id": "1201051",
@@ -81,10 +69,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 180,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi"]
-        }
+        "makeTime": 180
       },
       "1201013": {
         "id": "1201013",
@@ -99,10 +84,7 @@ var formulaConfig = {
             "itemId": 1101012,
             "num": 50
         }],
-        "makeTime": 720,
-        "runtimeRule": {
-            "includeAnyTags": ["jie"]
-        }
+        "makeTime": 720
       },
       "1201012": {
         "id": "1201012",
@@ -115,10 +97,7 @@ var formulaConfig = {
             "num": 40
         }],
         "makeTime": 180,
-        "placedTime": [43200],
-        "runtimeRule": {
-            "includeAnyTags": ["jie"]
-        }
+        "placedTime": [43200]
       },
       "1201031": {
         "id": "1201031",
@@ -130,10 +109,7 @@ var formulaConfig = {
             "itemId": 1105052,
             "num": 4
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "includeAnyTags": ["jie"]
-        }
+        "makeTime": 60
     },
     "1201061": {
         "id": "1201061",
@@ -164,10 +140,7 @@ var formulaConfig = {
             "itemId": 1101061,
             "num": 6
         }],
-        "makeTime": 90,
-        "runtimeRule": {
-            "includeAnyTags": ["stranger"]
-        }
+        "makeTime": 90
     },
     "1202053": {
         "id": "1202053",
@@ -190,7 +163,6 @@ var formulaConfig = {
         }],
         "makeTime": 120,
         "runtimeRule": {
-            "includeAnyTags": ["king", "bier"],
             "hideWhenOwnedItems": [1305044]
         }
       },
@@ -210,10 +182,7 @@ var formulaConfig = {
             "itemId": 1101051,
             "num": 20
         }],
-        "makeTime": 90,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi", "king"]
-        }
+        "makeTime": 90
     },
     "1203011": {
         "id": "1203011",
@@ -229,10 +198,7 @@ var formulaConfig = {
             "num": 16
         }],
         "makeTime": 60,
-        "placedTime": [2880],
-        "runtimeRule": {
-            "excludeAnyTags": ["jin"]
-        }
+        "placedTime": [2880]
     },
     "1203012": {
         "id": "1203012",
@@ -248,10 +214,7 @@ var formulaConfig = {
             "num": 20
         }],
         "makeTime": 120,
-        "placedTime": [2880],
-        "runtimeRule": {
-            "includeAnyTags": ["jin"]
-        }
+        "placedTime": [2880]
     },
     "1203022": {
         "id": "1203022",
@@ -266,10 +229,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "hideWhenPoweredWorksiteForTags": ["powered"]
-        }
+        "makeTime": 30
     },
     "1203023": {
         "id": "1203023",
@@ -284,11 +244,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["powered"],
-            "requirePoweredWorksite": true
-        }
+        "makeTime": 30
     },
     "1203033": {
         "id": "1203033",
@@ -306,10 +262,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "hideWhenPoweredWorksiteForTags": ["powered"]
-        }
+        "makeTime": 30
     },
     "1203034": {
         "id": "1203034",
@@ -324,11 +277,7 @@ var formulaConfig = {
             "itemId": 1101061,
             "num": 2
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["powered"],
-            "requirePoweredWorksite": true
-        }
+        "makeTime": 30
     },
     "1203041": {
         "id": "1203041",
@@ -358,10 +307,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 2
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "hideWhenPoweredWorksiteForTags": ["powered"]
-        }
+        "makeTime": 30
     },
     "1203053": {
         "id": "1203053",
@@ -376,11 +322,7 @@ var formulaConfig = {
             "itemId": 1101061,
             "num": 2
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["powered"],
-            "requirePoweredWorksite": true
-        }
+        "makeTime": 30
     },
     "1203063": {
         "id": "1203063",
@@ -395,10 +337,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 4
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "hideWhenPoweredWorksiteForTags": ["powered"]
-        }
+        "makeTime": 30
     },
     "1203064": {
         "id": "1203064",
@@ -413,11 +352,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["powered"],
-            "requirePoweredWorksite": true
-        }
+        "makeTime": 30
     },
     "1203074": {
         "id": "1203074",
@@ -444,10 +379,7 @@ var formulaConfig = {
             "itemId": 1105022,
             "num": 1
         }],
-        "makeTime": 45,
-        "runtimeRule": {
-            "hideWhenPoweredWorksiteForTags": ["powered"]
-        }
+        "makeTime": 45
     },
     "1203075": {
         "id": "1203075",
@@ -471,11 +403,7 @@ var formulaConfig = {
             "itemId": 1105022,
             "num": 1
         }],
-        "makeTime": 45,
-        "runtimeRule": {
-            "includeAnyTags": ["powered"],
-            "requirePoweredWorksite": true
-        }
+        "makeTime": 45
     },
     "1204011": {
         "id": "1204011",
@@ -493,10 +421,7 @@ var formulaConfig = {
             "itemId": 1105033,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "excludeAnyTags": ["jin"]
-        }
+        "makeTime": 30
     },
     "1204012": {
         "id": "1204011",
@@ -514,10 +439,7 @@ var formulaConfig = {
             "itemId": 1105022,
             "num": 2
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["jin"]
-        }
+        "makeTime": 30
     },
     "1204021": {
         "id": "1204021",
@@ -535,10 +457,7 @@ var formulaConfig = {
             "itemId": 1105033,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "excludeAnyTags": ["jin"]
-        }
+        "makeTime": 30
     },
     "1204022": {
         "id": "1204021",
@@ -559,10 +478,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["jin"]
-        }
+        "makeTime": 30
     },
     "1204032": {
         "id": "1204032",
@@ -586,10 +502,7 @@ var formulaConfig = {
             "itemId": 1103052,
             "num": 2
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "excludeAnyTags": ["jin"]
-        }
+        "makeTime": 60
     },
     "1204043": {
         "id": "1204043",
@@ -610,10 +523,7 @@ var formulaConfig = {
             "itemId": 1105033,
             "num": 1
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "includeAnyTags": ["jin"]
-        }
+        "makeTime": 60
     },
     "1205011": {
         "id": "1205011",
@@ -629,10 +539,7 @@ var formulaConfig = {
             "num": 1
         }],
         "makeTime": 60,
-        "placedTime": [2880],
-        "runtimeRule": {
-            "includeAnyTags": ["stranger", "bier", "king"]
-        }
+        "placedTime": [2880]
     },
     "1206054": {
         "id": "1206054",
@@ -659,10 +566,7 @@ var formulaConfig = {
             "itemId": 1105033,
             "num": 1
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "includeAnyTags": ["jin"]
-        }
+        "makeTime": 60
     },
     "1205022": {
         "id": "1205022",
@@ -697,10 +601,7 @@ var formulaConfig = {
             "num": 8
         }],
         "makeTime": 30,
-        "placedTime": [60],
-        "runtimeRule": {
-            "excludeAnyTags": ["luo"]
-        }
+        "placedTime": [60]
     },
     "1205042": {
         "id": "1205042",
@@ -744,10 +645,7 @@ var formulaConfig = {
             "num": 16
         }],
         "makeTime": 30,
-        "placedTime": [2880],
-        "runtimeRule": {
-            "includeAnyTags": ["jie"]
-        }
+        "placedTime": [2880]
     },
     "1205061": {
         "id": "1205061",
@@ -808,10 +706,7 @@ var formulaConfig = {
             "itemId": 1101071,
             "num": 3
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 30
     },
     "1207022": {
         "id": "1207022",
@@ -832,10 +727,7 @@ var formulaConfig = {
             "itemId": 1101071,
             "num": 5
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 30
     },
     "1207032": {
         "id": "1207032",
@@ -853,10 +745,7 @@ var formulaConfig = {
             "itemId": 1101071,
             "num": 2
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 30
     },
     "1207042": {
         "id": "1207042",
@@ -871,10 +760,7 @@ var formulaConfig = {
             "itemId": 1101071,
             "num": 4
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 30
     },
     "1401011": {
         "id": "1401011",
@@ -892,10 +778,7 @@ var formulaConfig = {
             "itemId": 1102011,
             "num": 2
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "excludeAnyTags": ["yazi", "bier"]
-        }
+        "makeTime": 60
     },
     "1401041": {
         "id": "1401041",
@@ -916,10 +799,7 @@ var formulaConfig = {
             "itemId": 1101073,
             "num": 1
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 60
     },
     "1401022": {
         "id": "1401022",
@@ -940,10 +820,7 @@ var formulaConfig = {
             "itemId": 1102022,
             "num": 2
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "excludeAnyTags": ["yazi", "bier"]
-        }
+        "makeTime": 60
     },
     "1401052": {
         "id": "1401052",
@@ -967,10 +844,7 @@ var formulaConfig = {
             "itemId": 1101073,
             "num": 1
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 60
     },
     "1401033": {
         "id": "1401033",
@@ -991,10 +865,7 @@ var formulaConfig = {
             "itemId": 1102033,
             "num": 3
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "excludeAnyTags": ["yazi", "bier"]
-        }
+        "makeTime": 60
     },
     "1401063": {
         "id": "1401063",
@@ -1018,10 +889,7 @@ var formulaConfig = {
             "itemId": 1101073,
             "num": 1
         }],
-        "makeTime": 60,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 60
     },
     "1401071": {
         "id": "1401071",
@@ -1042,10 +910,7 @@ var formulaConfig = {
             "itemId": 1101051,
             "num": 10
         }],
-        "makeTime": 90,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi", "king"]
-        }
+        "makeTime": 90
     },
     "1401082": {
         "id": "1401082",
@@ -1069,10 +934,7 @@ var formulaConfig = {
             "itemId": 1101051,
             "num": 20
         }],
-        "makeTime": 90,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi", "king"]
-        }
+        "makeTime": 90
     },
     "1402011": {
         "id": "1402011",
@@ -1141,10 +1003,7 @@ var formulaConfig = {
             "itemId": 1101051,
             "num": 15
         }],
-        "makeTime": 90,
-        "runtimeRule": {
-            "includeAnyTags": ["yazi", "king"]
-        }
+        "makeTime": 90
     },
     "1403012": {
         "id": 1403012,
@@ -1201,10 +1060,7 @@ var formulaConfig = {
             "itemId": 1101073,
             "num": 1
         }],
-        "makeTime": 30,
-        "runtimeRule": {
-            "includeAnyTags": ["bier", "king"]
-        }
+        "makeTime": 30
     },
     "1404012": {
         "id": "1404012",

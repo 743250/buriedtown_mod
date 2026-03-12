@@ -233,10 +233,14 @@ var Bag = Storage.extend({
             }
             return total;
         };
-        if (typeof ItemRuntimeService !== "undefined"
-            && ItemRuntimeService
-            && typeof ItemRuntimeService.getStorageWeightBonus === "function") {
-            weight += ItemRuntimeService.getStorageWeightBonus(getOwnedNum);
+        if (getOwnedNum(1305023) > 0) {
+            weight += 10;
+        }
+        if (getOwnedNum(1305024) > 0) {
+            weight += 25;
+        }
+        if (getOwnedNum(1305044) > 0) {
+            weight += 15;
         }
         if (typeof TalentService !== "undefined" && TalentService && TalentService.getBagWeightBonus)  {
             weight += TalentService.getBagWeightBonus();
@@ -258,8 +262,28 @@ var Bag = Storage.extend({
         return newBag;
     },
     testWeaponBroken: function (itemId) {
-        if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && typeof ItemRuntimeService.testWeaponBroken === "function") {
-            return ItemRuntimeService.testWeaponBroken(this, itemId);
+        //新手保护, 3天内不会损坏武器
+        if (cc.timer.formatTime().d < 3) {
+            return false;
+        }
+        if (typeof TalentService !== "undefined" && TalentService && TalentService.isElitePistolItem && TalentService.isElitePistolItem(itemId)) {
+            return false;
+        }
+        if (itemConfig[itemId]) {
+            var weaponBrokenProbability = itemConfig[itemId].effect_weapon.brokenProbability;
+            weaponBrokenProbability = TalentService.getWeaponBrokenProbability(weaponBrokenProbability);
+            var rand = Math.random();
+            cc.log("testWeaponBroken " + itemId + " " + weaponBrokenProbability + ":" + rand);
+            var isBroken = (rand <= weaponBrokenProbability);
+            if (isBroken) {
+                player.equip.unequipByItemId(itemId);
+                this.decreaseItem(itemId, 1);
+                cc.log("itemId=" + itemId + " is broken");
+                player.log.addMsg(1205, stringUtil.getString(itemId).title);
+
+                Record.saveAll();
+            }
+            return isBroken;
         }
         return false;
     }

@@ -3,15 +3,6 @@
  * IAPPackage keeps purchase/exchange responsibilities and delegates talent APIs
  * here for compatibility.
  */
-if (typeof module !== "undefined"
-    && module.exports
-    && (typeof TalentConfigTable === "undefined" || !TalentConfigTable)) {
-    var TalentConfigTable = require("../data/talentConfigTable");
-}
-
-var _emptyTalentConfigTable = {};
-var _hasWarnedMissingTalentConfigTable = false;
-
 var TalentService = {
     _chosenTalentIds: null,
     MAX_CHOSEN_TALENT_COUNT: 3,
@@ -23,14 +14,7 @@ var TalentService = {
         if (typeof TalentConfigTable !== "undefined" && TalentConfigTable) {
             return TalentConfigTable;
         }
-        if (!_hasWarnedMissingTalentConfigTable
-            && typeof cc !== "undefined"
-            && cc
-            && typeof cc.error === "function") {
-            cc.error("[TalentService] TalentConfigTable is unavailable");
-            _hasWarnedMissingTalentConfigTable = true;
-        }
-        return _emptyTalentConfigTable;
+        return {};
     },
     _getTalentConfig: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
@@ -41,40 +25,6 @@ var TalentService = {
     },
     getTalentConfig: function (purchaseId) {
         return this._getTalentConfig(purchaseId);
-    },
-    getExchangeIdsByPurchaseId: function (purchaseId) {
-        purchaseId = parseInt(purchaseId);
-        if (isNaN(purchaseId)
-            || !this.isTalentPurchaseId(purchaseId)
-            || typeof ExchangeAchievementConfig === "undefined"
-            || !ExchangeAchievementConfig) {
-            return [];
-        }
-
-        var exchangeIds = [];
-        for (var exchangeId in ExchangeAchievementConfig) {
-            var exchangeConfig = ExchangeAchievementConfig[exchangeId];
-            if (!exchangeConfig || exchangeConfig.type !== "talent") {
-                continue;
-            }
-            if (parseInt(exchangeConfig.targetId) !== purchaseId) {
-                continue;
-            }
-            exchangeIds.push(parseInt(exchangeId));
-        }
-
-        exchangeIds.sort(function (a, b) {
-            var configA = ExchangeAchievementConfig[a] || {};
-            var configB = ExchangeAchievementConfig[b] || {};
-            var levelA = isFinite(configA.level) ? parseInt(configA.level) : 1;
-            var levelB = isFinite(configB.level) ? parseInt(configB.level) : 1;
-            if (levelA !== levelB) {
-                return levelA - levelB;
-            }
-            return a - b;
-        });
-
-        return exchangeIds;
     },
     _getTalentValueList: function (purchaseId, fieldName) {
         var config = this._getTalentConfig(purchaseId);
@@ -576,7 +526,3 @@ var TalentService = {
         });
     }
 };
-
-if (typeof module !== "undefined" && module.exports) {
-    module.exports = TalentService;
-}

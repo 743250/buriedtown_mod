@@ -94,7 +94,6 @@ var buildConfig = {
             "bid": 1,
             "level": 1
         },
-        "concurrentActionLimit": 2,
         "produceList": [1205051, 1205052, 1205011, 1205061]
     }],
     "3": [{
