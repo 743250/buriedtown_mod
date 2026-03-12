@@ -139,10 +139,7 @@ var Build = cc.Class.extend({
         }
     },
     getConcurrentActionLimit: function () {
-        if (this.id === 2 && this.level >= 1) {
-            return 2;
-        }
-        return 1;
+        return RoleRuntimeService.getBuildConcurrentActionLimit(this._getRoleType(), this.id, this.level, 1);
     },
     needBuild: function () {
         return this.level < 0;
@@ -366,20 +363,8 @@ var RestBuild = Build.extend({
         this._super(bid, level);
     },
     initBuildActions: function () {
-        var action1 = new RestBuildAction(this.id, this.level);
-        this.actions.push(action1);
-        this.actions.push(new SmokeBuildAction(this.id, this.level, 3));
-        this.actions.push(new SmokeBuildAction(this.id, this.level, 4));
-        this.actions.push(new SmokeBuildAction(this.id, this.level, 5));
         var roleType = player ? player.roleType : null;
-        var restActionTypes = RoleRuntimeService.getRestActionTypes(roleType);
-        restActionTypes.forEach(function (actionType) {
-            if (actionType === "drink") {
-                this.actions.push(new DrinkBuildAction(this.id, this.level));
-            } else if (actionType === "drink_tea") {
-                this.actions.push(new DrinkTeaBuildAction(this.id, this.level));
-            }
-        }, this);
+        this.actions = BuildActionFactory.createRestActions(this.id, this.level, roleType);
     },
     restore: function (opt) {
     }
@@ -449,40 +434,74 @@ var ElectricFenceBuild = Build.extend({
     }
 });
 
+var BuildFactory = {
+    SPECIAL_BUILD_CTORS: {
+        5: BonfireBuild,
+        8: TrapBuild,
+        9: BedBuild,
+        10: RestBuild,
+        12: DogBuild,
+        17: BombBuild,
+        18: ElectricStoveBuild,
+        19: ElectricFenceBuild
+    },
+    getBuildCtor: function (bid) {
+        bid = Number(bid);
+        return this.SPECIAL_BUILD_CTORS[bid] || Build;
+    },
+    createBuild: function (bid, level, saveObj) {
+        var BuildCtor = this.getBuildCtor(bid);
+        return new BuildCtor(Number(bid), Number(level), saveObj);
+    }
+};
+
+var RoomBuildLayout = {
+    BASE_BUILD_STATES: [
+        {id: 2, level: -1},
+        {id: 3, level: -1},
+        {id: 4, level: -1},
+        {id: 6, level: -1},
+        {id: 8, level: -1},
+        {id: 10, level: -1},
+        {id: 12, level: -1}
+    ],
+    ALWAYS_UNLOCKED_BUILD_STATES: [
+        {id: 13, level: 0},
+        {id: 15, level: -1},
+        {id: 1, level: 0},
+        {id: 14, level: 0},
+        {id: 9, level: -1}
+    ]
+};
+
 var Room = cc.Class.extend({
     ctor: function () {
         this.map = {};
     },
+    _applyBuildStates: function (buildStates) {
+        if (!Array.isArray(buildStates)) {
+            return;
+        }
+        buildStates.forEach(function (buildState) {
+            if (!buildState) {
+                return;
+            }
+            this.createBuild(buildState.id, buildState.level);
+        }, this);
+    },
+    _createBaseBuilds: function () {
+        this._applyBuildStates(RoomBuildLayout.BASE_BUILD_STATES);
+    },
+    _createRoleBuilds: function (roleType) {
+        this._applyBuildStates(RoleRuntimeService.getRoomBuildStates(roleType));
+    },
+    _createAlwaysUnlockedBuilds: function () {
+        this._applyBuildStates(RoomBuildLayout.ALWAYS_UNLOCKED_BUILD_STATES);
+    },
     initData: function () {
-        //温棚
-        this.createBuild(2, -1);
-        //药盒
-        this.createBuild(3, -1);
-        //灶台
-        this.createBuild(4, -1);
-        //蒸馏器
-        this.createBuild(6, -1);
-        //野兔陷阱
-        this.createBuild(8, -1);
-        //椅子
-        this.createBuild(10, -1);
-        //狗舍
-        this.createBuild(12, -1);
-
-        RoleRuntimeService.applyRoomBuildStates(this, player.roleType);
-
-        //仓库
-        this.createBuild(13, 0);
-        //老式电台
-        this.createBuild(15, -1);
-
-        //新手引导解锁
-        //工具箱
-        this.createBuild(1, 0);
-        //大门
-        this.createBuild(14, 0);
-        //睡袋
-        this.createBuild(9, -1);
+        this._createBaseBuilds();
+        this._createRoleBuilds(player.roleType);
+        this._createAlwaysUnlockedBuilds();
     },
     save: function () {
         var saveObj = {};
@@ -515,39 +534,9 @@ var Room = cc.Class.extend({
         return false;
     },
     createBuild: function (bid, level, obj) {
-        var b;
         bid = Number(bid);
         level = Number(level);
-        switch (bid) {
-            case 5:
-                b = new BonfireBuild(bid, level, obj);
-                break;
-            case 8:
-                b = new TrapBuild(bid, level, obj);
-                break;
-            case 9:
-                b = new BedBuild(bid, level, obj);
-                break;
-            case 10:
-                b = new RestBuild(bid, level, obj);
-                break;
-            case 12:
-                b = new DogBuild(bid, level, obj);
-                break;
-            case 17:
-                b = new BombBuild(bid, level, obj);
-                break;
-            case 18:
-                b = new ElectricStoveBuild(bid, level, obj);
-                break;
-            case 19:
-                b = new ElectricFenceBuild(bid, level, obj);
-                break;
-            default :
-                b = new Build(bid, level, obj);
-                break;
-        }
-        this.map[bid] = b;
+        this.map[bid] = BuildFactory.createBuild(bid, level, obj);
     },
     getBuild: function (bid) {
         return this.map[bid];

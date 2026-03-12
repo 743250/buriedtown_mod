@@ -557,57 +557,10 @@ var Player = cc.Class.extend({
 
     useItem: function (storage, itemId) {
         cc.e("useItem " + itemId);
-        if (storage.validateItem(itemId, 1)) {
-            var item = storage.getItem(itemId);
-            var itemName = stringUtil.getString(itemId).title;
-            if (item.isType(ItemType.TOOL, ItemType.FOOD)) {
-                if (!uiUtil.checkStarve())
-                    return {result: false};
-                storage.decreaseItem(itemId, 1);
-                this.log.addMsg(1093, itemName, storage.getNumByItemId(itemId));
-                this.itemEffect(item, item.getFoodEffect());
-                return {result: true};
-            } else if (item.isType(ItemType.TOOL, ItemType.MEDICINE)) {
-                if (itemId == 1104011) {
-                    storage.decreaseItem(itemId, 1);
-                    this.log.addMsg(1094, itemName, storage.getNumByItemId(itemId));
-                    this.itemEffect(item, item.getMedicineEffect());
-                    this.bindUp();
-                } else {
-                    storage.decreaseItem(itemId, 1);
-                    this.log.addMsg(1095, itemName, storage.getNumByItemId(itemId));
-                    if (itemId == 1104032) {
-                        var res = this.item1104032Effect(item, item.getMedicineEffect());
-                        if (res) {
-                            this.cure();
-                        }
-                    } else {
-                        this.itemEffect(item, item.getMedicineEffect());
-                        this.cure();
-                    }
-                }
-                return {result: true};
-            } else if (item.isType(ItemType.TOOL, ItemType.BUFF)) {
-                storage.decreaseItem(itemId, 1);
-                this.log.addMsg(1095, itemName, storage.getNumByItemId(itemId));
-                this.buffManager.applyBuff(itemId);
-                return {result: true};
-            } else if (itemId == 1105061) {
-                storage.decreaseItem(itemId, 1);
-                this.log.addMsg(1374, itemName, storage.getNumByItemId(itemId));
-                this.itemEffect(item, {
-                    "spirit": 6,
-                    "spirit_chance": 1,
-                    "infect": 4,
-                    "infect_chance": 1
-                });
-                return {result: true};
-            } else {
-                return {result: false, type: 2, msg: "this type can't use"};
-            }
-        } else {
-            return {result: false, type: 1, msg: "not enough"};
+        if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && typeof ItemRuntimeService.useItem === "function") {
+            return ItemRuntimeService.useItem(this, storage, itemId);
         }
+        return {result: false, type: 2, msg: "item runtime unavailable"};
     },
     //自制青霉素的使用,如果扣血成功,则不发生治疗效果
     item1104032Effect: function (item, obj) {

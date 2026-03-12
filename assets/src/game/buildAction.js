@@ -279,10 +279,10 @@ var Formula = BuildAction.extend({
         var produceList = [];
         count = Math.max(1, parseInt(count, 10) || 1);
         for (var i = 0; i < count; i++) {
-            var rolledProduce = (typeof WeaponCraftService !== "undefined"
-                && WeaponCraftService
-                && WeaponCraftService.rollDurableProduce)
-                ? WeaponCraftService.rollDurableProduce(this.config.produce)
+            var rolledProduce = (typeof ItemRuntimeService !== "undefined"
+                && ItemRuntimeService
+                && ItemRuntimeService.rollCraftProduce)
+                ? ItemRuntimeService.rollCraftProduce(this.config.produce)
                 : utils.clone(this.config.produce);
             produceList = produceList.concat(rolledProduce);
         }
@@ -381,8 +381,8 @@ var Formula = BuildAction.extend({
                     player.costItems(self.config.cost);
 
                     //非放置类的,第一次进度完成即获取物品
-                    var produce = (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.rollDurableProduce)
-                        ? WeaponCraftService.rollDurableProduce(self.config.produce)
+                    var produce = (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.rollCraftProduce)
+                        ? ItemRuntimeService.rollCraftProduce(self.config.produce)
                         : utils.clone(self.config.produce);
                     player.gainItems(produce);
                     produce.forEach(function (item) {
@@ -403,12 +403,9 @@ var Formula = BuildAction.extend({
         } else {
             //天气影响
             var produce = utils.clone(this.config.produce);
-            //蒸馏水的影响
-            produce.forEach(function (item) {
-                if (item.itemId == 1101061) {
-                    item.num += player.weather.getValue("item_1101061");
-                }
-            });
+            if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.applyProduceWeatherBonuses) {
+                produce = ItemRuntimeService.applyProduceWeatherBonuses(produce, player.weather);
+            }
             //温棚影响
             if (this.bid == 2) {
                 produce.forEach(function (item) {
@@ -416,8 +413,8 @@ var Formula = BuildAction.extend({
                 });
             }
             produce = TalentService.applyHomeProduceEffect(produce);
-            if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.rollDurableProduce) {
-                produce = WeaponCraftService.rollDurableProduce(produce);
+            if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.rollCraftProduce) {
+                produce = ItemRuntimeService.rollCraftProduce(produce);
             }
 
             //放置完毕收获
@@ -578,12 +575,9 @@ var TrapBuildAction = Formula.extend({
         } else {
             //天气影响
             var produce = utils.clone(this.config.produce);
-            //肉的影响
-            produce.forEach(function (item) {
-                if (item.itemId == 1103041) {
-                    item.num += player.weather.getValue("item_1103041");
-                }
-            });
+            if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.applyProduceWeatherBonuses) {
+                produce = ItemRuntimeService.applyProduceWeatherBonuses(produce, player.weather);
+            }
             produce = TalentService.applyHomeProduceEffect(produce);
 
             //放置完毕收获
@@ -712,331 +706,6 @@ var DogBuildAction = BuildAction.extend({
     }
 });
 
-var LegacyRestBuildAction = BuildAction.extend({
-    ctor: function (bid, level) {
-        this._super(bid);
-        this.level = level >= 0 ? level : 0;
-        cc.assert(this.level < buildActionConfig[this.id].length, "RestBuildAction buildActionConfig doesn't exist!");
-        this.configs = utils.clone(buildActionConfig[this.id]);
-        this.needBuild = {bid: this.id, level: 0};
-        this.index = 0;
-    },
-    updateConfig: function () {
-        return BuildActionEffectService.updateConfig(this);
-        var level = this.getCurrentBuildLevel();
-        level = level >= 0 ? level : 0;
-        this.config = this.configs[level][this.index];
-    },
-    clickIcon: function () {
-        return BuildActionEffectService.showBuildActionDialog(this);
-        uiUtil.showBuildActionDialog(this.bid, this.index);
-    },
-    clickAction1: function () {
-        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1096});
-        if (!uiUtil.checkVigour())
-            return;
-        this.updateConfig();
-        this._beginActioning();
-
-        //2. 制作
-        var time = this.config["makeTime"];
-        time *= 60;
-        var self = this;
-        this.addTimer(time, time, function () {
-            //1. cost成功
-            player.costItems(self.config.cost);
-
-            self.config.cost.forEach(function (item) {
-                Achievement.checkCost(item.itemId, item.num);
-            });
-
-            player.applyEffect(self.config["effect"]);
-            var itemInfo = self.config.cost[0];
-            var itemName = stringUtil.getString(itemInfo.itemId).title;
-            player.log.addMsg(1096, itemName, player.storage.getNumByItemId(itemInfo.itemId));
-            self._finishActioning();
-        });
-        this._sendUpdageSignal();
-    },
-    _getUpdateViewInfo: function () {
-        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
-            iconIndex: 0,
-            actionTextId: 1014,
-            progressHintIds: {
-                1: 1016,
-                2: 1017,
-                default: 1015
-            }
-        });
-        this.updateConfig();
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
-
-        var action1Txt = stringUtil.getString(1014, this.config["makeTime"]);
-
-        var hint, hintColor, items, action1Disabled;
-        if (this._isNeedBuildLocked()) {
-            hint = this._getNeedBuildHint();
-            hintColor = cc.color.RED;
-            action1Disabled = true;
-        } else if (this.isActioning) {
-            if (this.level === 1) {
-                hint = stringUtil.getString(1016);
-            } else if (this.level === 2) {
-                hint = stringUtil.getString(1017);
-            } else {
-                hint = stringUtil.getString(1015);
-            }
-            hintColor = cc.color.WHITE;
-            action1Disabled = true;
-        } else {
-            hint = "";
-            var cost = this.config.cost;
-            if (!this._isCostEnough(cost)) {
-                action1Disabled = true;
-            }
-            items = this._buildCostItems(cost);
-        }
-
-        var res = {
-            iconName: iconName,
-            hint: hint,
-            hintColor: hintColor,
-            items: items,
-            action1: action1Txt,
-            action1Disabled: action1Disabled,
-            percentage: 0
-        };
-        return res;
-    }
-});
-
-var LegacyDrinkBuildAction = BuildAction.extend({
-    ctor: function (bid, level) {
-        this._super(bid);
-        this.level = level >= 0 ? level : 0;
-        cc.assert(this.level < buildActionConfig[this.id].length, "DrinkBuildAction buildActionConfig doesn't exist!");
-        this.configs = utils.clone(buildActionConfig[this.id]);
-        this.needBuild = {bid: this.id, level: 0};
-        this.index = 1;
-    },
-    updateConfig: function () {
-        return BuildActionEffectService.updateConfig(this);
-        var level = this.getCurrentBuildLevel();
-        level = level >= 0 ? level : 0;
-        this.config = this.configs[level][this.index];
-    },
-    clickIcon: function () {
-        return BuildActionEffectService.showBuildActionDialog(this);
-        uiUtil.showBuildActionDialog(this.bid, this.index);
-    },
-    clickAction1: function () {
-        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1309});
-        if (!uiUtil.checkVigour())
-            return;
-        this.updateConfig();
-        this._beginActioning();
-
-        //2. 制作
-        var time = this.config["makeTime"];
-        time *= 60;
-        var self = this;
-        this.addTimer(time, time, function () {
-            //1. cost成功
-            player.costItems(self.config.cost);
-
-            self.config.cost.forEach(function (item) {
-                Achievement.checkCost(item.itemId, item.num);
-            });
-
-            player.applyEffect(self.config["effect"]);
-            var itemInfo = self.config.cost[0];
-            var itemName = stringUtil.getString(itemInfo.itemId).title;
-            player.log.addMsg(1309, itemName, player.storage.getNumByItemId(itemInfo.itemId));
-            self._finishActioning();
-        });
-        this._sendUpdageSignal();
-    },
-    _getUpdateViewInfo: function () {
-        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
-            iconIndex: 1,
-            actionTextId: 1308,
-            progressHintIds: {
-                1: 1306,
-                2: 1307,
-                default: 1305
-            }
-        });
-        this.updateConfig();
-        var iconName = "#build_action_" + this.id + "_1" + ".png";
-
-        var action1Txt = stringUtil.getString(1308, this.config["makeTime"]);
-
-        var hint, hintColor, items, action1Disabled;
-        if (this._isNeedBuildLocked()) {
-            hint = this._getNeedBuildHint();
-            hintColor = cc.color.RED;
-            action1Disabled = true;
-        } else if (this.isActioning) {
-            if (this.level === 1) {
-                hint = stringUtil.getString(1306);
-            } else if (this.level === 2) {
-                hint = stringUtil.getString(1307);
-            } else {
-                hint = stringUtil.getString(1305);
-            }
-            hintColor = cc.color.WHITE;
-            action1Disabled = true;
-        } else {
-            hint = "";
-            var cost = this.config.cost;
-            if (!this._isCostEnough(cost)) {
-                action1Disabled = true;
-            }
-            items = this._buildCostItems(cost);
-        }
-
-        var res = {
-            iconName: iconName,
-            hint: hint,
-            hintColor: hintColor,
-            items: items,
-            action1: action1Txt,
-            action1Disabled: action1Disabled,
-            percentage: 0
-        };
-        return res;
-    }
-});
-
-var LegacyDrinkTeaBuildAction = BuildAction.extend({
-    ctor: function (bid, level) {
-        this._super(bid);
-        this.level = level >= 0 ? level : 0;
-        cc.assert(this.level < buildActionConfig[this.id].length, "DrinkTeaBuildAction buildActionConfig doesn't exist!");
-        this.configs = utils.clone(buildActionConfig[this.id]);
-        this.needBuild = {bid: this.id, level: 0};
-        this.index = 2;
-    },
-    updateConfig: function () {
-        return BuildActionEffectService.updateConfig(this);
-        var level = this.getCurrentBuildLevel();
-        level = level >= 0 ? level : 0;
-        this.config = this.configs[level][this.index];
-    },
-    clickIcon: function () {
-        return BuildActionEffectService.showBuildActionDialog(this);
-        uiUtil.showBuildActionDialog(this.bid, this.index);
-    },
-    clickAction1: function () {
-        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1336});
-        if (!uiUtil.checkVigour())
-            return;
-        this.updateConfig();
-        this._beginActioning();
-
-        //2. 制作
-        var time = this.config["makeTime"];
-        time *= 60;
-        var self = this;
-        this.addTimer(time, time, function () {
-            //1. cost成功
-            player.costItems(self.config.cost);
-
-            self.config.cost.forEach(function (item) {
-                Achievement.checkCost(item.itemId, item.num);
-            });
-
-            player.applyEffect(self.config["effect"]);
-            var itemInfo = self.config.cost[0];
-            var itemName = stringUtil.getString(itemInfo.itemId).title;
-            player.log.addMsg(1336, itemName, player.storage.getNumByItemId(itemInfo.itemId));
-            self._finishActioning();
-        });
-        this._sendUpdageSignal();
-    },
-    _getUpdateViewInfo: function () {
-        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
-            iconIndex: 0,
-            actionTextId: 1335,
-            progressHintIds: {
-                1: 1337,
-                2: 1338,
-                default: 1339
-            }
-        });
-        this.updateConfig();
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
-
-        var action1Txt = stringUtil.getString(1335, this.config["makeTime"]);
-
-        var hint, hintColor, items, action1Disabled;
-        if (this._isNeedBuildLocked()) {
-            hint = this._getNeedBuildHint();
-            hintColor = cc.color.RED;
-            action1Disabled = true;
-        } else if (this.isActioning) {
-            if (this.level === 1) {
-                hint = stringUtil.getString(1337);
-            } else if (this.level === 2) {
-                hint = stringUtil.getString(1338);
-            } else {
-                hint = stringUtil.getString(1339);
-            }
-            hintColor = cc.color.WHITE;
-            action1Disabled = true;
-        } else {
-            hint = "";
-            var cost = this.config.cost;
-            if (!this._isCostEnough(cost)) {
-                action1Disabled = true;
-            }
-            items = this._buildCostItems(cost);
-        }
-
-        var res = {
-            iconName: iconName,
-            hint: hint,
-            hintColor: hintColor,
-            items: items,
-            action1: action1Txt,
-            action1Disabled: action1Disabled,
-            percentage: 0
-        };
-        return res;
-    }
-});
-
-var LegacySmokeBuildAction = BuildAction.extend({
-    ctor: function (bid, level, actionIndex) {
-        this._super(bid);
-        this.level = level >= 0 ? level : 0;
-        cc.assert(this.level < buildActionConfig[this.id].length, "SmokeBuildAction buildActionConfig doesn't exist!");
-        this.configs = utils.clone(buildActionConfig[this.id]);
-        this.needBuild = {bid: this.id, level: 0};
-        this.index = actionIndex;
-    },
-    updateConfig: function () {
-        return BuildActionEffectService.updateConfig(this);
-    },
-    clickIcon: function () {
-        return BuildActionEffectService.showBuildActionDialog(this);
-    },
-    clickAction1: function () {
-        return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: 1373});
-    },
-    _getUpdateViewInfo: function () {
-        return BuildActionEffectService.buildTimedEffectViewInfo(this, {
-            iconIndex: 1,
-            actionTextId: 1370,
-            progressHintIds: {
-                1: 1371,
-                2: 1371,
-                default: 1371
-            }
-        });
-    }
-});
-
 var RestBuildAction = createTimedEffectBuildAction({
     className: "RestBuildAction",
     index: 0,
@@ -1088,6 +757,33 @@ var SmokeBuildAction = createTimedEffectBuildAction({
         default: 1371
     }
 });
+
+var BuildActionFactory = {
+    createRestActionByType: function (actionType, bid, level) {
+        if (actionType === "drink") {
+            return new DrinkBuildAction(bid, level);
+        }
+        if (actionType === "drink_tea") {
+            return new DrinkTeaBuildAction(bid, level);
+        }
+        return null;
+    },
+    createRestActions: function (bid, level, roleType) {
+        var actions = [
+            new RestBuildAction(bid, level),
+            new SmokeBuildAction(bid, level, 3),
+            new SmokeBuildAction(bid, level, 4),
+            new SmokeBuildAction(bid, level, 5)
+        ];
+        RoleRuntimeService.getRestActionTypes(roleType).forEach(function (actionType) {
+            var action = this.createRestActionByType(actionType, bid, level);
+            if (action) {
+                actions.push(action);
+            }
+        }, this);
+        return actions;
+    }
+};
 
 var BedBuildActionType = {
     SLEEP_1_HOUR: 1,

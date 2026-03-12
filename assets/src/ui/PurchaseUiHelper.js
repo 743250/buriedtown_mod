@@ -157,27 +157,37 @@ var PurchaseUiHelper = {
             resolvedShopState = PurchaseService.getShopUiState(purchaseId);
         }
 
-        var isExchangePurchase = typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isExchangePurchase === "function"
-            ? PurchaseService.isExchangePurchase(purchaseId)
-            : false;
-        var isTalentPurchase = typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isTalentPurchase === "function"
-            ? PurchaseService.isTalentPurchase(purchaseId)
-            : false;
-        var isUnlocked = typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isUnlocked === "function"
-            ? PurchaseService.isUnlocked(purchaseId)
-            : false;
-        var currentTalentLevel = isTalentPurchase
-            && typeof Medal !== "undefined"
-            && Medal
-            && typeof Medal.getTalentLevel === "function"
-            ? Medal.getTalentLevel(purchaseId)
-            : 0;
+        var isExchangePurchase = resolvedShopState && resolvedShopState.isExchangePurchase !== undefined
+            ? !!resolvedShopState.isExchangePurchase
+            : (typeof PurchaseService !== "undefined"
+                && PurchaseService
+                && typeof PurchaseService.isExchangePurchase === "function"
+                ? PurchaseService.isExchangePurchase(purchaseId)
+                : false);
+        var isTalentPurchase = resolvedShopState && resolvedShopState.isTalentPurchase !== undefined
+            ? !!resolvedShopState.isTalentPurchase
+            : (typeof PurchaseService !== "undefined"
+                && PurchaseService
+                && typeof PurchaseService.isTalentPurchase === "function"
+                ? PurchaseService.isTalentPurchase(purchaseId)
+                : false);
+        var isUnlocked = resolvedShopState && resolvedShopState.isUnlocked !== undefined
+            ? !!resolvedShopState.isUnlocked
+            : (typeof PurchaseService !== "undefined"
+                && PurchaseService
+                && typeof PurchaseService.isUnlocked === "function"
+                ? PurchaseService.isUnlocked(purchaseId)
+                : false);
+        var currentTalentLevel = resolvedShopState
+            && resolvedShopState.currentTalentLevel !== undefined
+            && resolvedShopState.currentTalentLevel !== null
+            ? resolvedShopState.currentTalentLevel
+            : (isTalentPurchase
+                && typeof Medal !== "undefined"
+                && Medal
+                && typeof Medal.getTalentLevel === "function"
+                ? Medal.getTalentLevel(purchaseId)
+                : 0);
 
         var priceText = "";
         var badgeText = "";
@@ -203,49 +213,12 @@ var PurchaseUiHelper = {
             }
         }
 
-        var canBuy = resolvedShopState ? !!resolvedShopState.canBuy : true;
+        var canBuy = resolvedShopState ? !!resolvedShopState.canBuy : false;
         var shouldHideBuyButton = resolvedShopState ? !!resolvedShopState.shouldHideBuyButton : false;
         var canCancel = resolvedShopState ? !!resolvedShopState.canCancel : false;
         if (resolvedShopState) {
             badgeText = resolvedShopState.badgeText || "";
             hideBadge = !!resolvedShopState.hideBadge;
-            if (resolvedShopState.isTalentPurchase !== undefined) {
-                isTalentPurchase = !!resolvedShopState.isTalentPurchase;
-            }
-            if (resolvedShopState.isUnlocked !== undefined) {
-                isUnlocked = !!resolvedShopState.isUnlocked;
-            }
-            if (resolvedShopState.currentTalentLevel !== undefined && resolvedShopState.currentTalentLevel !== null) {
-                currentTalentLevel = resolvedShopState.currentTalentLevel;
-            }
-        }
-        if (!resolvedShopState) {
-            if (isExchangePurchase) {
-                var nextAchievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
-                var currentAchievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
-                shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
-                canBuy = nextAchievementPrice !== null
-                    && nextAchievementPrice !== undefined
-                    && currentAchievementPoints >= nextAchievementPrice;
-                canCancel = purchaseId < 200 && purchaseId !== 0 && !!isUnlocked;
-                if (isTalentPurchase) {
-                    if (shouldHideBuyButton) {
-                        badgeText = "\u5df2\u6ee1\u7ea7";
-                        hideBadge = false;
-                    } else {
-                        badgeText = "";
-                        hideBadge = true;
-                    }
-                } else if (isUnlocked) {
-                    badgeText = "\u5df2\u8d2d";
-                    hideBadge = false;
-                }
-            } else {
-                canBuy = !PurchaseService.isUnlocked(purchaseId);
-                if (isUnlocked) {
-                    badgeText = "\u5df2\u8d2d";
-                }
-            }
         }
 
         return {

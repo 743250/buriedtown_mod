@@ -89,14 +89,13 @@ var BattleEquipmentSystem = (function () {
         if (id === Equipment.HAND) {
             return EQUIPMENT_KIND.MELEE;
         }
-        if (id === 1303022) {
-            return EQUIPMENT_KIND.TRAP;
-        }
-        if (id === 1303012 || id === 1303033 || id === 1303044) {
-            return EQUIPMENT_KIND.BOMB;
-        }
-        if (id === 1301071 || id === 1301082) {
-            return EQUIPMENT_KIND.ELECTRIC_GUN;
+        var specialEquipmentKind = (typeof ItemRuntimeService !== "undefined"
+            && ItemRuntimeService
+            && typeof ItemRuntimeService.getSpecialEquipmentKind === "function")
+            ? ItemRuntimeService.getSpecialEquipmentKind(id)
+            : null;
+        if (specialEquipmentKind) {
+            return specialEquipmentKind;
         }
 
         var itemInfo = itemConfig[id];
@@ -397,12 +396,12 @@ var BattleEquipmentSystem = (function () {
                 if (this.isEnough()) {
                     this.battlePlayer.battle.recordWeaponUse(1);
 
-                    var soundName;
-                    if (this.id == 1301071) {
-                        soundName = audioManager.sound.ATTACK_7;
-                    } else if (this.id == 1301082) {
-                        soundName = audioManager.sound.ATTACK_8;
-                    }
+                    var soundKey = (typeof ItemRuntimeService !== "undefined"
+                        && ItemRuntimeService
+                        && typeof ItemRuntimeService.getSpecialElectricGunSoundKey === "function")
+                        ? ItemRuntimeService.getSpecialElectricGunSoundKey(this.id)
+                        : null;
+                    var soundName = soundKey ? audioManager.sound[soundKey] : null;
                     this.playEffect(soundName);
                     attackTriggered = true;
                 }

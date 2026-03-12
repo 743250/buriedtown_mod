@@ -1,60 +1,4 @@
 var RoleRuntimeService = {
-    _buildActionVisibilityGroups: [
-        {
-            actionIds: [1401041, 1401052, 1401063, 1207012, 1207022, 1207032, 1207042, 1403044],
-            includeAnyTags: ["bier", "king"]
-        },
-        {
-            actionIds: [1205011],
-            includeAnyTags: ["stranger", "bier", "king"]
-        },
-        {
-            actionIds: [1201071],
-            includeAnyTags: ["stranger"]
-        },
-        {
-            actionIds: [1201011, 1201012, 1201013, 1201031, 1205052],
-            includeAnyTags: ["jie"]
-        },
-        {
-            actionIds: [1202053],
-            includeAnyTags: ["king", "bier"]
-        },
-        {
-            actionIds: [1401071, 1401082, 1402043, 1202063],
-            includeAnyTags: ["yazi", "king"]
-        },
-        {
-            actionIds: [1201022, 1201021, 1201041, 1201051],
-            includeAnyTags: ["yazi"]
-        },
-        {
-            actionIds: [1203064, 1203023, 1203053, 1203034, 1203075],
-            includeAnyTags: ["powered"],
-            requirePoweredWorksite: true
-        },
-        {
-            actionIds: [1203063, 1203022, 1203052, 1203033, 1203074],
-            hideWhenPoweredWorksiteForTags: ["powered"]
-        },
-        {
-            actionIds: [1401011, 1401022, 1401033],
-            excludeAnyTags: ["yazi", "bier"]
-        },
-        {
-            actionIds: [1206054, 1203012, 1204043, 1204012, 1204022],
-            includeAnyTags: ["jin"]
-        },
-        {
-            actionIds: [1203011, 1204011, 1204021, 1204032],
-            excludeAnyTags: ["jin"]
-        },
-        {
-            actionIds: [1205033],
-            excludeAnyTags: ["luo"]
-        }
-    ],
-
     _defaultConfig: {
         roomBuilds: [
             {id: 7, level: -1},
@@ -256,6 +200,26 @@ var RoleRuntimeService = {
         return defaultMaxLevel;
     },
 
+    getBuildConcurrentActionLimit: function (roleType, buildId, buildLevel, defaultLimit) {
+        buildId = Number(buildId);
+        buildLevel = Number(buildLevel);
+        defaultLimit = Number(defaultLimit);
+        if (!isFinite(defaultLimit) || defaultLimit < 1) {
+            defaultLimit = 1;
+        }
+        if (typeof buildConfig === "undefined" || !buildConfig || !Array.isArray(buildConfig[buildId])) {
+            return defaultLimit;
+        }
+        if (!isFinite(buildLevel) || buildLevel < 0 || !buildConfig[buildId][buildLevel]) {
+            return defaultLimit;
+        }
+        var levelConfig = buildConfig[buildId][buildLevel];
+        if (!levelConfig || !isFinite(levelConfig.concurrentActionLimit)) {
+            return defaultLimit;
+        }
+        return Math.max(1, Number(levelConfig.concurrentActionLimit));
+    },
+
     getRoomBuildStates: function (roleType) {
         return this.getRuntimeConfig(roleType).roomBuilds;
     },
@@ -329,34 +293,32 @@ var RoleRuntimeService = {
         return mergedRule;
     },
 
-    _getConfiguredBuildActionRule: function (actionOrId) {
-        if (!actionOrId || typeof actionOrId !== "object") {
+    _getFormulaRuntimeRule: function (actionId) {
+        if (isNaN(actionId)
+            || typeof formulaConfig === "undefined"
+            || !formulaConfig
+            || !formulaConfig[actionId]
+            || !formulaConfig[actionId].runtimeRule
+            || typeof formulaConfig[actionId].runtimeRule !== "object") {
             return null;
         }
-        if (actionOrId.runtimeRule && typeof actionOrId.runtimeRule === "object") {
-            return actionOrId.runtimeRule;
-        }
-        if (actionOrId.config && actionOrId.config.runtimeRule && typeof actionOrId.config.runtimeRule === "object") {
-            return actionOrId.config.runtimeRule;
-        }
-        return null;
+        return formulaConfig[actionId].runtimeRule;
     },
 
     _getBuildActionRules: function (actionOrId) {
         var actionId = this._normalizeActionId(actionOrId);
         var rules = [];
-        var configuredRule = this._getConfiguredBuildActionRule(actionOrId);
-        if (configuredRule) {
-            rules.push(configuredRule);
-        }
-        if (isNaN(actionId)) {
-            return rules;
-        }
-        for (var i = 0; i < this._buildActionVisibilityGroups.length; i++) {
-            var rule = this._buildActionVisibilityGroups[i];
-            if (rule.actionIds.indexOf(actionId) !== -1) {
-                rules.push(rule);
+        if (actionOrId && typeof actionOrId === "object") {
+            if (actionOrId.runtimeRule && typeof actionOrId.runtimeRule === "object") {
+                rules.push(actionOrId.runtimeRule);
             }
+            if (actionOrId.config && actionOrId.config.runtimeRule && typeof actionOrId.config.runtimeRule === "object") {
+                rules.push(actionOrId.config.runtimeRule);
+            }
+        }
+        var formulaRule = this._getFormulaRuntimeRule(actionId);
+        if (formulaRule && rules.indexOf(formulaRule) === -1) {
+            rules.push(formulaRule);
         }
         return rules;
     },
@@ -470,12 +432,9 @@ var RoleRuntimeService = {
         if (!playerObj || !playerObj.storage) {
             return;
         }
-        this.getRuntimeConfig(playerObj.roleType).specialItems.forEach(function (itemInfo) {
-            var currentNum = playerObj.storage.getNumByItemId(itemInfo.itemId) || 0;
-            if (currentNum < itemInfo.num) {
-                playerObj.storage.increaseItem(itemInfo.itemId, itemInfo.num - currentNum);
-            }
-        });
+        if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && typeof ItemRuntimeService.ensureSpecialItems === "function") {
+            ItemRuntimeService.ensureSpecialItems(playerObj, this.getRuntimeConfig(playerObj.roleType).specialItems);
+        }
     },
 
     getHourlyStarveChange: function (roleType, changeConfig) {

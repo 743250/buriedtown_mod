@@ -1,430 +1,447 @@
-# BuriedTown 渐进式重构计划
+# BuriedTown `assets/src/game` 架构治理计划
 
-## 1. 计划前提
+## 1. 计划目的
 
-这份计划以当前最真实的开发目标为准：
+这份计划聚焦 `assets/src/game` 的运行时架构治理，目标不是“把文件拆得更碎”，而是解决下面几类已经影响后续开发效率的问题：
 
-- 后续主要工作是**增加人物**
-- 增加**天赋**
-- 增加**物品**
-- 增加**建筑 / 建筑动作**
-- 增加一些**特定机制**
+1. **全局状态入口过多**
+   - `player`
+   - `cc.timer`
+   - `utils.emitter`
+   - `Record`
 
-所以重构优先级不再按“哪里最乱就先改哪里”，而是按：
+   当前很多模块直接读取或写入这些对象，导致一个小需求容易扩散到多个文件。
 
-1. **以后会不会反复改到**
-2. **每次加内容会不会都要全仓库 grep**
-3. **是否容易因为缺校验而静默出错**
-4. **是否会迫使我们继续把逻辑塞回旧屎山文件**
+2. **模块边界不统一**
+   - 一部分文件是全局脚本风格
+   - 一部分文件又支持 `require` / `module.exports`
+   - 还有大量 `typeof xxx !== "undefined"` 的兼容分支
 
-结论先写在前面：
+   这种“半模块化”状态让依赖关系难以预测，也让加载顺序和兼容逻辑混在一起。
 
-- **地图 / 站点不是当前主线**
-- **购买链也不是当前主线**
-- 当前最值得投入的是：
-  - **建筑 / 动作链**
-  - **角色 / 天赋配置边界**
-  - **特殊物品 / 武器机制归口**
-  - **内容校验覆盖面**
+3. **核心对象职责过重**
+   - `player.js` 仍然承担过多协调与业务细节
+   - `buildAction.js` 同时承载规则、计时、副作用、UI 触发
+   - `BattleScene.js` 和 `Battle.js` 存在双轨实现倾向
 
-关键要求仍然不变：
+4. **新旧架构并存但收口不彻底**
+   - 已经有 `PlayerPersistenceService`、`PlayerNavigationState`、`TravelService`、`BattleSettlementService` 等较好的服务层
+   - 但旧入口仍在继续吸收业务逻辑，导致“理论上已抽离，实际上仍要全仓库找改动点”
 
-- 不破坏当前可打包的 legacy 基线
-- 不制造第二套平行实现
-- 每一轮结束后都更接近“新增内容时只改局部”的状态
+这轮治理的成功标准只有三个：
 
-## 2. 基于代码阅读的热点判断
+1. **一个中小需求的默认改动路径更可预测**
+2. **新增逻辑优先落在服务或配置，而不是继续堆到全局对象**
+3. **场景/UI 文件不再持有新的核心业务规则**
 
-下面不是拍脑袋排序，而是根据当前仓库里真实的耦合位置做的判断。
+---
 
-### 2.1 真正该优先改的热点
+## 2. 范围
 
-#### A. 建筑 / 动作链：这是以后最容易反复碰的屎山
+本计划只覆盖 `assets/src/game` 目录下的运行时与领域逻辑，重点关注以下文件和链路：
 
-重点文件：
+- 启动与运行时装配：`game.js`
+- 玩家核心：`player.js`
+- 时间系统：`TimeManager.js`
+- 地图 / 导航：`map.js`、`PlayerNavigationState.js`、`TravelService.js`
+- 建筑 / 动作：`Build.js`、`buildAction.js`、`BuildActionEffectService.js`
+- 战斗：`Battle.js`、`BattleScene.js`、`BattleActors.js`、`BattleEquipmentSystem.js`
+- 存档恢复：`PlayerPersistenceService.js`
+- 站点与奖励：`site.js`、`SiteRewardService.js`、`SiteRoomGenerator.js`
 
-- `assets/src/game/Build.js`
-- `assets/src/game/buildAction.js`
-- `assets/src/game/RoleRuntimeService.js`
-- `assets/src/data/buildConfig.js`
-- `assets/src/data/buildActionConfig.js`
-- `assets/src/game/BuildActionEffectService.js`
+不在本轮优先范围内的内容：
 
-为什么它优先级最高：
+- 纯展示层美化
+- 低频外围系统的小型命名整理
+- 没有明显降低维护成本的目录重排
+- 以“统一风格”为名但没有减少改动落点的抽象
 
-- `Build.js` 里还有动作可见性、背包状态、购买解锁、并发动作等多种规则混在一起
-- `RoleRuntimeService.js` 里仍然维护大量按 `actionId` 分组的硬编码规则
-- `buildAction.js` 体量很大，虽然已经抽出 `BuildActionEffectService`，但仍然保留不少特殊行为和旧式分支
-- 以后你增加建筑、增加建筑动作、增加角色特定动作、增加工地 / 产线机制时，大概率都会碰这里
+---
 
-这块如果不先收，后面每加一个内容点都容易变成：
+## 3. 核心原则
 
-- 改配置
-- 改 `Build.js`
-- 改 `RoleRuntimeService.js`
-- 必要时再改 `buildAction.js`
+### 3.1 先收高扇出边界，再处理局部重复
 
-这就是最典型的“内容可扩展性差”。
+优先治理会向全仓库扩散影响的入口：
 
-#### B. 角色 / 天赋配置边界：方向对了，但还停在半新半旧
+- 全局状态访问
+- 场景直接驱动业务
+- 旧兼容层继续吸收新逻辑
 
-重点文件：
+不优先治理只影响单文件阅读体验的局部重复。
 
-- `assets/src/data/roleConfigTable.js`
-- `assets/src/game/role.js`
-- `assets/src/data/talentConfigTable.js`
-- `assets/src/game/TalentService.js`
-- `assets/src/game/IAPPackage.js`
-- `assets/src/game/PurchaseService.js`
+### 3.2 新逻辑必须落在明确层次
 
-为什么它必须进主计划：
+后续新增逻辑必须优先落在以下层次之一：
 
-- `RoleConfigTable` / `TalentConfigTable` 已经是正确方向
-- 但 `role.js` 里还保留着一整套 `_fallbackRoleConfigTable`，属于明显的重复数据源
-- `TalentService.js` 里除了天赋本身逻辑，还承担了旧存档迁移、已选天赋恢复、IAP 兼容 API 绑定等职责
-- `IAPPackage.js` 仍然知道太多角色 / 天赋 / 解锁细节
+1. **Config / Data**
+2. **Domain Service**
+3. **Runtime Entity / State**
+4. **UI Controller / Scene**
+5. **Compat / Adapter**
 
-这意味着以后加人物 / 天赋时，虽然已经不是纯硬编码时代了，但仍然可能出现：
+其中：
 
-- 配置表加了
-- 服务层还要补兼容
-- 兑换 / 解锁那边也要再摸一遍
+- **Scene / UI** 不负责新增业务规则
+- **Compat / Adapter** 不负责新增核心玩法推导
+- **Runtime Entity** 只保存状态和少量天然属于对象本身的行为
+- **Domain Service** 负责解释规则和组合流程
 
-这块不收口，新增内容时会一直有“明明已经数据驱动了一半，但还得去旧逻辑里补洞”的痛感。
+### 3.3 不再新增平行实现
 
-#### C. 特殊物品 / 武器机制：目前散得最厉害
+本轮治理明确禁止：
 
-重点文件：
+- 再造一套新的战斗运行时而旧实现不收口
+- 再造一套新的建筑动作入口而旧入口继续增长
+- 新增“看起来更现代”的目录，但旧调用链完全不迁移
 
-- `assets/src/game/BattleEquipmentSystem.js`
-- `assets/src/game/player.js`
-- `assets/src/game/site.js`
-- `assets/src/game/TravelService.js`
-- `assets/src/game/Storage.js`
-- `assets/src/game/PlayerPersistenceService.js`
-- `assets/src/game/WeaponCraftService.js`
-- `assets/src/game/PurchaseService.js`
+### 3.4 每一步都必须留下可验证边界
 
-为什么它很危险：
+每个阶段完成后，至少要能回答两个问题：
 
-- 仓库里仍有大量按 `itemId` 直接写死的逻辑
-- 武器类别、特殊枪械、特殊道具、旅行加成、密室探测、背包扩容、购买奖励等效果分散在多个系统里
-- 这类逻辑平时不显眼，但你一旦开始加“特殊物品 / 特殊武器 / 特殊工具”，就会立刻变成全仓库追踪
+1. 新增一个同类需求时，默认先改哪两个文件？
+2. 如果行为异常，默认先看哪个服务而不是全仓库 grep？
 
-如果这一块不治理，以后新增一个“有特殊效果的物品”，很可能不是改 `itemConfig`，而是：
+---
 
-- 改 `itemConfig.js`
-- 改 `BattleEquipmentSystem.js`
-- 改 `player.js`
-- 改 `TravelService.js`
-- 改 `Storage.js`
-- 有时还要碰 `site.js` 或存档修复逻辑
+## 4. 当前问题清单
 
-这对后续加机制最伤维护性。
+### P1. 运行时上下文散落
 
-#### D. 内容校验覆盖面不够：这是“慢性高风险”
+现状：
 
-重点文件：
+- `game.js` 负责初始化 `player`、`Emitter`、`TimerManager`
+- 但大多数业务模块直接拿全局对象用，缺少统一上下文入口
 
-- `assets/src/util/contentBlueprint.js`
-- `assets/src/util/configValidator.js`
-- `tools/validate-content.js`
-- `tools/lib/content-validator.js`
+后果：
 
-当前判断：
+- 依赖不透明
+- 难以做最小验证
+- 新服务经常被迫继续使用全局对象
 
-- 现有 CLI 和运行时校验对 `role / talent / item / site` 已经有一定帮助
-- 但**对你后续最常改的 `build / build-action / role runtime rule / special item mechanic` 还没有形成同等级兜底**
+### P2. `Player` 仍然是事实上的上帝对象
 
-这会导致一个很典型的问题：
+现状：
 
-- 表面上“配置化”了
-- 但因为缺少跨文件检查，改错了引用、漏了资源、漏了 unlock 关系，不一定马上爆
-- 最后还是得靠手动回归和记忆排查
+- 已有 `PlayerPersistenceService`、`PlayerAttrService`、`PlayerNavigationState`
+- 但 `player.js` 仍承担大量流程编排、属性变化、副作用触发、跨系统协调
 
-如果只从长期效率看，这一块并不“最乱”，但它的 ROI 很高。
+后果：
 
-### 2.2 值得保留并继续扩展的部分
+- 新功能很容易继续堆进 `player.js`
+- 玩家相关问题仍需要从大文件入口开始排查
 
-这些不是当前屎山重点，应该尽量沿着已有边界继续做，而不是推倒重来：
+### P3. 建筑动作链职责混杂
 
-- `assets/src/game/PlayerAttrService.js`
-- `assets/src/game/BuildActionEffectService.js`
-- `assets/src/game/SiteConfigService.js`
-- `assets/src/game/SiteRewardService.js`
-- `assets/src/game/SiteRoomGenerator.js`
-- `assets/src/data/roleConfigTable.js`
-- `assets/src/data/talentConfigTable.js`
-- `assets/src/util/configValidator.js`
+现状：
 
-判断标准：
+- `buildAction.js` 同时处理动作定义、消耗校验、计时、结算、副作用、UI 事件
+- 仍直接依赖 `player`、`cc.timer`、`utils.emitter`、`Record`
 
-- 已经在往“服务 / 配置入口”方向收口
-- 后续可以继续扩展，不必再回退到旧的大文件里加分支
+后果：
 
-### 2.3 当前不该优先的部分
+- 新增建筑动作时改动路径不可预测
+- 规则和展示很难独立验证
 
-#### 地图 / 站点链
+### P4. 战斗链路存在双轨
 
-- 它有重复逻辑，但**不是你接下来最常改的地方**
-- 除非你下一步要做新站点类型、地图事件、特殊旅行规则、地图建筑交互，否则不该继续深挖
+现状：
 
-#### 购买展示 / 原生支付链
+- `Battle.js` 明显在向可测试 runtime 收敛
+- `BattleScene.js` 仍内置一套偏完整的战斗对象与 UI 控制逻辑
 
-- 当前主要购买路径已经转向成就点兑换
-- 原生支付兼容仍要保留，但不是当前内容扩展主战场
+后果：
 
-#### 战斗展示文案层
+- 战斗规则可能出现两套解释
+- 未来改平衡、改武器、改结算时容易分叉
 
-- 可以以后再瘦身
-- 但它对“新增人物 / 天赋 / 物品 / 建筑 / 特定机制”的帮助不如前面几项直接
+### P5. 模块风格混用
 
-## 3. 渐进式重构原则
+现状：
 
-### 3.1 什么样的改动才算“值得做”
+- 同目录下同时存在全局脚本、Node 风格导出、运行时兼容守卫
 
-优先做这类改动：
+后果：
 
-- 改完后，**新增一个人物 / 天赋 / 物品 / 建筑 / 机制时，改动文件数明显减少**
-- 改完后，**新增内容优先走配置，而不是继续往旧服务里堆分支**
-- 改完后，**校验能更早发现错误**
+- 文件边界不稳定
+- 依赖方向不清楚
+- 兼容代码容易继续污染业务层
 
-不优先做这类改动：
+---
 
-- 只是让结构“看起来更整洁”，但不影响以后加内容的效率
-- 为未来可能用到的抽象先造层
-- 纯 UI 层瘦身，但对内容扩展没直接帮助
+## 5. 执行顺序
 
-### 3.2 这轮计划里的统一约束
+> 顺序固定为：先稳住运行时边界，再收口高频业务链，最后统一模块边界与验证。不能跳步。
 
-1. 不改启动链。
-2. 不新建第二套 runtime。
-3. 每一轮只收一个窄边界。
-4. 新逻辑优先收进已有服务 / 配置表，不再新增平行 helper。
-5. 只要新增一种内容类型，就同步补最小校验能力。
+### Phase 1：建立统一运行时上下文入口
 
-## 4. 分阶段路线
-
-### Phase 0: 基线与工具主入口固定
+定位：**先减少全局状态的直接扩散，不先拆大文件。**
 
 目标：
 
-- 固定当前 legacy 基线
-- 固定仓库级验证主入口
-- 明确“哪些旧层只做兼容，不再继续放大”
+- 为 `player`、`timer`、`emitter`、`record` 建立单一运行时访问入口
+- 新服务默认依赖运行时上下文，而不是直接读写全局变量
+- 旧全局变量暂时保留，但只作为兼容出口，不再作为新逻辑主入口
 
-完成定义：
+要做什么：
 
-- `PLAN.md` 已反映真实开发优先级
-- `tools/validate-content.js` 仍是唯一默认推荐的仓库验证入口
-- 不再新增随手脚本替代它
+1. 在 `game.js` 附近建立统一的运行时上下文对象或适配层
+2. 先让高扇出服务通过该入口取依赖
+3. 明确哪些对象属于运行时单例，哪些对象属于领域服务
+4. 给旧代码提供最小兼容桥，避免一次性大迁移
 
-### Phase 1: 内容校验覆盖扩展
+本阶段优先改动链路：
 
-目标：
+- `game.js`
+- `player.js`
+- `buildAction.js`
+- `map.js`
+- `TravelService.js`
 
-- 把校验重点从 `role / talent / item / site` 扩到你最常新增的内容链
-- 为 `build / build-action / role runtime rule / special item reference` 建立最小可用校验
+完成标准：
 
-主入口：
+- 新增一个服务时，不再默认直接访问 `player` / `cc.timer` / `utils.emitter`
+- 至少一条高频链路已经改为通过统一上下文取运行时依赖
+- 旧全局变量不再继续成为新增代码的首选入口
 
-- `tools/validate-content.js`
-- `assets/src/util/contentBlueprint.js`
+停止标准：
 
-范围文件：
+- 只做到“新代码有统一入口”即可
+- 不在这一阶段追求把所有旧全局调用一次性清零
 
-- `tools/validate-content.js`
-- `tools/lib/content-validator.js`
-- `assets/src/util/contentBlueprint.js`
-- `assets/src/util/configValidator.js`
-- `assets/src/data/buildConfig.js`
-- `assets/src/data/buildActionConfig.js`
-- `assets/src/data/roleConfigTable.js`
-- 视需要补充 `assets/src/data/itemConfig.js`
+最小验证：
 
-完成定义：
+- 游戏启动 smoke test
+- 读档 / 新开局 smoke test
+- 一个依赖计时器的动作 smoke test
 
-- 能校验建筑配置里的 `condition / cost / produceList / build refs`
-- 能校验建筑动作配置里的 `cost / produce / effect` 结构
-- 能校验角色运行时配置里的 `roomBuilds / unlockSites / unlockNpcs / specialItems / zipline`
-- 校验失败能明确指出 `id` 和来源文件
+### Phase 2：收口 `Player`，把它降为协调者
 
-优先级说明：
-
-- 这不是最“脏”的代码，但它是后续所有内容扩展的基础兜底，ROI 很高
-
-### Phase 2: 建筑 / 动作链收口
+定位：**让 `Player` 负责组装流程，不继续沉淀具体规则。**
 
 目标：
 
-- 把“新增建筑 / 新增动作 / 新增角色特定动作”时最容易扩散的硬编码点收掉
+- `player.js` 不再继续增长新的业务规则分支
+- 玩家属性、导航、持久化、跨系统副作用各自有固定落点
+- 玩家相关问题能先定位到具体服务，而不是默认先看 `player.js`
 
-主入口：
+要做什么：
 
-- `assets/src/game/Build.js`
-- `assets/src/game/RoleRuntimeService.js`
-- `assets/src/game/buildAction.js`
+1. 继续把属性变更与范围副作用收口到 `PlayerAttrService`
+2. 把导航与地图位置状态严格收口到 `PlayerNavigationState` + `TravelService`
+3. 让 `PlayerPersistenceService` 继续保持唯一存档入口
+4. 为 `player.js` 制定明确约束：只保留装配、委托、少量生命周期流程
 
-当前判断：
+本阶段优先改动链路：
 
-- 这是当前最该动的业务屎山
-- 以后新增建筑与特定机制，最容易被这里反复卡住
+- `player.js`
+- `PlayerAttrService.js`
+- `PlayerPersistenceService.js`
+- `PlayerNavigationState.js`
+- `TravelService.js`
 
-范围文件：
+完成标准：
 
-- `assets/src/game/Build.js`
-- `assets/src/game/buildAction.js`
-- `assets/src/game/RoleRuntimeService.js`
-- `assets/src/game/BuildActionEffectService.js`
-- `assets/src/data/buildConfig.js`
-- `assets/src/data/buildActionConfig.js`
+- 新增一个玩家状态规则时，默认先看服务而不是 `player.js`
+- `player.js` 不再新增新的 `itemId` / `roleType` / 特例规则分支
+- 玩家相关主流程已经能按“属性 / 导航 / 存档”三类快速定位
 
-完成定义：
+停止标准：
 
-- 动作显隐规则不再主要依赖 `RoleRuntimeService.js` 里的大段 `actionIds` 硬编码列表
-- 背包 / 特殊解锁 / 角色标签相关的动作门槛尽量从 `Build.js` 挪到可配置或集中注册的位置
-- 新增一个普通建筑动作时，默认不需要再改 `buildAction.js` 的旧分支骨架
-- `BuildActionEffectService.js` 继续作为通用定时动作入口，而不是只抽一半停住
+- 只收高频玩家规则
+- 不为了纯粹把所有旧委托方法全部删掉
 
-### Phase 3: 角色 / 天赋边界定型
+最小验证：
 
-目标：
+- 属性变化回归
+- 休息 / 时间流逝回归
+- 读档后位置与状态恢复回归
 
-- 让 `RoleConfigTable` / `TalentConfigTable` 真正成为唯一配置主源
-- 把旧兼容层缩回“兼容”职责，不再继续承载主逻辑
+### Phase 3：建筑动作链分层，规则与表现彻底分开
 
-主入口：
-
-- `assets/src/game/role.js`
-- `assets/src/game/TalentService.js`
-
-范围文件：
-
-- `assets/src/game/role.js`
-- `assets/src/data/roleConfigTable.js`
-- `assets/src/game/TalentService.js`
-- `assets/src/data/talentConfigTable.js`
-- `assets/src/game/IAPPackage.js`
-- `assets/src/game/PurchaseService.js`
-
-完成定义：
-
-- `role.js` 不再保留与 `RoleConfigTable` 平行的一整套 fallback 数据表
-- 新增角色主要改 `roleConfigTable.js`，最多补一处运行时解释，不再多处同步
-- 新增天赋主要改 `talentConfigTable.js` 与天赋服务，不再被购买兼容细节牵着走
-- `IAPPackage.js` 只保留解锁 / 兑换 / 兼容职责，不继续吞角色 / 天赋效果逻辑
-
-### Phase 4: 特殊物品 / 武器机制归口
+定位：**把当前最容易扩散的建筑动作链收口成“定义 - 执行 - 表现”三层。**
 
 目标：
 
-- 把散落在各处的特殊 `itemId` / 武器行为 / 工具效果收成可追踪入口
+- 新增建筑动作时，默认改动路径稳定
+- 规则结算和 UI 副作用分离
+- 计时与存档交互不再散落在动作定义里
 
-主入口：
+要做什么：
 
-- `assets/src/game/BattleEquipmentSystem.js`
-- `assets/src/game/player.js`
+1. 把 `buildAction.js` 中的动作定义与执行流程拆开
+2. 用统一执行入口承接消耗、产出、计时、结算
+3. 让 `BuildActionEffectService` 只负责展示和交互反馈
+4. 逐步消除动作定义中对 `player`、`cc.timer`、`Record`、`utils.emitter` 的直接依赖
 
-范围文件：
+本阶段优先改动链路：
 
-- `assets/src/game/BattleEquipmentSystem.js`
-- `assets/src/game/player.js`
-- `assets/src/game/site.js`
-- `assets/src/game/TravelService.js`
-- `assets/src/game/Storage.js`
-- `assets/src/game/PlayerPersistenceService.js`
-- `assets/src/game/WeaponCraftService.js`
-- `assets/src/data/itemConfig.js`
+- `buildAction.js`
+- `Build.js`
+- `BuildActionEffectService.js`
 
-完成定义：
+完成标准：
 
-- 新增一个特殊武器 / 特殊工具 / 特殊掉落道具时，不需要全仓库 grep 一遍 `itemId`
-- 武器分类、特殊音效、特殊伤害效果、特殊掉落效果尽量有集中注册点
-- 特定机制优先挂在“机制注册 / 服务入口”上，而不是继续在 `player.js` 或 `BattleEquipmentSystem.js` 里写散分支
+- 新增建筑动作时，默认只改动作定义与执行服务，不直接改 UI 辅助逻辑
+- 建筑动作计时与结算已经有单一主入口
+- 建筑动作异常可优先定位到规则层或表现层之一
 
-### Phase 5: 解锁 / 兑换 / 兼容链收口
+停止标准：
+
+- 先覆盖高频建筑动作
+- 不追求一次性重写所有历史动作类
+
+最小验证：
+
+- 一个即时动作 smoke test
+- 一个计时动作 smoke test
+- 动作完成后的存档恢复 smoke test
+
+### Phase 4：战斗运行时单轨化
+
+定位：**必须选定一套战斗规则主入口，场景层只做展示与交互。**
 
 目标：
 
-- 只处理那些会妨碍内容扩展的旧购买 / 兑换兼容逻辑
-- 不把这条链重新抬成主战场
+- `Battle.js` 成为唯一战斗规则与结算主入口
+- `BattleScene.js` 只保留场景、输入、动画、展示协调职责
+- 战斗相关角色、装备、结算不再出现双重解释
 
-范围文件：
+要做什么：
 
-- `assets/src/game/IAPPackage.js`
-- `assets/src/game/PurchaseService.js`
-- `assets/src/game/TalentService.js`
-- `assets/src/game/role.js`
+1. 明确 `Battle.js`、`BattleActors.js`、`BattleEquipmentSystem.js` 的职责边界
+2. 盘点 `BattleScene.js` 中重复承载的战斗模型与规则
+3. 将重复规则逐步迁移到 runtime 层
+4. 给 `BattleScene.js` 留下清晰的调用入口，不再新增玩法规则
 
-完成定义：
+本阶段优先改动链路：
 
-- 新增角色 / 天赋 / 可兑换道具时，不需要同时改多套平行映射
-- 成就点兑换路径稳定
-- 原生支付兼容保留，但不再反向支配内容结构
+- `Battle.js`
+- `BattleActors.js`
+- `BattleEquipmentSystem.js`
+- `BattleSettlementService.js`
+- `BattleScene.js`
 
-### Phase 6: 按需处理的次级路线
+完成标准：
 
-这些不是当前主线，只在对应需求真的出现时再推进：
+- 新增或调整战斗规则时，默认改 runtime 层而不是 scene 层
+- 战斗结算、角色快照、装备效果只有一套主实现
+- `BattleScene.js` 不再新增业务规则分支
 
-- 地图 / 站点边界
-- 玩家生命周期外围
-- 战斗展示层瘦身
-- 商店展示与购买弹窗 UI
+停止标准：
 
-判断条件：
+- 只先收高频规则与结算链路
+- 不要求先统一所有动画、节点组织和表现细节
 
-- 只有当新需求直接落在这些链路上，才把它们临时拉升优先级
+最小验证：
 
-## 5. 验证策略
+- 一场普通战斗 smoke test
+- 一场带装备效果的战斗 smoke test
+- 战斗结算与掉落回归
 
-### 仓库级验证
+### Phase 5：统一模块边界，兼容层后移
 
-- `node tools/validate-content.js all --lang zh`
-- `node tools/validate-content.js all --lang en`
-- 后续补充：
-  - `build`
-  - `build-action`
-  - 必要时补 `role-runtime`
-- 针对改动文件做最小语法检查
+定位：**在主链路收口后，再处理模块风格混用问题。**
 
-### 内容扩展专项回归
+目标：
 
-当改动与内容扩展相关时，优先做这些回归：
+- 形成清晰的模块规范：哪些文件是 runtime module，哪些文件是 compat adapter
+- 兼容守卫不再散落于核心规则文件
+- 新增服务默认遵循统一导出方式
 
-- 新角色可选择、可解锁、角色特性生效
-- 新天赋可解锁、可选择、等级效果生效
-- 新物品有图标、有文案、可获取、效果生效
-- 新建筑可建造、可升级、可执行动作
-- 新机制在对应服务挂点上能触发
+要做什么：
 
-### 地图 / 商店回归
+1. 为 `assets/src/game` 约定统一模块边界
+2. 优先处理高扇出服务文件的导出方式
+3. 把运行时缺失兜底、加载顺序兼容等逻辑逐步后移到兼容层
+4. 清理只因历史装载方式留下的重复守卫
 
-- 只有当本轮真的改动地图 / 商店链时才做完整人工回归
-- 对纯内容扩展，不再默认把地图 / 商店作为第一优先回归项
+优先治理对象：
 
-## 6. 当前下一步
+- `Battle.js`
+- `site.js`
+- `TalentService.js`
+- `ItemRuntimeService.js`
+- 其余高扇出服务文件
 
-这一轮已经把 `Phase 1` 的仓库级校验主入口补到位：
+完成标准：
 
-- `tools/validate-content.js` 已覆盖 `build` / `build-action`
-- `role` 校验已补上 `roomBuilds / unlockSites / unlockNpcs / specialItems / zipline` 这类运行时配置边界
-- `all` 默认检查现在会把建筑链一起纳入
+- 核心规则文件的导出方式可预测
+- 新增模块不再默认复制 `typeof xxx !== "undefined"` 守卫模板
+- 兼容逻辑有明确归属，不继续污染业务层
 
-这一轮已经完成 `Phase 2` 的第一刀：
+停止标准：
 
-- `Build.js` 不再自己维护那几组背包 / 购买动作显隐硬编码
-- 动作锁定态与显隐规则已统一收口到 `RoleRuntimeService.js`
-- 已为一批特殊配方补上动作级 `runtimeRule`，后续新增同类内容可以优先改动作配置
+- 先统一高扇出文件
+- 不为了风格统一一次性触碰全部历史文件
 
-所以下一轮不再继续做第一刀收口，而是直接进入建筑动作链的第二刀。
+最小验证：
 
-具体顺序：
+- 核心高频链路加载 smoke test
+- Node 侧可执行模块的最小 require 验证
 
-1. 先做 `Phase 2` 的第二刀：继续把 `buildAction.js` 里可复用的定时效果动作往 `BuildActionEffectService.js` 收。
-2. 然后继续清理建筑动作链里仍按动作类型 / 特例散落的旧分支。
-3. 等建筑 / 动作链明显稳定后，再进入 `Phase 3`，处理角色 / 天赋与旧购买兼容的边界问题。
-4. 地图 / 购买链继续维持“按需回归，不主动深挖”的优先级。
+### Phase 6：补齐最小回归验证
 
-一句话版：
+定位：**只补高频链路的最小验证，不建大而全测试体系。**
 
-- **Phase 1 已补完，Phase 2 第一刀已落地；下一步继续收 `buildAction.js`，再碰角色 / 天赋兼容。**
+目标：
+
+- 给启动、存档、导航、建筑动作、战斗建立最小回归面
+- 让后续收口改动能尽早暴露边界破坏
+
+执行顺序：
+
+1. 启动 / 读档 / 新开局
+2. 地图导航 / 旅行
+3. 建筑动作
+4. 战斗 runtime 与结算
+
+完成标准：
+
+- 每条高频链路至少有一个最小 smoke test 或可重复执行验证入口
+- 架构治理后的主边界已有基础回归兜底
+
+停止标准：
+
+- 只覆盖高频主链路
+- 不扩展成大规模 UI 自动化框架
+
+---
+
+## 6. 优先级判断
+
+当前优先级固定为：
+
+1. **Phase 1：统一运行时上下文入口**
+2. **Phase 2：收口 `Player`**
+3. **Phase 3：建筑动作链分层**
+4. **Phase 4：战斗运行时单轨化**
+5. **Phase 5：统一模块边界**
+6. **Phase 6：补齐最小回归验证**
+
+这样排序的原因：
+
+- 不先收运行时边界，后面任何拆分都会继续依赖全局变量
+- 不先收 `Player` 和建筑动作，新增内容仍会落到最大文件
+- 不先处理战斗双轨，后续战斗修改会继续累积分叉成本
+- 模块风格统一要放在主链路收口之后，否则很容易只做成“表面整理”
+
+---
+
+## 7. 本轮明确不做
+
+- 不以“目录更现代”为目标重排整个 `assets/src/game`
+- 不新造一层没有实际落点收益的 service wrapper
+- 不在没有统一 runtime 主入口前大规模搬迁低频模块
+- 不为了追求零全局访问而一次性重写所有旧逻辑
+- 不优先处理纯 UI 组织问题
+- 不把内容配置校验扩大成新的长期主线
+
+---
+
+## 8. 更新规则
+
+- 后续执行以本文件为唯一顺序来源
+- 若某阶段没有显著降低默认改动路径的不确定性，不得宣告完成
+- 若出现新需求，优先把它放入已有阶段处理，不新增平行阶段
+- 任何新增计划项都必须回答：它减少了哪类需求的改动文件数？

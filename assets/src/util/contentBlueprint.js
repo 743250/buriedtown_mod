@@ -146,6 +146,22 @@ var ContentBlueprint = {
                 || !itemConfig[itemId]) {
                 return false;
             }
+            if (item && typeof item === "object" && item.num !== undefined) {
+                if (!ContentBlueprint._isFiniteNumber(item.num) || Number(item.num) <= 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    },
+    _hasValidBuildIdList: function (list) {
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._getBuildConfig(list[i])) {
+                return false;
+            }
         }
         return true;
     },
@@ -344,12 +360,91 @@ var ContentBlueprint = {
         }
         return typeof config.timeRatio === "number" && config.timeRatio > 0;
     },
+    _hasValidBuildLevelCaps: function (config) {
+        if (!config || typeof config !== "object") {
+            return false;
+        }
+        for (var buildId in config) {
+            if (!Object.prototype.hasOwnProperty.call(config, buildId)) {
+                continue;
+            }
+            var normalizedBuildId = ContentBlueprint._normalizeId(buildId);
+            var levelCap = Number(config[buildId]);
+            var buildConfigs = ContentBlueprint._getBuildConfig(normalizedBuildId);
+            if (!buildConfigs || !ContentBlueprint._isFiniteNumber(levelCap) || levelCap < -1 || levelCap >= buildConfigs.length) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidTemperatureBuildConfig: function (config) {
+        if (!config || typeof config !== "object" || Array.isArray(config)) {
+            return false;
+        }
+        var buildId = this._normalizeId(config.id !== undefined ? config.id : config.bid);
+        if (!this._getBuildConfig(buildId)) {
+            return false;
+        }
+        if (config.levels !== undefined && !this._hasValidNonNegativeNumberList(config.levels)) {
+            return false;
+        }
+        if (config.level !== undefined && !this._hasValidBuildRef({id: buildId, level: config.level})) {
+            return false;
+        }
+        return true;
+    },
+    _hasValidRuntimeRuleConfig: function (rule) {
+        if (!rule || typeof rule !== "object" || Array.isArray(rule)) {
+            return false;
+        }
+        if (rule.includeAnyTags !== undefined && !ContentBlueprint._hasValidStringList(rule.includeAnyTags)) {
+            return false;
+        }
+        if (rule.excludeAnyTags !== undefined && !ContentBlueprint._hasValidStringList(rule.excludeAnyTags)) {
+            return false;
+        }
+        if (rule.hideWhenPoweredWorksiteForTags !== undefined && !ContentBlueprint._hasValidStringList(rule.hideWhenPoweredWorksiteForTags)) {
+            return false;
+        }
+        if (rule.hideWhenOwnedItems !== undefined && !ContentBlueprint._hasValidSpecialItems(rule.hideWhenOwnedItems)) {
+            return false;
+        }
+        if (rule.requireOwnedItems !== undefined && !ContentBlueprint._hasValidSpecialItems(rule.requireOwnedItems)) {
+            return false;
+        }
+        if (rule.requirePoweredWorksite !== undefined && typeof rule.requirePoweredWorksite !== "boolean") {
+            return false;
+        }
+        if (rule.purchaseLock !== undefined) {
+            if (!rule.purchaseLock || typeof rule.purchaseLock !== "object") {
+                return false;
+            }
+            if (ContentBlueprint._normalizeId(rule.purchaseLock.purchaseId) === null) {
+                return false;
+            }
+            if (typeof rule.purchaseLock.checkFn !== "string" || !rule.purchaseLock.checkFn) {
+                return false;
+            }
+        }
+        return true;
+    },
     _hasValidPositiveNumberList: function (list) {
         if (!Array.isArray(list) || list.length === 0) {
             return false;
         }
         for (var i = 0; i < list.length; i++) {
             if (!ContentBlueprint._isFiniteNumber(list[i]) || Number(list[i]) <= 0) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasValidNonNegativeNumberList: function (list) {
+        if (!Array.isArray(list) || list.length === 0) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._isFiniteNumber(list[i]) || Number(list[i]) < 0) {
                 return false;
             }
         }
@@ -513,6 +608,18 @@ var ContentBlueprint = {
                 }
             },
             {
+                name: "角色休息动作配置",
+                file: "data/roleConfigTable.js",
+                required: false,
+                validator: function (id) {
+                    var roleConfig = ContentBlueprint._getRoleConfig(id);
+                    if (!roleConfig || roleConfig.restActionTypes === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidStringList(roleConfig.restActionTypes);
+                }
+            },
+            {
                 name: "角色初始房间建筑配置",
                 file: "data/roleConfigTable.js / data/buildConfig.js",
                 required: false,
@@ -522,6 +629,42 @@ var ContentBlueprint = {
                         return true;
                     }
                     return ContentBlueprint._hasValidBuildStateList(roleConfig.roomBuilds);
+                }
+            },
+            {
+                name: "角色特殊建筑引用",
+                file: "data/roleConfigTable.js / data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var roleConfig = ContentBlueprint._getRoleConfig(id);
+                    if (!roleConfig || roleConfig.specialBuilds === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidBuildIdList(roleConfig.specialBuilds);
+                }
+            },
+            {
+                name: "角色温度建筑配置",
+                file: "data/roleConfigTable.js / data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var roleConfig = ContentBlueprint._getRoleConfig(id);
+                    if (!roleConfig || roleConfig.temperatureBuild === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidTemperatureBuildConfig(roleConfig.temperatureBuild);
+                }
+            },
+            {
+                name: "角色建筑等级上限配置",
+                file: "data/roleConfigTable.js / data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var roleConfig = ContentBlueprint._getRoleConfig(id);
+                    if (!roleConfig || roleConfig.buildLevelCaps === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidBuildLevelCaps(roleConfig.buildLevelCaps);
                 }
             },
             {
@@ -682,6 +825,27 @@ var ContentBlueprint = {
                     }
                     return true;
                 }
+            },
+            {
+                name: "建筑并发动作上限配置",
+                file: "data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (configs[i].concurrentActionLimit === undefined) {
+                            continue;
+                        }
+                        if (!ContentBlueprint._isFiniteNumber(configs[i].concurrentActionLimit)
+                            || Number(configs[i].concurrentActionLimit) < 1) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
             }
         ]
     },
@@ -763,6 +927,30 @@ var ContentBlueprint = {
                         }
                         return true;
                     });
+                }
+            },
+            {
+                name: "建筑公式运行时规则配置",
+                file: "data/formulaConfig.js / data/roleConfigTable.js / data/itemConfig.js",
+                required: false,
+                validator: function (id) {
+                    var buildConfigs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(buildConfigs) || buildConfigs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < buildConfigs.length; i++) {
+                        var produceList = buildConfigs[i].produceList || [];
+                        for (var j = 0; j < produceList.length; j++) {
+                            var formulaConfig = ContentBlueprint._getFormulaConfig(produceList[j]);
+                            if (!formulaConfig || formulaConfig.runtimeRule === undefined) {
+                                continue;
+                            }
+                            if (!ContentBlueprint._hasValidRuntimeRuleConfig(formulaConfig.runtimeRule)) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
                 }
             }
         ]
