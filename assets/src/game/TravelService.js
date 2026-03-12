@@ -97,5 +97,11 @@ var TravelService = {
             hasBoots: routeModifiers.hasBoots,
             hasZipline: routeModifiers.hasZipline
         };
+    },
+    buildRuntimePlan: function (overrides) {
+        if (typeof GameRuntime === "undefined" || !GameRuntime || typeof GameRuntime.buildTravelOptions !== "function") {
+            return this.buildPlan(overrides || {});
+        }
+        return this.buildPlan(GameRuntime.buildTravelOptions(overrides));
     }
 };

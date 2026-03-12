@@ -6,6 +6,30 @@ var BuildNodeUpdateEventName = (typeof GameEvents !== "undefined" && GameEvents 
     ? GameEvents.BUILD_NODE_UPDATE
     : "build_node_update";
 
+var getBuildActionRuntimePlayer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
+        ? GameRuntime.getPlayer()
+        : player;
+};
+
+var getBuildActionRuntimeTimer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function")
+        ? GameRuntime.getTimer()
+        : cc.timer;
+};
+
+var getBuildActionRuntimeEmitter = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getEmitter === "function")
+        ? GameRuntime.getEmitter()
+        : utils.emitter;
+};
+
+var getBuildActionRuntimeRecord = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getRecord === "function")
+        ? GameRuntime.getRecord()
+        : Record;
+};
+
 var BuildAction = cc.Class.extend({
     ctor: function (bid) {
         this.isActioning = false;
@@ -22,7 +46,7 @@ var BuildAction = cc.Class.extend({
         return this.id;
     },
     getCurrentBuildLevel: function () {
-        return player.room.getBuildLevel(this.bid);
+        return getBuildActionRuntimePlayer().room.getBuildLevel(this.bid);
     },
     save: function () {
         return {};
@@ -38,7 +62,7 @@ var BuildAction = cc.Class.extend({
     clickAction2: function () {
     },
     _sendUpdageSignal: function () {
-        utils.emitter.emit(BuildNodeUpdateEventName);
+        getBuildActionRuntimeEmitter().emit(BuildNodeUpdateEventName);
     },
     _updateStatus: function () {
     },
@@ -48,7 +72,7 @@ var BuildAction = cc.Class.extend({
         this.view = view;
         this.idx = idx;
         if (this.view) {
-            this.build = player.room.getBuild(this.bid);
+            this.build = getBuildActionRuntimePlayer().room.getBuild(this.bid);
             this.view.updateView({btnIdx: idx});
             this._updateStatus();
             var viewInfo = this._getUpdateViewInfo();
@@ -92,8 +116,9 @@ var BuildAction = cc.Class.extend({
         }
 
         var pastTime = startTime || 0;
-        var timerStartTime = startTime ? cc.timer.time - startTime : undefined;
-        cc.timer.addTimerCallback(new TimerCallback(time, this, {
+        var timer = getBuildActionRuntimeTimer();
+        var timerStartTime = startTime ? timer.time - startTime : undefined;
+        timer.addTimerCallback(new TimerCallback(time, this, {
             process: function (dt) {
                 pastTime += dt;
                 var percentage = pastTime / time;
@@ -105,11 +130,11 @@ var BuildAction = cc.Class.extend({
         }), timerStartTime);
 
         if (!notAccelerate) {
-            cc.timer.accelerateWorkTime(time);
+            timer.accelerateWorkTime(time);
         }
     },
     _setLeftBtnEnabled: function (enabled) {
-        utils.emitter.emit("left_btn_enabled", !!enabled);
+        getBuildActionRuntimeEmitter().emit("left_btn_enabled", !!enabled);
     },
     _beginActioning: function () {
         this._setLeftBtnEnabled(false);
@@ -126,20 +151,20 @@ var BuildAction = cc.Class.extend({
             this._setLeftBtnEnabled(true);
         }
         if (opt.saveRecord !== false) {
-            Record.saveAll();
+            getBuildActionRuntimeRecord().saveAll();
         }
     },
     _isNeedBuildLocked: function () {
-        return this.needBuild && this.needBuild.level > player.room.getBuildLevel(this.needBuild.bid);
+        return this.needBuild && this.needBuild.level > getBuildActionRuntimePlayer().room.getBuildLevel(this.needBuild.bid);
     },
     _getNeedBuildHint: function () {
         if (!this.needBuild) {
             return "";
         }
-        return stringUtil.getString(1006, player.room.getBuildName(this.needBuild["bid"], this.needBuild["level"]));
+        return stringUtil.getString(1006, getBuildActionRuntimePlayer().room.getBuildName(this.needBuild["bid"], this.needBuild["level"]));
     },
     _isCostEnough: function (cost) {
-        return player.validateItems(cost);
+        return getBuildActionRuntimePlayer().validateItems(cost);
     },
     _buildCostItems: function (cost) {
         if (!cost) {
@@ -320,34 +345,26 @@ var Formula = BuildAction.extend({
                 player.costItems(scaledCost);
 
                 var produce = self._buildMakeProduce(makeCount);
-                player.gainItems(produce);
-                produce.forEach(function (item) {
-                    Achievement.checkMake(item.itemId, item.num);
+                BuildActionEffectService.grantProducedItems(self, produce, {
+                    achievementMethod: "checkMake",
+                    logMessageId: 1090,
+                    fallbackItemInfo: itemInfo,
+                    afterGrant: function (runtimePlayer) {
+                        if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
+                            userGuide.step();
+                            runtimePlayer.room.createBuild(14, 0);
+                        }
+                    }
                 });
-                var producedItemInfo = produce[0] || itemInfo;
-                var producedItemName = stringUtil.getString(producedItemInfo.itemId).title;
-                player.log.addMsg(1090, producedItemInfo.num, producedItemName, player.storage.getNumByItemId(producedItemInfo.itemId));
-
-                if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
-                    userGuide.step();
-                    player.room.createBuild(14, 0);
-                }
-                self._finishActioning();
             }
         });
         return true;
     },
     place: function () {
-        var self = this;
-        var itemInfo = this.config.produce[0];
-        var itemName = stringUtil.getString(itemInfo.itemId).title;
-        var time = this.config["placedTime"];
-        time *= 60;
-        this.addTimer(time, time, function () {
-            self.step++;
-            player.log.addMsg(1091, player.room.getBuildCurrentName(self.bid), itemName);
-            utils.emitter.emit("placed_success", self.bid);
-        }, true, this.pastTime);
+        BuildActionEffectService.startPlacedTimer(this, {
+            itemInfo: this.config.produce[0],
+            placedTime: this.config["placedTime"] * 60
+        });
     },
     clickAction1: function () {
         if (!uiUtil.checkVigour())
@@ -384,48 +401,31 @@ var Formula = BuildAction.extend({
                     var produce = (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.rollCraftProduce)
                         ? ItemRuntimeService.rollCraftProduce(self.config.produce)
                         : utils.clone(self.config.produce);
-                    player.gainItems(produce);
-                    produce.forEach(function (item) {
-                        Achievement.checkMake(item.itemId, item.num);
+                    BuildActionEffectService.grantProducedItems(self, produce, {
+                        achievementMethod: "checkMake",
+                        logMessageId: 1090,
+                        fallbackItemInfo: itemInfo,
+                        afterGrant: function (runtimePlayer) {
+                            if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
+                                userGuide.step();
+                                runtimePlayer.room.createBuild(14, 0);
+                            }
+                        }
                     });
-                    var producedItemInfo = produce[0] || itemInfo;
-                    var producedItemName = stringUtil.getString(producedItemInfo.itemId).title;
-                    player.log.addMsg(1090, producedItemInfo.num, producedItemName, player.storage.getNumByItemId(producedItemInfo.itemId));
-
-                    if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
-                        userGuide.step();
-                        //解锁大门
-                        player.room.createBuild(14, 0);
-                    }
-                    self._finishActioning();
                 }
             });
         } else {
-            //天气影响
-            var produce = utils.clone(this.config.produce);
-            if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.applyProduceWeatherBonuses) {
-                produce = ItemRuntimeService.applyProduceWeatherBonuses(produce, player.weather);
-            }
-            //温棚影响
-            if (this.bid == 2) {
-                produce.forEach(function (item) {
-                    item.num += player.weather.getValue("build_2");
-                });
-            }
-            produce = TalentService.applyHomeProduceEffect(produce);
-            if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.rollCraftProduce) {
-                produce = ItemRuntimeService.rollCraftProduce(produce);
-            }
-
-            //放置完毕收获
-            player.gainItems(produce);
-            produce.forEach(function (item) {
-                Achievement.checkProduce(item.itemId, item.num);
+            var produce = BuildActionEffectService.buildPlacedProduce(this, {
+                applyGreenhouseBonus: this.bid == 2,
+                rollCraftProduce: true
             });
-            this.step = 0;
-            var producedItem = produce[0] || itemInfo;
-            player.log.addMsg(1092, producedItem.num, stringUtil.getString(producedItem.itemId).title, player.storage.getNumByItemId(producedItem.itemId));
-            this._finishActioning({enableLeftBtn: false});
+            BuildActionEffectService.grantProducedItems(this, produce, {
+                achievementMethod: "checkProduce",
+                logMessageId: 1092,
+                fallbackItemInfo: itemInfo,
+                resetStep: 0,
+                finishOptions: {enableLeftBtn: false}
+            });
         }
         this._sendUpdageSignal();
     },
@@ -526,18 +526,14 @@ var TrapBuildAction = Formula.extend({
         uiUtil.showBuildActionDialog(this.bid, 0);
     },
     place: function () {
-        var self = this;
-        var itemInfo = this.config.produce[0];
-        var itemName = stringUtil.getString(itemInfo.itemId).title;
-        var placedTimes = self.config["placedTime"];
+        var placedTimes = this.config["placedTime"];
         var time = utils.getRandomInt(placedTimes[0], placedTimes[1]);
-        time *= 60;
-        var totalTime = placedTimes[1] * 60;
-        self.addTimer(time, totalTime, function () {
-            self.step++;
-            player.log.addMsg(1091, player.room.getBuildCurrentName(self.bid), itemName);
-            utils.emitter.emit("placed_success", self.id);
-        }, true, this.pastTime);
+        BuildActionEffectService.startPlacedTimer(this, {
+            itemInfo: this.config.produce[0],
+            eventId: this.id,
+            placedTime: time * 60,
+            totalTime: placedTimes[1] * 60
+        });
     },
     clickAction1: function () {
         if (!uiUtil.checkVigour())
@@ -568,26 +564,20 @@ var TrapBuildAction = Formula.extend({
                     player.costItems(self.config.cost);
 
                     //非放置类的,第一次进度完成即获取物品
-                    player.gainItems(self.config.produce);
-                    self._finishActioning();
+                    BuildActionEffectService.grantProducedItems(self, self.config.produce, {
+                        finishOptions: undefined
+                    });
                 }
             });
         } else {
-            //天气影响
-            var produce = utils.clone(this.config.produce);
-            if (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.applyProduceWeatherBonuses) {
-                produce = ItemRuntimeService.applyProduceWeatherBonuses(produce, player.weather);
-            }
-            produce = TalentService.applyHomeProduceEffect(produce);
-
-            //放置完毕收获
-            player.gainItems(produce);
-            produce.forEach(function (item) {
-                Achievement.checkProduce(item.itemId, item.num);
+            var produce = BuildActionEffectService.buildPlacedProduce(this);
+            BuildActionEffectService.grantProducedItems(this, produce, {
+                achievementMethod: "checkProduce",
+                logMessageId: 1092,
+                fallbackItemInfo: itemInfo,
+                resetStep: 0,
+                finishOptions: {enableLeftBtn: false}
             });
-            this.step = 0;
-            player.log.addMsg(1092, produce[0].num, itemName, player.storage.getNumByItemId(itemInfo.itemId));
-            this._finishActioning({enableLeftBtn: false});
         }
         this._sendUpdageSignal();
     },

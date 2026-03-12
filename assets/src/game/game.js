@@ -5,13 +5,16 @@ var player;
 var game = {
     init: function () {
         Record.init(Record.getCurrentRecordName());
+        GameRuntime.bootstrap({record: Record});
         Navigation.init();
-        if (utils.emitter) {
-            utils.emitter.removeAllListeners();
+        var previousEmitter = GameRuntime.getEmitter();
+        if (previousEmitter && typeof previousEmitter.removeAllListeners === "function") {
+            previousEmitter.removeAllListeners();
         }
-        utils.emitter = new Emitter();
-        cc.timer = new TimerManager();
-        player = new Player();
+        GameRuntime.setEmitter(new Emitter());
+        GameRuntime.setTimer(new TimerManager());
+        GameRuntime.setPlayer(new Player());
+        player = GameRuntime.getPlayer();
         player.restore();
         userGuide.init();
         Medal.initCompletedForOneGame(false);

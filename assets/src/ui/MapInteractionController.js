@@ -2,6 +2,24 @@
  * Owns map entity interaction flow so MapView stays focused on rendering,
  * scrolling and movement visuals.
  */
+var getMapInteractionRuntimePlayer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
+        ? GameRuntime.getPlayer()
+        : player;
+};
+
+var getMapInteractionRuntimeTimer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function")
+        ? GameRuntime.getTimer()
+        : cc.timer;
+};
+
+var getMapInteractionRuntimeRecord = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getRecord === "function")
+        ? GameRuntime.getRecord()
+        : Record;
+};
+
 var MapInteractionController = cc.Class.extend({
     ctor: function (mapView) {
         this.mapView = mapView;
@@ -21,18 +39,11 @@ var MapInteractionController = cc.Class.extend({
         this.showTravelDialog(entity, travelPlan);
     },
     buildTravelPlan: function (entity) {
-        return TravelService.buildPlan({
+        return TravelService.buildRuntimePlan({
             startPos: this.mapView.actor.getPosition(),
             endPos: entity.baseSite.pos,
-            currentSiteId: player.getCurrentMapEntityId(),
-            currentEntityKey: player.getCurrentMapEntityKey ? player.getCurrentMapEntityKey() : null,
             destinationSite: entity.baseSite,
-            destinationEntity: entity.baseSite,
-            map: player.map,
-            roleType: player.roleType,
-            ziplineNetwork: player.ziplineNetwork,
-            storage: player.storage,
-            weather: player.weather
+            destinationEntity: entity.baseSite
         });
     },
     handleSelectionGuide: function (entity) {
@@ -57,12 +68,13 @@ var MapInteractionController = cc.Class.extend({
     },
     startTravel: function (entity, travelPlan) {
         entity.setHighlight(true);
+        var runtimePlayer = getMapInteractionRuntimePlayer();
 
-        cc.timer.accelerate(travelPlan.gameTimeCost, travelPlan.accelerateRealTime);
+        getMapInteractionRuntimeTimer().accelerate(travelPlan.gameTimeCost, travelPlan.accelerateRealTime);
         if (travelPlan.hasZipline) {
-            player.log.addMsg(1350);
+            runtimePlayer.log.addMsg(1350);
         }
-        player.log.addMsg(1112, entity.baseSite.getName());
+        runtimePlayer.log.addMsg(1112, entity.baseSite.getName());
 
         this.mapView.makeLine(travelPlan.startPos, travelPlan.endPos);
         this.mapView.actor.move(travelPlan.endPos, function () {
@@ -75,14 +87,15 @@ var MapInteractionController = cc.Class.extend({
             this.mapView.pathLine = null;
         }
 
-        player.arriveAtMapEntity(entity.baseSite);
+        var runtimePlayer = getMapInteractionRuntimePlayer();
+        runtimePlayer.arriveAtMapEntity(entity.baseSite);
 
         var mapNode = this.mapView.getParent().getParent();
         var route = MapDestinationRouter.resolve(entity.baseSite);
-        MapDestinationRouter.logArrival(route, player.log);
+        MapDestinationRouter.logArrival(route, runtimePlayer.log);
         mapNode.forward(route.nodeName, route.userData);
 
-        Record.saveAll();
+        getMapInteractionRuntimeRecord().saveAll();
     },
     showTravelDialog: function (entity, travelPlan) {
         var self = this;

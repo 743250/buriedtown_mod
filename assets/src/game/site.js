@@ -388,3 +388,17 @@ var BossSite = Site.extend({
     }
 
 });
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+        BaseSite: BaseSite,
+        Site: Site,
+        WorkSite: WorkSite,
+        AdSite: AdSite,
+        BossSite: BossSite,
+        HOME_SITE: HOME_SITE,
+        AD_SITE: AD_SITE,
+        BOSS_SITE: BOSS_SITE,
+        WORK_SITE: WORK_SITE
+    };
+}

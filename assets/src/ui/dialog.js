@@ -681,9 +681,9 @@ var RandomBattleDialog = DialogBig.extend({
         }, isDodge);
         var self = this;
         battle.setGameEndListener(function (sumRes) {
-            utils.emitter.off("battleProcessLog");
-            utils.emitter.off("battleMonsterLength");
-            utils.emitter.off("battleDodgePercentage");
+            utils.emitter.off(Battle.EVENTS.PROCESS_LOG);
+            utils.emitter.off(Battle.EVENTS.MONSTER_LENGTH);
+            utils.emitter.off(Battle.EVENTS.DODGE_PERCENTAGE);
 
             Medal.checkMonsterKilled(sumRes.monsterKilledNum);
 
@@ -747,7 +747,7 @@ var RandomBattleDialog = DialogBig.extend({
                 }
             }
         }
-        utils.emitter.on("battleProcessLog", function (prelog) {
+        utils.emitter.on(Battle.EVENTS.PROCESS_LOG, function (prelog) {
             var logs = utils.splitLog(prelog["log"], 50, 42);
             for (var key in logs) {
                 var oneLog = {
@@ -775,7 +775,7 @@ var RandomBattleDialog = DialogBig.extend({
         this.actionNode.addChild(pb);
 
         if (isDodge) {
-            utils.emitter.on("battleDodgePercentage", function (percentage) {
+            utils.emitter.on(Battle.EVENTS.DODGE_PERCENTAGE, function (percentage) {
                 pb.setPercentage(percentage);
             });
         } else {
@@ -788,7 +788,7 @@ var RandomBattleDialog = DialogBig.extend({
             this.actionNode.addChild(labelNum);
             labelNum.setString(stringUtil.getString(1139) + cc.formatStr("%s/%s", monsterLenTotal, monsterLenTotal));
 
-            utils.emitter.on("battleMonsterLength", function (monsterLen) {
+            utils.emitter.on(Battle.EVENTS.MONSTER_LENGTH, function (monsterLen) {
                 pb.setPercentage((monsterLenTotal - monsterLen) / monsterLenTotal * 100);
                 labelNum.setString(stringUtil.getString(1139) + cc.formatStr("%s/%s", monsterLen, monsterLenTotal));
             });

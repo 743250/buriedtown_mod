@@ -43,6 +43,7 @@ var jsList = [
 
     "src/game/constants.js",
     "src/game/record.js",
+    "src/game/GameRuntime.js",
     "src/game/RoleRuntimeService.js",
     "src/game/ItemRuntimeService.js",
     "src/game/CombatResolver.js",

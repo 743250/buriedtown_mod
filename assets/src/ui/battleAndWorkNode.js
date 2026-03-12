@@ -251,8 +251,8 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         var battle = new Battle({id: 0, monsterList: this.room.list});
         var self = this;
         battle.setGameEndListener(function (sumRes) {
-            utils.emitter.off("battleProcessLog");
-            utils.emitter.off("battleMonsterLength");
+            utils.emitter.off(Battle.EVENTS.PROCESS_LOG);
+            utils.emitter.off(Battle.EVENTS.MONSTER_LENGTH);
             if (sumRes.win) {
                 self._applyScavengerBattleLoot(sumRes);
             }
@@ -329,7 +329,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
                 }
             }
         };
-        utils.emitter.on("battleProcessLog", function (log) {
+        utils.emitter.on(Battle.EVENTS.PROCESS_LOG, function (log) {
             node.updateLog(log);
         });
 
@@ -356,7 +356,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         node.addChild(labelNum);
         labelNum.setString(stringUtil.getString(1139) + cc.formatStr("%s/%s", monsterLenTotal, monsterLenTotal));
 
-        utils.emitter.on("battleMonsterLength", function (monsterLen) {
+        utils.emitter.on(Battle.EVENTS.MONSTER_LENGTH, function (monsterLen) {
             pb.setPercentage((monsterLenTotal - monsterLen) / monsterLenTotal * 100);
             labelNum.setString(stringUtil.getString(1139) + cc.formatStr("%s/%s", monsterLen, monsterLenTotal));
         });

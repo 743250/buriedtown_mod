@@ -1,6 +1,18 @@
 /**
  * Encapsulates world-map movement and encounter stepping for the player marker.
  */
+var getMapActorRuntimePlayer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
+        ? GameRuntime.getPlayer()
+        : player;
+};
+
+var getMapActorRuntimeTimer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function")
+        ? GameRuntime.getTimer()
+        : cc.timer;
+};
+
 var MapActor = cc.Node.extend({
     ctor: function (mapView) {
         this._super();
@@ -21,17 +33,19 @@ var MapActor = cc.Node.extend({
         this.scheduleUpdate();
     },
     update: function (dt) {
-        if (cc.timer.isPaused()) {
+        var runtimeTimer = getMapActorRuntimeTimer();
+        if (!runtimeTimer || runtimeTimer.isPaused()) {
             return;
         }
-        this.updateActor(dt * cc.timer.timeScale);
+        this.updateActor(dt * runtimeTimer.timeScale);
     },
     onExit: function () {
         this._super();
         this.unscheduleUpdate();
     },
     getMaxVelocity: function () {
-        return TravelService.getEffectiveVelocity(player.storage, player.weather);
+        var runtimePlayer = getMapActorRuntimePlayer();
+        return TravelService.getEffectiveVelocity(runtimePlayer.storage, runtimePlayer.weather);
     },
     updateActor: function (dt) {
         if (!this.isMoving || this.paused || !this.tripState) {
@@ -45,7 +59,8 @@ var MapActor = cc.Node.extend({
         });
         this.velocity = tripResult.velocity;
         this.setPosition(tripResult.position);
-        player.map.updatePos(tripResult.position);
+        var runtimePlayer = getMapActorRuntimePlayer();
+        runtimePlayer.map.updatePos(tripResult.position);
 
         if (tripResult.arrived) {
             this.tripState = null;
@@ -53,7 +68,7 @@ var MapActor = cc.Node.extend({
             this.afterMove();
         } else if (tripResult.encounterTriggered) {
             var self = this;
-            this.paused = player.randomAttack(function () {
+            this.paused = runtimePlayer.randomAttack(function () {
                 self.paused = false;
             });
         }

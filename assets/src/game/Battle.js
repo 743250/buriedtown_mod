@@ -30,6 +30,20 @@ var createBattleRuntimeConfig = function () {
     };
 };
 
+var getBattleRuntimeTimer = function () {
+    if (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function") {
+        return GameRuntime.getTimer();
+    }
+    return cc.timer;
+};
+
+var getBattleRuntimeEmitter = function () {
+    if (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getEmitter === "function") {
+        return GameRuntime.getEmitter();
+    }
+    return utils.emitter;
+};
+
 var Battle = cc.Class.extend({
     ctor: function (battleInfo, isDodge) {
         cc.log(JSON.stringify(battleInfo));
@@ -76,7 +90,7 @@ var Battle = cc.Class.extend({
         this.summary = new BattleSummary(this.battleInfo.id, this.isDodge);
         this.sumRes = this.summary.getData();
 
-        cc.timer.pause();
+        getBattleRuntimeTimer().pause();
         audioManager.insertMusic(audioManager.music.BATTLE);
 
         this.isBattleEnd = false;
@@ -87,7 +101,7 @@ var Battle = cc.Class.extend({
         var delta = (typeof dt === "number" && isFinite(dt) && dt > 0) ? dt : (this.dodgeTickInterval || 0.1);
         this.dodgePassTime += delta;
         var percentage = Math.min(this.dodgePassTime / this.dodgeTime * 100, 100);
-        utils.emitter.emit("battleDodgePercentage", percentage);
+        getBattleRuntimeEmitter().emit(Battle.EVENTS.DODGE_PERCENTAGE, percentage);
         if (this.dodgePassTime >= this.dodgeTime) {
 
             this.gameEnd(true);
@@ -173,7 +187,7 @@ var Battle = cc.Class.extend({
         }
 
 
-        utils.emitter.emit("battleMonsterLength", this.monsters.length);
+        getBattleRuntimeEmitter().emit(Battle.EVENTS.MONSTER_LENGTH, this.monsters.length);
 
         this.updateTargetMonster();
     },
@@ -211,7 +225,7 @@ var Battle = cc.Class.extend({
         if (this.gameEndListener) {
             this.gameEndListener.call(this, this.sumRes);
         }
-        cc.timer.resume();
+        getBattleRuntimeTimer().resume();
 
         audioManager.resumeMusic();
     },
@@ -229,7 +243,7 @@ var Battle = cc.Class.extend({
     },
 
     processLog: function (log, color, bigger) {
-        utils.emitter.emit("battleProcessLog", {
+        getBattleRuntimeEmitter().emit(Battle.EVENTS.PROCESS_LOG, {
             log: log,
             color: color,
             bigger: bigger
@@ -257,8 +271,19 @@ var Battle = cc.Class.extend({
     }
 
 });
-var B = module.exports;
-B.Battle = Battle;
-B.config = function (c) {
+Battle.EVENTS = {
+    PROCESS_LOG: "battleProcessLog",
+    MONSTER_LENGTH: "battleMonsterLength",
+    DODGE_PERCENTAGE: "battleDodgePercentage"
+};
+var configureBattleTestRuntime = function (c) {
     testBattleConfig = c;
+};
+Battle.config = configureBattleTestRuntime;
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+        Battle: Battle,
+        config: configureBattleTestRuntime
+    };
 }

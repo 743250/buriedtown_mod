@@ -104,6 +104,7 @@ var Player = cc.Class.extend({
         this.weather = new WeatherSystem();
         this.buffManager = new BuffManager();
         this.navigationState = new PlayerNavigationState();
+        this.runtime = GameRuntime;
 
         this.setting = {};
         this._attrRangeCache = {};
@@ -120,10 +121,30 @@ var Player = cc.Class.extend({
         return PlayerPersistenceService.restore(this, AttrHelperRuntime);
     },
 
+    getRuntime: function () {
+        return this.runtime || GameRuntime;
+    },
+
+    getTimer: function () {
+        var runtime = this.getRuntime();
+        if (runtime && typeof runtime.getTimer === "function") {
+            return runtime.getTimer();
+        }
+        return cc.timer;
+    },
+
+    getRecord: function () {
+        var runtime = this.getRuntime();
+        if (runtime && typeof runtime.getRecord === "function") {
+            return runtime.getRecord();
+        }
+        return Record;
+    },
+
     //包扎
     bindUp: function () {
         this.binded = true;
-        this.bindTime = cc.timer.now();
+        this.bindTime = this.getTimer().now();
     },
     //包扎状态不可以再包扎
     isInBind: function () {
@@ -133,7 +154,7 @@ var Player = cc.Class.extend({
     //服药
     cure: function () {
         this.cured = true;
-        this.cureTime = cc.timer.now();
+        this.cureTime = this.getTimer().now();
     },
 
     //服药状态可以再服药
@@ -272,192 +293,50 @@ var Player = cc.Class.extend({
 
     _applySleepRecoveryByHour: function () {
         return PlayerAttrService.applySleepRecoveryByHour(this);
-        var bedLevel = player.room.getBuildLevel(9);
-        var bedRate = buildActionConfig[9][bedLevel].rate;
-
-        //睡眠等级=床等级值*0.5+饱食度/100*0.2+心情值/100*0.3
-        bedRate = bedRate * 0.5 + memoryUtil.decode(this.starve) / memoryUtil.decode(this.starveMax) * 0.2 + memoryUtil.decode(this.spirit) / memoryUtil.decode(this.spiritMax) * 0.3;
-
-        //精力值
-        //每小时回复精力值=睡眠等级*10
-        var vigour = Math.ceil(bedRate * 15);
-        this.changeVigour(vigour);
-
-        //生命值
-        //每小时回血=睡眠等级*20
-        var hp = Math.ceil(bedRate * 20);
-        this.changeHp(hp)
     },
 
     _applyHourlyWeatherAttrChange: function () {
         return PlayerAttrService.applyHourlyWeatherAttrChange(this);
-        this.changeVigour(this.weather.getValue("vigour"));
-        this.changeSpirit(this.weather.getValue("spirit"));
     },
 
     updateByTime: function () {
         return PlayerAttrService.updateByTime(this);
-
-        var c = this.config["changeByTime"];
-
-        //扣减饥饿度
-        this.changeStarve(this._getHourlyStarveChange(c));
-        //扣减狗的饥饿度
-        this.dog.changeStarve(c[1][0]);
-
-        this.changeVigour(this._getHourlyVigourChange(c));
-
-        //在睡眠状态下的影响
-        if (this.isInSleep) {
-            this._applySleepRecoveryByHour();
-        }
-
-        this._applyHourlyWeatherAttrChange();
     },
 
     _getRangeEffect: function (attr, value) {
         return PlayerAttrService.getRangeEffect(this, attr, value);
-        var attrRangeInfo = this.getAttrRangeInfo(attr, value);
-        if (!attrRangeInfo) {
-            return null;
-        }
-        return attrRangeInfo.effect || null;
     },
 
     _applyEffectMap: function (effectMap, opt) {
         return PlayerAttrService.applyEffectMap(this, effectMap, opt);
-        if (!effectMap) {
-            return;
-        }
-        opt = opt || {};
-        var mapValue = opt.mapValue;
-        var canApply = opt.canApply;
-
-        for (var attr in effectMap) {
-            if (!this.hasOwnProperty(attr)) {
-                continue;
-            }
-
-            var value = effectMap[attr];
-            if (mapValue) {
-                value = mapValue.call(this, attr, value);
-            }
-            if (value === undefined || value === null) {
-                continue;
-            }
-
-            if (!canApply || canApply.call(this, attr, value)) {
-                this.changeAttr(attr, value);
-            }
-        }
     },
 
     updateStarve: function () {
         return PlayerAttrService.updateStarve(this);
-        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107042)) {
-            cc.d('ITEM_1107042 updateStarve');
-            return;
-        }
-
-        this._applyEffectMap(this._getRangeEffect("starve", this.starve));
-
     },
 
     updateInfect: function () {
         return PlayerAttrService.updateInfect(this);
-
-        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107022)) {
-            cc.d('ITEM_1107022 updateInfect');
-            return;
-        }
-
-        this._applyEffectMap(this._getRangeEffect("infect", this.infect), {
-            mapValue: function (attr, value) {
-                //感染属性影响中有公式；对血的影响按当前感染值比例计算
-                if (attr === 'hp') {
-                    value *= memoryUtil.decode(this.infect) / 100;
-                    value = Math.ceil(value);
-                    this.deathCausedInfect = true;
-                }
-                return value;
-            },
-            canApply: function (attr) {
-                //非服药状态才能影响感染与心情
-                if (attr === 'infect' || attr === 'spirit') {
-                    return !this.isInCure();
-                }
-                return true;
-            }
-        });
-
-        if (memoryUtil.decode(this.hp) === 0) {
-            this.log.addMsg(1108);
-        } else {
-            this.deathCausedInfect = false;
-        }
     },
 
     updateVigour: function () {
         return PlayerAttrService.updateVigour(this);
-        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107032)) {
-            cc.d('ITEM_1107032 updateVigour ');
-            return;
-        }
-
-        this._applyEffectMap(this._getRangeEffect("vigour", this.vigour));
-
     },
 
     updateInjure: function () {
         return PlayerAttrService.updateInjure(this);
-
-        this._applyEffectMap(this._getRangeEffect("injury", this.injury), {
-            canApply: function (attr) {
-                //非包扎状态才能影响感染与心情
-                if (attr === 'infect' || attr === 'spirit') {
-                    return !this.isInBind();
-                }
-                return true;
-            }
-        });
-
     },
 
     updateTemperature: function () {
         return PlayerAttrService.updateTemperature(this);
-
-        var c = this.config["temperature"];
-
-        var temperature = this.initTemperature();
-        temperature += RoleRuntimeService.getTemperatureBonus(this, c[4][0]);
-
-        //天气
-        temperature += this.weather.getValue("temperature");
-
-
-        this.changeTemperature(temperature - memoryUtil.decode(this.temperature));
     },
 
     updateTemperatureEffect: function () {
         return PlayerAttrService.updateTemperatureEffect(this);
-
-        this._applyEffectMap(this._getRangeEffect("temperature", this.temperature));
-
     },
 
     initTemperature: function () {
         return PlayerAttrService.initTemperature(this);
-        var c = this.config["temperature"];
-        //季节因素
-        var configBySeason = c[cc.timer.getSeason()];
-        var temperature = configBySeason[0];
-        //日夜因素
-        if (cc.timer.getStage() === "day") {
-            temperature += configBySeason[1];
-        } else {
-            temperature += configBySeason[2];
-        }
-        return temperature;
     },
 
     cost: function (list) {
@@ -620,7 +499,7 @@ var Player = cc.Class.extend({
     },
 
     _getAttackInNightStrength: function () {
-        var timeObj = cc.timer.formatTime();
+        var timeObj = this.getTimer().formatTime();
         var strength = 0;
         for (var i = 0; i < MoonlightingConfig.strength.length; i++) {
             var strengthObj = MoonlightingConfig.strength[i];
@@ -696,17 +575,18 @@ var Player = cc.Class.extend({
         return res;
     },
     underAttackInNight: function () {
+        var timer = this.getTimer();
+        var record = this.getRecord();
         var homeRes = {};
         var rand = Math.random();
-        if (cc.timer.formatTime().d < 2) {
+        if (timer.formatTime().d < 2) {
             rand = 1;
         } else {
             rand = Math.random();
         }
         cc.i("moonlighting..." + rand);
         if (rand <= MoonlightingConfig.probability) {
-
-            player.log.addMsg(1099);
+            this.log.addMsg(1099);
 
             var electricFenceBuild = this.room.getBuild(19);
 
@@ -740,14 +620,13 @@ var Player = cc.Class.extend({
             homeRes.happened = false;
         }
 
-        Record.saveAll();
-
-        cc.timer.pause();
+        record.saveAll();
+        timer.pause();
         new DayLayer(homeRes).show();
     },
 
     _getEncounterDayNumber: function () {
-        var timeObj = cc.timer.formatTime();
+        var timeObj = this.getTimer().formatTime();
         return (timeObj && typeof timeObj.d === "number") ? (timeObj.d + 1) : 1;
     },
     _clampEncounterDifficulty: function (value) {
@@ -804,7 +683,7 @@ var Player = cc.Class.extend({
         return Math.max(0, Math.min(probability, 1));
     },
     randomAttack: function (cb) {
-        var stage = cc.timer.getStage();
+        var stage = this.getTimer().getStage();
         var rand = Math.random();
         var difficultyRange = this._getRandomEncounterDifficultyRange(stage);
         var probability = this._getRandomEncounterProbability(stage);
@@ -833,7 +712,7 @@ var Player = cc.Class.extend({
     },
 
     _updateTimedTreatmentState: function () {
-        var now = cc.timer.now();
+        var now = this.getTimer().now();
         var oneDaySeconds = 24 * 60 * 60;
         if (this.bindTime && (now - this.bindTime >= oneDaySeconds)) {
             this.binded = false;
@@ -860,7 +739,8 @@ var Player = cc.Class.extend({
     start: function () {
         cc.i("player start...");
         var self = this;
-        cc.timer.addTimerCallbackDayAndNight(null, function (flag) {
+        var timer = this.getTimer();
+        timer.addTimerCallbackDayAndNight(null, function (flag) {
             if (flag === 'day') {
                 self.npcManager.visitPlayer();
                 self.npcManager.updateTradingItem();
@@ -871,19 +751,19 @@ var Player = cc.Class.extend({
                 self.log.addMsg(1121);
             }
         });
-        cc.timer.addTimerCallbackDayByDay(this, function () {
+        timer.addTimerCallbackDayByDay(this, function () {
             self.underAttackInNight();
             self.room.getBuild(9).sleeped = false;
-            cc.timer.checkSeason();
+            timer.checkSeason();
 
             DataLog.genDayLog();
 
             adHelper.activeAd();
         });
-        cc.timer.addTimerCallbackHourByHour(this, function () {
+        timer.addTimerCallbackHourByHour(this, function () {
             self._runHourlyUpdatePipeline();
         });
-        cc.timer.addTimerCallbackByMinute(this.buffManager);
+        timer.addTimerCallbackByMinute(this.buffManager);
         //this.map.unlockNpc(1);
     },
     //背包+仓库的物品数量
@@ -903,8 +783,8 @@ var Player = cc.Class.extend({
 
         Navigation.gotoDeathNode();
 
-        if (player.isAtSite()) {
-            DataLog.genSiteLog(player.getCurrentSiteId(), 2);
+        if (this.isAtSite()) {
+            DataLog.genSiteLog(this.getCurrentSiteId(), 2);
         }
 
         DataLog.genDeathLog();
@@ -924,7 +804,7 @@ var Player = cc.Class.extend({
         this.room.forEach(function (build) {
             build.resetActiveBtnIndex();
         });
-        Record.saveAll();
+        this.getRecord().saveAll();
     },
 
     isLowVigour: function () {
@@ -945,7 +825,7 @@ var Player = cc.Class.extend({
 
     setSetting: function (key, value) {
         this.setting[key] = value;
-        Record.saveAll();
+        this.getRecord().saveAll();
     },
     getSetting: function (key, defaultValue) {
         if (this.setting.hasOwnProperty(key)) {
