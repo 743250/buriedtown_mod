@@ -217,15 +217,29 @@ var Bag = Storage.extend({
     },
     getTotalWeight: function () {
         var weight = 35;
-        var bagBonus = 0;
-        if (player.storage.getNumByItemId(1305023) > 0) {
-            bagBonus = Math.max(bagBonus, 10);
+        var getOwnedNum = function (itemId) {
+            if (typeof player === "undefined" || !player) {
+                return 0;
+            }
+            if (typeof player.getItemNumInPlayer === "function") {
+                return player.getItemNumInPlayer(itemId);
+            }
+            var total = 0;
+            if (player.storage && typeof player.storage.getNumByItemId === "function") {
+                total += player.storage.getNumByItemId(itemId);
+            }
+            if (player.bag && typeof player.bag.getNumByItemId === "function") {
+                total += player.bag.getNumByItemId(itemId);
+            }
+            return total;
+        };
+        if (getOwnedNum(1305023) > 0) {
+            weight += 10;
         }
-        if (player.storage.getNumByItemId(1305024) > 0) {
-            bagBonus = Math.max(bagBonus, 25);
+        if (getOwnedNum(1305024) > 0) {
+            weight += 25;
         }
-        weight += bagBonus;
-        if (player.storage.getNumByItemId(1305044) > 0) {
+        if (getOwnedNum(1305044) > 0) {
             weight += 15;
         }
         if (typeof TalentService !== "undefined" && TalentService && TalentService.getBagWeightBonus)  {

@@ -760,7 +760,31 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
         action2.setVisible(false);
         bgNode.addChild(action2);
     }
+    var actionLayoutMode = "horizontal";
     var refreshActionButtonLayout = function () {
+        if (actionLayoutMode === "stacked"
+            && action1 && action1.isVisible()
+            && action2 && action2.isVisible()) {
+            var stackedButtons = [action2, action1];
+            var stackedGap = 4;
+            var stackedHeight = 0;
+            stackedButtons.forEach(function (button, index) {
+                stackedHeight += button.getContentSize().height;
+                if (index < stackedButtons.length - 1) {
+                    stackedHeight += stackedGap;
+                }
+            });
+
+            var currentY = (bgNode.getContentSize().height + stackedHeight) / 2;
+            var rightX = bgNode.getContentSize().width - 10;
+            stackedButtons.forEach(function (button) {
+                var buttonHeight = button.getContentSize().height;
+                button.setPosition(rightX - button.getContentSize().width / 2, currentY - buttonHeight / 2);
+                currentY -= buttonHeight + stackedGap;
+            });
+            return;
+        }
+
         var visibleButtons = [];
         var rightEdge = bgNode.getContentSize().width - 10;
         var gap = 12;
@@ -802,6 +826,8 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
     bgNode.updateView = function (newData) {
         if (!cc.sys.isObjectValid(bgNode))
             return;
+
+        actionLayoutMode = newData.actionLayout || "horizontal";
 
         if (newData.iconName) {
             if (iconBg.getChildByName("icon")) {
@@ -1561,11 +1587,19 @@ uiUtil.getCharacterPortraitByPurchaseId = function (purchaseId) {
 };
 
 uiUtil.getSpriteByNameSafe = function (spriteFrameName, fallbackName) {
-    var sprite = SafetyHelper.safeLoadSprite(spriteFrameName, fallbackName || null);
+    var sprite = null;
+    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getSpriteByName === "function") {
+        sprite = ResourceFallback.getSpriteByName(spriteFrameName, fallbackName || null);
+    } else {
+        sprite = SafetyHelper.safeLoadSprite(spriteFrameName, fallbackName || null);
+    }
     return sprite || new cc.Sprite();
 };
 
 uiUtil.getSpriteByNameOptional = function (spriteFrameName) {
+    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getOptionalSprite === "function") {
+        return ResourceFallback.getOptionalSprite(spriteFrameName);
+    }
     return SafetyHelper.safeLoadSprite(spriteFrameName, null);
 };
 

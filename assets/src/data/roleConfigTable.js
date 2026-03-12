@@ -156,7 +156,7 @@ var RoleConfigTable = {
         selectionDescriptionStringId: 1343,
         infoDescriptionStringId: 1343,
         infoEffectStringId: 1344,
-        avatarFallback: "npc_dig_6.png",
+        avatarFallback: "npc_dig_7.png",
         selectionOrder: 7,
         npcId: 7,
         actionTags: ["king", "powered"],

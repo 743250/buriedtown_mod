@@ -39,6 +39,66 @@ node tools/validate-content.js
 
 仓库级检查统一走 `tools/validate-content.js`；如果只是想在游戏内临时看单个配置，可直接调用 `ConfigValidator.printResult(type, id)` 或 `ConfigValidator.printChecklist(type, id)`。
 
+## 新资源工作流
+
+旧资源继续保留在 `res/*.plist + *.pvr.ccz`。
+
+高频迭代的新资源优先放提取目录，当前运行时会优先尝试图集，缺失时再回退到以下独立目录：
+
+- `assets/res/npc`
+- `assets/res/icon`
+- `assets/res/ui`
+- `assets/res/site`
+- `assets/res/build`
+- `assets/res/dig_build`
+- `assets/res/dig_item`
+- `assets/res/dig_monster`
+- `assets/res/dig_work`
+- `assets/res/gate`
+- `assets/res/home`
+- `assets/res/map`
+- `assets/res/menu`
+- `assets/res/rank`
+- `assets/res/end`
+- `assets/res/day`
+- `assets/res/day2`
+- `assets/res/weather`
+
+命名尽量继续沿用现有约定，例如：
+
+- `npc_dig_9.png`
+- `npc_9.png`
+- `icon_item_1401011.png`
+- `icon_iap_125.png`
+- `site_900.png`
+
+头像规范化工具：
+
+```bash
+python3 tools/normalize-portrait.py inspect assets/res/贝尔.png --json
+python3 tools/normalize-portrait.py normalize --input assets/res/贝尔.png --output assets/res/npc/npc_dig_8.png --preset npc_dig --trim-alpha --cut 0,0,0,18
+python3 tools/normalize-portrait.py batch tools/portrait-normalizer.sample.json
+```
+
+项目里有一份可直接复跑的 Bell 示例配置，跑完会把输出图和预览图放到 `tools/examples/bell/`：
+
+```bash
+python3 tools/normalize-portrait.py batch tools/examples/bell/normalize-bell.json
+```
+
+工具内置两个常用预设：
+
+- `npc_dig`: 生成 `446x264` 的对话/角色立绘
+- `npc_map`: 生成 `56x56` 的地图/NPC 小头像
+
+如果新图构图偏宽、肩膀过多或头部偏上，优先调这几个参数：
+
+- `--crop x,y,w,h`: 先截取主体区域
+- `--cut l,t,r,b`: 再削掉四边多余内容
+- `--scale n`: 放大或缩小主体
+- `--offset x,y`: 微调最终落点
+- `--preview path.png`: 输出带安全框的预览图
+
 ## 工作原则
 
 1. 小步改动，一次只收口一条链路或一个小模块。

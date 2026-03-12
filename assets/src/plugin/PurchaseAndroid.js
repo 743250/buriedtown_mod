@@ -130,7 +130,7 @@ var PurchaseAndroid = {
         nameLabel.y = content.height - 10;
         nameLabel.setColor(cc.color.BLACK);
         content.addChild(nameLabel);
-        var name = new cc.LabelTTF("死亡日记", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
+        var name = new cc.LabelTTF("死亡日记L版", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
         name.anchorX = 0;
         name.anchorY = 1;
         name.x = nameLabel.x + nameLabel.width + 10;

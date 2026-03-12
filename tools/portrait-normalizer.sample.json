@@ -1,0 +1,25 @@
+{
+  "source": "assets/res/your_raw_portrait.png",
+  "outputs": [
+    {
+      "name": "portrait",
+      "preset": "npc_dig",
+      "output": "assets/res/npc/npc_dig_99.png",
+      "trim_alpha": true,
+      "cut": [0, 0, 0, 24],
+      "scale": 1.0,
+      "offset": [0, 0],
+      "preview": "tmp/npc_dig_99_preview.png"
+    },
+    {
+      "name": "map_icon",
+      "preset": "npc_map",
+      "output": "assets/res/npc/npc_99.png",
+      "trim_alpha": true,
+      "cut": [0, 0, 0, 48],
+      "scale": 1.0,
+      "offset": [0, 0],
+      "preview": "tmp/npc_99_preview.png"
+    }
+  ]
+}

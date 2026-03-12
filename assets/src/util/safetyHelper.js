@@ -4,6 +4,8 @@
  */
 
 var SafetyHelper = {
+    _standaloneSpritePathCache: {},
+
     normalizeSpriteName: function(spriteName) {
         if (this.isEmpty(spriteName)) {
             return "";
@@ -11,27 +13,132 @@ var SafetyHelper = {
         return spriteName.charAt(0) === '#' ? spriteName.substr(1) : spriteName;
     },
 
-    resolveStandaloneSpritePath: function(spriteName) {
-        var normalizedName = this.normalizeSpriteName(spriteName);
-        if (/^npc_dig_\d+\.png$/.test(normalizedName) || /^npc_\d+\.png$/.test(normalizedName)) {
-            return "res/npc/" + normalizedName;
+    _pushUniqueValue: function(list, value) {
+        if (!value || list.indexOf(value) !== -1) {
+            return;
         }
-        return null;
+        list.push(value);
+    },
+
+    _getStandaloneCandidateDirs: function(normalizedName) {
+        var candidateDirs = [];
+        if (this.isEmpty(normalizedName) || normalizedName.indexOf("/") !== -1) {
+            return candidateDirs;
+        }
+
+        if (/^npc(_dig)?_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/npc");
+        }
+        if (/^icon_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/icon");
+            this._pushUniqueValue(candidateDirs, "res/ui");
+        }
+        if (/^site_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/site");
+            this._pushUniqueValue(candidateDirs, "res/ui");
+        }
+        if (/^build(_action)?_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/build");
+        }
+        if (/^dig_build_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/dig_build");
+        }
+        if (/^dig_item_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/dig_item");
+        }
+        if (/^monster_dig_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/dig_monster");
+        }
+        if (/^work_dig_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/dig_work");
+        }
+        if (/^gate_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/gate");
+        }
+        if (/^home_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/home");
+        }
+        if (/^map_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/map");
+        }
+        if (/^menu_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/menu");
+        }
+        if (/^rank_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/rank");
+        }
+        if (/^weather_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/weather");
+        }
+        if (/^day_scene_/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/day");
+            this._pushUniqueValue(candidateDirs, "res/day2");
+        }
+        if (/^(btn_|frame_|dialog_|checkbox_|edit_|loading_anim_|page_view_indicator_|slider_)/.test(normalizedName)
+            || /^(build_icon_bg|guide_bg|item_bg|item_equip_bg|pb|pb_bg|role_bg|site_dig_secret|dig_death|dig_start)\.png$/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/ui");
+        }
+        if (/^(btn_home|btn_share|end_bg)\.png$/.test(normalizedName)) {
+            this._pushUniqueValue(candidateDirs, "res/end");
+        }
+
+        return candidateDirs;
+    },
+
+    resolveStandaloneSpritePaths: function(spriteName) {
+        var normalizedName = this.normalizeSpriteName(spriteName);
+        if (this.isEmpty(normalizedName)) {
+            return [];
+        }
+
+        if (this._standaloneSpritePathCache[normalizedName]) {
+            return this._standaloneSpritePathCache[normalizedName].slice();
+        }
+
+        var candidateDirs = this._getStandaloneCandidateDirs(normalizedName);
+        var candidatePaths = candidateDirs.map(function(dir) {
+            return dir + "/" + normalizedName;
+        });
+
+        if (typeof jsb !== "undefined"
+            && jsb
+            && jsb.fileUtils
+            && typeof jsb.fileUtils.isFileExist === "function") {
+            var existingPaths = candidatePaths.filter(function(path) {
+                return jsb.fileUtils.isFileExist(path);
+            });
+            if (existingPaths.length > 0) {
+                this._standaloneSpritePathCache[normalizedName] = existingPaths;
+                return existingPaths.slice();
+            }
+        }
+
+        this._standaloneSpritePathCache[normalizedName] = candidatePaths;
+        return candidatePaths.slice();
+    },
+
+    resolveStandaloneSpritePath: function(spriteName) {
+        var candidatePaths = this.resolveStandaloneSpritePaths(spriteName);
+        return candidatePaths.length > 0 ? candidatePaths[0] : null;
     },
 
     loadStandaloneSprite: function(spriteName) {
-        var spritePath = this.resolveStandaloneSpritePath(spriteName);
-        if (!spritePath) {
+        var candidatePaths = this.resolveStandaloneSpritePaths(spriteName);
+        if (!candidatePaths || candidatePaths.length === 0) {
             return null;
         }
-        try {
-            var sprite = new cc.Sprite(spritePath);
-            var size = sprite && typeof sprite.getContentSize === 'function' ? sprite.getContentSize() : null;
-            if (sprite && size && (size.width > 0 || size.height > 0)) {
-                return sprite;
+
+        for (var i = 0; i < candidatePaths.length; i++) {
+            var spritePath = candidatePaths[i];
+            try {
+                var sprite = new cc.Sprite(spritePath);
+                var size = sprite && typeof sprite.getContentSize === 'function' ? sprite.getContentSize() : null;
+                if (sprite && size && (size.width > 0 || size.height > 0)) {
+                    return sprite;
+                }
+            } catch (e) {
+                cc.error("loadStandaloneSprite failed: " + spritePath + ", " + e);
             }
-        } catch (e) {
-            cc.error("loadStandaloneSprite failed: " + spritePath + ", " + e);
         }
         return null;
     },

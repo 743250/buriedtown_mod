@@ -28,6 +28,17 @@ var ResourceFallback = {
         return SafetyHelper.safeLoadSprite(fallbackName, null);
     },
 
+    getSpriteByName: function (spriteName, fallbackName, context) {
+        return this._loadWithFallback(spriteName, fallbackName || null, context || ("sprite:" + spriteName));
+    },
+
+    getOptionalSprite: function (spriteName) {
+        if (SafetyHelper.isEmpty(spriteName)) {
+            return null;
+        }
+        return SafetyHelper.safeLoadSprite(spriteName, null);
+    },
+
     /**
      * 获取角色头像（带默认fallback）
      */

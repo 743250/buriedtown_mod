@@ -504,6 +504,7 @@ var Formula = BuildAction.extend({
             action1Disabled: action1Disabled,
             action2: action2,
             action2Disabled: action2Disabled,
+            actionLayout: action2 ? "stacked" : "horizontal",
             percentage: 0
         };
         return res;

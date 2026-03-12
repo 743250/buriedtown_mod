@@ -1250,7 +1250,7 @@ var string = {
     },
     "p_105": {
         "name": "Military Grade Backpack ",
-        "des": "Instantly create a military backpack increasing your storage space to 60. ",
+        "des": "Instantly create a military backpack for additional carrying capacity. ",
         "effect": "Buff stays permanently after purchase."
     },
     "p_106": {
