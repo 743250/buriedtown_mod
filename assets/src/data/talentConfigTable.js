@@ -132,11 +132,11 @@ var TalentConfigTable = {
         stringId: 'p_123',
         maxLevel: 3,
         effectType: 'negotiation_discount',
-        negotiationDiscountValues: [0, 0.06, 0.12, 0.18],
+        negotiationDiscountValues: [0, 1 / 12, 1 / 6, 0.25],
         tierEffectTextList: [
-            "你开始掌握交易技巧，跨类别交易享受6%折扣",
-            "讨价还价已成习惯，你总能争取到更好的价格，折扣12%",
-            "交易大师，每笔生意都是你的主场，折扣18%"
+            "你开始掌握交易技巧，可识别NPC当前偏好物品；所有交易享受8.3%折扣",
+            "讨价还价已成习惯，你总能争取到更好的价格；可识别NPC当前偏好物品，折扣16.7%",
+            "交易大师，每笔生意都是你的主场；可识别NPC当前偏好物品，所有交易折扣25%"
         ]
     },
 

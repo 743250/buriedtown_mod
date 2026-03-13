@@ -181,6 +181,9 @@ var string = {
     "1137": "Trading items: %s",
     "1138": "Go",
     "1139": "Total number of zombies:",
+    "npc_negotiation_hint": "Negotiation intel: %s",
+    "npc_negotiation_panel_title": "Negotiation Intel",
+    "npc_negotiation_panel_subtitle": "Current Preferences",
     "1140": "You need the following items",
     "1141": "(stock: %s)",
     "1142": "New Game",
@@ -1236,7 +1239,7 @@ var string = {
     "p_123": {
         "name": "Negotiator",
         "des": "You understand the rules of barter and can always push a trade toward better terms.\\n(Permanent after unlock. Can be selected when starting a new game.)",
-        "effect": "When trading with NPCs, cross-category exchanges can get up to an 18% discount. Same-category trades get no discount."
+        "effect": "Reveals each NPC's current preferred trade items; all NPC trades can receive up to a 25% discount."
     },
     "p_124": {
         "name": "Wolverine",

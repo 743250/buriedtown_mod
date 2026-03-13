@@ -113,6 +113,7 @@ var jsList = [
     "src/ui/MapInteractionController.js",
     "src/ui/MapNode.js",
     "src/ui/ZiplineEndpointPanelController.js",
+    "src/ui/NpcNegotiationPanelController.js",
     "src/ui/siteNode.js",
     "src/ui/adSiteNode.js",
     "src/ui/workSiteNode.js",

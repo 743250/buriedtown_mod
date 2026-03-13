@@ -24,12 +24,46 @@ var NpcStorageNode = BottomFrameNode.extend({
         itemChangeNode.setPosition(this.bgRect.width / 2, 0);
         this.bg.addChild(itemChangeNode);
 
+        var favoriteDivider = new cc.DrawNode();
+        favoriteDivider.drawSegment(
+            cc.p(40, itemChangeNode.getContentSize().height + 28),
+            cc.p(this.bgRect.width - 40, itemChangeNode.getContentSize().height + 28),
+            1,
+            cc.color(118, 102, 86, 120)
+        );
+        favoriteDivider.setName("favorite_hint_divider");
+        this.bg.addChild(favoriteDivider);
+
+        var favoriteTitle = new cc.LabelTTF(
+            stringUtil.getString("npc_negotiation_panel_title") || "谈判情报",
+            uiUtil.fontFamily.normal,
+            uiUtil.fontSize.COMMON_4
+        );
+        favoriteTitle.setAnchorPoint(0, 0);
+        favoriteTitle.setPosition(40, itemChangeNode.getContentSize().height + 34);
+        favoriteTitle.setColor(UITheme.colors.TEXT_TITLE);
+        favoriteTitle.setName("favorite_hint_title");
+        this.bg.addChild(favoriteTitle);
+
+        var favoriteHint = uiUtil.createLabel("", "caption", {
+            width: this.bgRect.width - 190,
+            hAlignment: cc.TEXT_ALIGNMENT_LEFT,
+            anchorX: 0,
+            anchorY: 0,
+            color: cc.color(78, 68, 58, 255)
+        });
+        favoriteHint.setPosition(150, itemChangeNode.getContentSize().height + 8);
+        favoriteHint.setName("favorite_hint");
+        this.bg.addChild(favoriteHint);
+        this.refreshFavoriteHint();
+
     },
     onEnter: function () {
         this._super();
 
         this.onExchangeEnd = this.onExchangeEndFunc();
         utils.emitter.on("exchange_end", this.onExchangeEnd);
+        this.refreshFavoriteHint();
     },
     onExit: function () {
         this._super();
@@ -45,6 +79,46 @@ var NpcStorageNode = BottomFrameNode.extend({
 
     onClickLeftBtn: function () {
         this.back();
+    },
+    refreshFavoriteHint: function () {
+        var favoriteHint = this.bg.getChildByName("favorite_hint");
+        var favoriteTitle = this.bg.getChildByName("favorite_hint_title");
+        var favoriteDivider = this.bg.getChildByName("favorite_hint_divider");
+        if (!favoriteHint || !favoriteTitle || !favoriteDivider) {
+            return;
+        }
+
+        if (typeof TalentService === "undefined"
+            || !TalentService
+            || typeof TalentService.hasChosenTalent !== "function"
+            || !TalentService.hasChosenTalent(123)
+            || typeof this.npc.getCurrentFavoriteTradeInfo !== "function") {
+            favoriteHint.setString("");
+            favoriteHint.setVisible(false);
+            favoriteTitle.setVisible(false);
+            favoriteDivider.setVisible(false);
+            return;
+        }
+
+        var favoriteInfoList = this.npc.getCurrentFavoriteTradeInfo();
+        if (!favoriteInfoList.length) {
+            favoriteHint.setString("");
+            favoriteHint.setVisible(false);
+            favoriteTitle.setVisible(false);
+            favoriteDivider.setVisible(false);
+            return;
+        }
+
+        var favoriteText = favoriteInfoList.map(function (itemInfo) {
+            var itemString = stringUtil.getString(itemInfo.itemId) || {};
+            var itemName = itemString.title || ("ID " + itemInfo.itemId);
+            return itemName + " x" + itemInfo.price.toFixed(1);
+        }).join("，");
+
+        favoriteHint.setString(favoriteText);
+        favoriteHint.setVisible(true);
+        favoriteTitle.setVisible(true);
+        favoriteDivider.setVisible(true);
     },
     onClickRightBtn: function () {
     },

@@ -57,6 +57,16 @@ var NpcNode = BottomFrameNode.extend({
             onRefreshHeader: this.refreshSiteHeaderStats.bind(this)
         });
         this.ziplinePanelController.refresh();
+        this.negotiationPanelController = new NpcNegotiationPanelController({
+            hostNode: this.bg,
+            leftEdge: leftEdge,
+            rightEdge: rightEdge,
+            bodyFontSize: uiUtil.fontSize.COMMON_4,
+            getNpc: function () {
+                return this.npc;
+            }.bind(this)
+        });
+        this.refreshFavoriteHint();
 
         var have = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(260, 0), cc.TEXT_ALIGNMENT_CENTER);
         have.setAnchorPoint(0.5, 0);
@@ -107,6 +117,7 @@ var NpcNode = BottomFrameNode.extend({
         this.updateViewAfterNpcNeed();
         this.bg.getChildByName("trade").updateView();
         this.bg.getChildByName("heart").updateView(memoryUtil.decode(this.npc.reputation));
+        this.refreshFavoriteHint();
     },
     onClickBtn2: function () {
         this.forward(Navigation.nodeName.NPC_STORAGE_NODE, this.userData);
@@ -122,6 +133,17 @@ var NpcNode = BottomFrameNode.extend({
         if (tradeLabel && typeof tradeLabel.updateView === "function") {
             tradeLabel.updateView();
         }
+        this.refreshFavoriteHint();
+    },
+    refreshFavoriteHint: function () {
+        if (!this.negotiationPanelController) {
+            return;
+        }
+        this.negotiationPanelController.setTopY(
+            this.ziplineBaseY
+            - (this.ziplinePanelController ? this.ziplinePanelController.getRenderedHeight() + 16 : 0)
+        );
+        this.negotiationPanelController.refresh();
     },
 
     onClickLeftBtn: function () {

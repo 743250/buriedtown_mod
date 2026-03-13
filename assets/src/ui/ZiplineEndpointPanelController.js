@@ -15,6 +15,10 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         };
         this.getEntityRef = options.getEntityRef || this.getEntity;
         this.onRefreshHeader = options.onRefreshHeader || function () {};
+        this.lastRenderedHeight = 0;
+    },
+    getRenderedHeight: function () {
+        return this.lastRenderedHeight || 0;
     },
     getCurrentEntity: function () {
         return this.getEntity ? this.getEntity() : null;
@@ -23,6 +27,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         return this.getEntityRef ? this.getEntityRef() : this.getCurrentEntity();
     },
     refresh: function () {
+        this.lastRenderedHeight = 0;
         if (!this.hostNode) {
             return;
         }
@@ -50,6 +55,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         var footerInfo = this.createFooter(panelWidth);
         var footerHeight = footerInfo ? (footerInfo.height + 8) : 0;
         var panelHeight = headerHeight + rowCount * rowHeight + 10 + footerHeight;
+        this.lastRenderedHeight = panelHeight;
 
         var sectionNode = new cc.Node();
         sectionNode.setName(this.sectionName);
@@ -322,6 +328,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         player.log.addMsg(1356, homeSite ? homeSite.getName() : "家", entity ? entity.getName() : "");
         Record.saveAll();
         this.refresh();
+        this.onRefreshHeader();
     },
     onClickRemove: function (targetEntityKey) {
         if (!targetEntityKey || !this.hasHomeLink()) {
@@ -344,9 +351,9 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         } else if (result.refundTarget === "storage") {
             player.log.addMsg(stringUtil.getString("zipline_site_refund_to_site_storage") || "背包空间不足，返还材料已放入当前地点存放");
         }
-        this.onRefreshHeader();
         Record.saveAll();
         this.refresh();
+        this.onRefreshHeader();
     },
     buildTargetLabel: function (targetEntity, targetEntityKey) {
         if (!targetEntity) {

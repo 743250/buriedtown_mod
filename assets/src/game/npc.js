@@ -184,6 +184,24 @@ var NPC = BaseSite.extend({
         var rand = utils.getRandomInt(0, this.dialogs.length - 1);
         return this.dialogs[rand];
     },
+    getCurrentFavoriteTradeInfo: function () {
+        var favorite = this.favoriteList[memoryUtil.decode(this.reputation)] || [];
+        var favoriteInfoList = [];
+        var seenItemMap = {};
+        favorite.forEach(function (itemInfo) {
+            var itemId = parseInt(itemInfo.itemId);
+            var price = Number(itemInfo.price);
+            if (isNaN(itemId) || !isFinite(price) || price <= 1 || seenItemMap[itemId]) {
+                return;
+            }
+            seenItemMap[itemId] = true;
+            favoriteInfoList.push({
+                itemId: itemId,
+                price: price
+            });
+        });
+        return favoriteInfoList;
+    },
     _getTradeFavoritePrice: function (favorite, itemId) {
         var deltaPrice = 1;
         favorite.forEach(function (itemInfo) {
@@ -192,9 +210,6 @@ var NPC = BaseSite.extend({
             }
         });
         return deltaPrice;
-    },
-    _getTradeClassKey: function (item) {
-        return item.getType(0) + "_" + item.getType(1);
     },
     _getTradeSummary: function (storage) {
         var favorite = this.favoriteList[memoryUtil.decode(this.reputation)] || [];
@@ -208,8 +223,6 @@ var NPC = BaseSite.extend({
 
         var payValue = 0;
         var takeValue = 0;
-        var payClassMap = {};
-        var takeList = [];
         for (var itemId in itemIdMap) {
             var oldNum = this.storage.getNumByItemId(itemId);
             var newNum = storage.getNumByItemId(itemId);
@@ -224,29 +237,15 @@ var NPC = BaseSite.extend({
             }
             var deltaPrice = this._getTradeFavoritePrice(favorite, item.id);
             var totalValue = item.getPrice() * deltaPrice * Math.abs(deltaNum);
-            var tradeClass = this._getTradeClassKey(item);
             if (deltaNum > 0) {
                 payValue += totalValue;
-                payClassMap[tradeClass] = true;
             } else {
                 takeValue += totalValue;
-                takeList.push({
-                    tradeClass: tradeClass,
-                    value: totalValue
-                });
             }
         }
 
         var discountRate = TalentService.getNegotiationDiscount();
-        var discountableValue = 0;
-        if (discountRate > 0) {
-            takeList.forEach(function (itemInfo) {
-                if (!payClassMap[itemInfo.tradeClass]) {
-                    discountableValue += itemInfo.value;
-                }
-            });
-        }
-        var requiredPayValue = Math.max(takeValue - discountableValue * discountRate, 0);
+        var requiredPayValue = Math.max(takeValue * (1 - discountRate), 0);
 
         return {
             payValue: payValue,
