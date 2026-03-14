@@ -197,11 +197,38 @@
 
 ### 3.2 这轮计划里的统一约束
 
-1. 不改启动链。
+1. 不重排启动链；高风险入口只允许做兼容式薄改。
 2. 不新建第二套 runtime。
 3. 每一轮只收一个窄边界。
 4. 新逻辑优先收进已有服务 / 配置表，不再新增平行 helper。
 5. 只要新增一种内容类型，就同步补最小校验能力。
+
+### 3.3 高风险入口安全改法
+
+适用范围：
+
+- `assets/src/jsList.js`
+- `assets/src/game/game.js`
+- `assets/src/game/player.js`
+- `assets/src/game/site.js`
+- `assets/src/game/Build.js`
+- `assets/src/game/IAPPackage.js`
+- `assets/src/game/PurchaseService.js`
+
+统一方法：
+
+- 入口文件只做稳定外壳；新逻辑优先放到已有服务或配置入口后面，不直接在入口里堆新分支。
+- 先加兼容层，再切调用点；不允许一上来删旧逻辑、改顺序、换数据格式。
+- 先做影子运行 / 结果比对，再做行为切换；尤其是购买状态、角色映射、存档恢复这类链路。
+- 一次提交最多只允许一个高风险入口承担“行为变化”，其他入口只能做兼容配套。
+
+文件级守则：
+
+- `jsList.js` 只允许追加，不允许在同一提交里同时新增、删除、重排多个高风险脚本。
+- `game.js` 只允许抽离单个初始化步骤，不允许在同一提交里同时改初始化顺序与初始化内容。
+- `player.js` 只允许按窄职责改动：`useItem`、`save/restore`、`hourly update`、`battle` 不能混改。
+- `site.js` 与 `Build.js` 只允许先保留 fallback / 兼容口，再逐个切调用点，不允许同一提交同时改配置结构与消费逻辑。
+- `IAPPackage.js` 与 `PurchaseService.js` 只允许先做兼容映射或影子比对，不允许同一提交同时重写映射规则、UI 状态和持久化格式。
 
 ## 4. 分阶段路线
 
@@ -219,6 +246,28 @@
 - `tools/validate-content.js` 仍是唯一默认推荐的仓库验证入口
 - 不再新增随手脚本替代它
 
+### Phase 0.5: 高风险入口护栏
+
+目标：
+
+- 固定高风险入口的安全改动方式，避免再因入口联动修改触发黑屏。
+- 给启动链建立最小可重复的冒烟验证，而不是继续依赖人工点点点。
+
+主入口：
+
+- `tools/smoke-runtime-boundaries.js`
+- `tools/smoke-startup.js`（最小启动链冒烟）
+
+完成定义：
+
+- 对这 7 个入口文件形成明确的允许改法与禁止组合。
+- 改动任一高风险入口前后，都能跑最小仓库级 smoke。
+- 启动链至少覆盖 `jsList` 装载、`game.init()`、`MenuScene / ChooseScene / MainScene` 的可达性检查。
+- 后续再做 `Phase 2+` 时，默认先过护栏，再谈业务重构。
+
+优先级说明：
+
+- 这不是业务价值最高的一刀，但它决定后续重构会不会再次被黑屏打断。
 ### Phase 1: 内容校验覆盖扩展
 
 目标：
@@ -285,6 +334,13 @@
 - 背包 / 特殊解锁 / 角色标签相关的动作门槛尽量从 `Build.js` 挪到可配置或集中注册的位置
 - 新增一个普通建筑动作时，默认不需要再改 `buildAction.js` 的旧分支骨架
 - `BuildActionEffectService.js` 继续作为通用定时动作入口，而不是只抽一半停住
+
+执行颗粒度：
+
+- 每一步只处理 1 个明确规则点，不在同一步同时收多个建筑 / 动作特例。
+- `Build.js` 与 `buildAction.js` 不在同一步同时承担行为变化；如果必须联动，另一侧只能做兼容壳、配置映射或 smoke 补强。
+- 优先先收“读取口 / 判定口”，再收“写入 / 产出流程”，避免一刀同时改读写。
+- 每一步都必须对应到 1 个清晰人工验证场景，验证不过就不进入下一步。
 
 ### Phase 3: 角色 / 天赋边界定型
 
@@ -381,11 +437,35 @@
 
 - `node tools/validate-content.js all --lang zh`
 - `node tools/validate-content.js all --lang en`
+- `node tools/smoke-runtime-boundaries.js`
+- `node tools/smoke-startup.js`（高风险入口改动时默认执行）
 - 后续补充：
   - `build`
   - `build-action`
   - 必要时补 `role-runtime`
 - 针对改动文件做最小语法检查
+
+### 单步推进协议
+
+- 从现在开始，默认采用“做 1 步 -> 自动校验 -> 你人工验证 -> 再进入下一步”的节奏。
+- 每一步的工作量上限：
+  - 只允许 1 个明确行为变化点。
+  - 最多只允许 1 个高风险入口文件承担行为变化。
+  - 最多带 1 个配套文件（配置、smoke 或校验）一起改。
+- 每一步完成后固定执行：
+  - `node tools/smoke-runtime-boundaries.js`
+  - `node tools/smoke-startup.js`
+  - 如果改了 `Build.js` / `buildAction.js` / `buildConfig.js` / `buildActionConfig.js`，再补 `node tools/validate-content.js links build --lang zh`
+  - 如果改动直接涉及建筑动作配置，再补 `node tools/validate-content.js links build-action --lang zh`
+  - 若改动碰到文案或跨语言配置，再补对应的 `--lang en`
+- 每一步结束标准：
+  - 自动校验通过。
+  - 明确写出本步人工验证清单。
+  - 停在当前步，等待你回报“通过 / 失败 / 现象”。
+- 任何一步人工验证失败：
+  - 不进入下一步。
+  - 只允许在当前步内修复，或直接回退当前步。
+- 默认采用“1 步 1 提交”的粒度，便于快速定位和回退。
 
 ### 内容扩展专项回归
 
@@ -402,29 +482,143 @@
 - 只有当本轮真的改动地图 / 商店链时才做完整人工回归
 - 对纯内容扩展，不再默认把地图 / 商店作为第一优先回归项
 
-## 6. 当前下一步
+## 6. 当前真实状态与下一步
 
-这一轮已经把 `Phase 1` 的仓库级校验主入口补到位：
+这部分以当前 `HEAD` 的真实代码为准，不再沿用已被回退提交影响的阶段描述。
 
-- `tools/validate-content.js` 已覆盖 `build` / `build-action`
-- `role` 校验已补上 `roomBuilds / unlockSites / unlockNpcs / specialItems / zipline` 这类运行时配置边界
-- `all` 默认检查现在会把建筑链一起纳入
+### 6.1 当前阶段状态
 
-这一轮已经完成 `Phase 2` 的第一刀：
+#### `Phase 0`
 
-- `Build.js` 不再自己维护那几组背包 / 购买动作显隐硬编码
-- 动作锁定态与显隐规则已统一收口到 `RoleRuntimeService.js`
-- 已为一批特殊配方补上动作级 `runtimeRule`，后续新增同类内容可以优先改动作配置
+- 可视为已完成。
+- `PLAN.md` 已切到“围绕新增人物 / 天赋 / 物品 / 建筑 / 机制”的真实开发目标。
+- `tools/validate-content.js` 仍是默认仓库级校验主入口。
 
-所以下一轮不再继续做第一刀收口，而是直接进入建筑动作链的第二刀。
+#### `Phase 0.5`
 
-具体顺序：
+- 已完成第二层最小护栏，但还没有完全收口。
+- `tools/smoke-runtime-boundaries.js` 已落地，可覆盖语法、运行时上下文和 `jsList` / 模块边界 smoke。
+- `tools/smoke-startup.js` 已落地，可覆盖 `project.json -> preloading.js -> game.init/start -> MenuScene/MainScene/ChooseScene` 的最小启动链契约。
+- 这两类 smoke 仍不替代完整场景人工回归，但已经能拦住一批入口联动导致的黑屏与断链问题。
+- 结论：后续所有高风险入口改动，默认先过这两层 smoke，再进入业务改动。
 
-1. 先做 `Phase 2` 的第二刀：继续把 `buildAction.js` 里可复用的定时效果动作往 `BuildActionEffectService.js` 收。
-2. 然后继续清理建筑动作链里仍按动作类型 / 特例散落的旧分支。
-3. 等建筑 / 动作链明显稳定后，再进入 `Phase 3`，处理角色 / 天赋与旧购买兼容的边界问题。
-4. 地图 / 购买链继续维持“按需回归，不主动深挖”的优先级。
+#### `Phase 1`
+
+- 当前可视为已完成。
+- `tools/validate-content.js` 已覆盖 `build` / `build-action`。
+- `role` 校验已覆盖 `roomBuilds / unlockSites / unlockNpcs / specialItems / zipline` 等运行时配置边界。
+- `node tools/validate-content.js all` 当前通过，可作为内容扩展的基线检查。
+
+#### `Phase 2`
+
+- 仍在进行中，不能再写成“第一刀已经完成”。
+- 之前一部分建筑 / 动作链收口尝试已随黑屏问题相关提交回退，当前代码里仍保留大量旧式硬编码边界。
+- 这一轮已完成多组安全切口：`jin` / `luo` / `stranger` / `king` / `jie` / `yazi` / `bier` 这类角色标签动作显隐规则，以及 `powered` 这类运行时条件规则，已从 `RoleRuntimeService.js` 迁到 `formulaConfig.js`，并由 smoke 固定行为。
+- 目前真实状态是：
+  - `Build.js` 里仍有建筑特例与直接运行时访问。
+  - `RoleRuntimeService.js` 顶部硬编码显隐分组已清空，动作显隐主流程现在主要走配置规则。
+  - `buildAction.js` 虽已抽出 `BuildActionEffectService.js`，但还没有把旧分支骨架真正降到次要地位。
+
+#### `Phase 3`
+
+- 还不应正式展开。
+- 当前主要阻塞点不是“没想清楚怎么做”，而是 `Phase 2` 没收住前，角色 / 天赋边界改造仍容易和购买兼容、UI 调用、旧全局逻辑交叉爆炸。
+
+### 6.2 当前最主要的阻碍
+
+1. **混合架构阻碍局部开发**
+   - 现在同时存在脚本加载顺序驱动、全局单例驱动、局部服务化三套组织方式。
+   - 新增一个内容点时，仍经常需要先判断“到底应该改配置、改服务、还是改旧全局文件”。
+
+2. **建筑 / 动作链仍是当前第一阻碍**
+   - 这条链直接决定后续加建筑、加动作、加角色特定动作时会不会继续全仓库扩散。
+   - 如果这里不继续收口，后续内容扩展还会不断回流到 `Build.js` / `RoleRuntimeService.js` / `buildAction.js`。
+
+3. **UI 仍然承担业务编排职责**
+   - `uiUtil.js`、`dialog.js` 仍直接碰 `player`、战斗、购买、天赋与建筑逻辑。
+   - 这会导致很多本应是“内容或服务层”的改动，最后仍要回头补 UI 旧分支。
+
+4. **角色 / 天赋边界仍被旧购买兼容链牵制**
+   - `role.js` fallback、`TalentService.js` 兼容职责、`IAPPackage.js` / `PurchaseService.js` 的角色天赋解锁语义还没有彻底拆清。
+   - 所以“加人物 / 加天赋”虽然已经比过去好，但仍未达到真正局部修改。
+
+5. **高风险入口仍然脆弱**
+   - `assets/src/jsList.js`
+   - `assets/src/game/game.js`
+   - `assets/src/game/player.js`
+   - `assets/src/game/site.js`
+   - `assets/src/game/Build.js`
+   - `assets/src/game/IAPPackage.js`
+   - `assets/src/game/PurchaseService.js`
+   - 这些文件仍要继续遵守“兼容式薄改、一次提交只让一个入口承担行为变化”的规则。
+
+### 6.3 更新后的执行顺序（一步一验版）
+1. **固定护栏：后续每一步都先过 smoke**
+   - 高风险入口改动默认先过 `node tools/smoke-runtime-boundaries.js` 与 `node tools/smoke-startup.js`。
+   - 这一步不再作为“待补任务”，而是后续每个微步骤的固定前置门槛。
+
+2. **`Step 2.1`：`Build.js` 并发动作上限单点收口**
+   - 范围上限：`assets/src/game/Build.js` + 1 个配套文件。
+   - 只处理 `getConcurrentActionLimit()` 里 `id === 2` 的特例，不顺手改其他动作逻辑。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build --lang zh`
+   - 人工验证：`id === 2` 建筑升级后仍可同时占用 2 个动作槽，其余建筑仍保持 1 个。
+
+3. **`Step 2.2`：`Build.js` 通电状态读取口统一**
+   - 范围上限：`assets/src/game/Build.js` + 1 个配套文件。
+   - 只处理 `ElectricStoveBuild.isActive()` 与 `ElectricFenceBuild.isActive()` 对 `player.map.getSite(WORK_SITE)` 的直连访问。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build --lang zh`
+   - 人工验证：工作站通电 / 断电时，这两个建筑的激活状态与现有表现一致。
+
+4. **`Step 2.3`：`Build.js` 角色类型读取口统一**
+   - 范围上限：`assets/src/game/Build.js` + 1 个配套文件。
+   - 只处理 `RestBuild.initBuildActions()` 与 `Room.init()` 内的 `player.roleType` 读取。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build --lang zh`
+   - 人工验证：不同角色进入房间后，休息建筑动作列表与房间初始建筑状态保持不变。
+
+5. **`Step 2.4`：`buildAction.js` 批量制作上限读口收口**
+   - 范围上限：`assets/src/game/buildAction.js` + 1 个配套文件。
+   - 只处理 `Formula.getMaxBatchCraftCount()` 里的背包读取，不提前改制作流程。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build-action --lang zh`
+   - 人工验证：支持批量制作的公式动作，最大批次数与背包材料数量保持一致。
+
+6. **`Step 2.5`：`buildAction.js` 单次制作入口复用 `_runMakeAction(1)`**
+   - 范围上限：`assets/src/game/buildAction.js` + 1 个配套文件。
+   - 只处理 `Formula.clickAction1()` 在 `step === 0` 时的制作入口，让单次制作与批量制作共用同一条启动路径。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build-action --lang zh`
+   - 人工验证：普通配方的单次制作、批量制作入口都能正常开始，材料扣除与产出不变。
+
+7. **`Step 2.6`：`TrapBuildAction` 复用 `Formula` 的制作启动路径**
+   - 范围上限：`assets/src/game/buildAction.js` + 1 个配套文件。
+   - 只处理 `TrapBuildAction.clickAction1()` 在 `step === 0` 时的启动分支，不改领取产出逻辑。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build-action --lang zh`
+   - 人工验证：陷阱类建筑的放置、等待、领取三段流程保持原样。
+
+8. **`Step 2.7`：`DogBuildAction` 单类收口**
+   - 范围上限：`assets/src/game/buildAction.js` + 1 个配套文件。
+   - 只处理 `DogBuildAction` 的运行时读取 / 写入口，不顺手改其他动作类。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build-action --lang zh`
+   - 人工验证：喂狗动作、提示文案与可用状态保持一致。
+
+9. **`Step 2.8`：`BombBuildAction` 单类收口**
+   - 范围上限：`assets/src/game/buildAction.js` + 1 个配套文件。
+   - 只处理 `BombBuildAction` 的激活状态读写，不顺手改狗舍或篝火逻辑。
+   - 自动校验：两层 smoke + `node tools/validate-content.js links build-action --lang zh`
+   - 人工验证：炸弹可激活、重复激活拦截、读档恢复状态三条路径保持一致。
+
+10. **`Step 2.9`：`BonfireBuildAction` 单类收口**
+    - 范围上限：`assets/src/game/buildAction.js` + 1 个配套文件。
+    - 只处理篝火燃料 / 计时 / 温度更新这一类运行时边界，不与其他动作类合并。
+    - 自动校验：两层 smoke + `node tools/validate-content.js links build-action --lang zh`
+    - 人工验证：加燃料、燃尽、温度变化、读档恢复保持一致。
+
+11. **`Phase 2` 连续稳定后，再进入 `Phase 3`**
+    - 届时再处理 `role.js` fallback、`TalentService.js` 兼容边界、`IAPPackage.js` / `PurchaseService.js` 的职责收缩。
+    - 购买链不作为当前主线单独深挖，但作为角色 / 天赋边界整顿时的配套阻塞项必须处理。
+
+12. **地图 / 站点继续维持按需优先级**
+    - 除非下一阶段目标直接要求新增站点类型、旅行规则或地图交互，否则不主动把主精力转到地图链。
+
 
 一句话版：
+- **`Phase 0.5` 第二层护栏已固定为默认前置；接下来按 `Step 2.1 -> Step 2.9` 的节奏，一次只动一个行为点，每做一步就先过 smoke、再做人工验证。**
 
-- **Phase 1 已补完，Phase 2 第一刀已落地；下一步继续收 `buildAction.js`，再碰角色 / 天赋兼容。**
