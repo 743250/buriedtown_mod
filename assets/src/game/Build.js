@@ -146,10 +146,7 @@ var Build = cc.Class.extend({
         return this.level < 0;
     },
     _getRoleType: function () {
-        if (player && player.roleType !== undefined && player.roleType !== null) {
-            return player.roleType;
-        }
-        return role.getChoosenRoleType();
+        return Build.getRuntimeRoleType();
     },
     _hasStorageItem: function (itemId) {
         return player.storage.validateItem(itemId, 1);
@@ -337,6 +334,10 @@ var Build = cc.Class.extend({
     }
 });
 
+Build.getRuntimeRoleType = function () {
+    return RoleRuntimeService._normalizeRoleType(player && player.roleType);
+};
+
 var TrapBuild = Build.extend({
     ctor: function (bid, level, saveObj) {
         this._super(bid, level, saveObj);
@@ -369,8 +370,7 @@ var RestBuild = Build.extend({
         this.actions.push(new SmokeBuildAction(this.id, this.level, 3));
         this.actions.push(new SmokeBuildAction(this.id, this.level, 4));
         this.actions.push(new SmokeBuildAction(this.id, this.level, 5));
-        var roleType = player ? player.roleType : null;
-        var restActionTypes = RoleRuntimeService.getRestActionTypes(roleType);
+        var restActionTypes = RoleRuntimeService.getRestActionTypes(this._getRoleType());
         restActionTypes.forEach(function (actionType) {
             if (actionType === "drink") {
                 this.actions.push(new DrinkBuildAction(this.id, this.level));
@@ -432,7 +432,7 @@ var ElectricStoveBuild = Build.extend({
     initBuildActions: function () {
     },
     isActive: function () {
-        return player.map.getSite(WORK_SITE).isActive;
+        return this._isWorkSitePowered();
     }
 });
 
@@ -443,7 +443,7 @@ var ElectricFenceBuild = Build.extend({
     initBuildActions: function () {
     },
     isActive: function () {
-        return player.map.getSite(WORK_SITE).isActive;
+        return this._isWorkSitePowered();
     }
 });
 
@@ -467,7 +467,7 @@ var Room = cc.Class.extend({
         //狗舍
         this.createBuild(12, -1);
 
-        RoleRuntimeService.applyRoomBuildStates(this, player.roleType);
+        RoleRuntimeService.applyRoomBuildStates(this, Build.getRuntimeRoleType());
 
         //仓库
         this.createBuild(13, 0);

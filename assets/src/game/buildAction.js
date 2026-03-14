@@ -258,7 +258,7 @@ var Formula = BuildAction.extend({
             if (needNum <= 0) {
                 return;
             }
-            var haveNum = player.getItemNumInPlayer(itemInfo.itemId);
+            var haveNum = getBuildActionRuntimePlayer().getItemNumInPlayer(itemInfo.itemId);
             maxCount = Math.min(maxCount, Math.floor(haveNum / needNum));
         });
         if (!isFinite(maxCount) || maxCount < 0) {
@@ -313,6 +313,21 @@ var Formula = BuildAction.extend({
         }
         return this._mergeItemList(produceList);
     },
+    _grantImmediateMakeProduce: function (makeCount, itemInfo) {
+        var self = this;
+        var produce = self._buildMakeProduce(makeCount);
+        return BuildActionEffectService.grantProducedItems(self, produce, {
+            achievementMethod: "checkMake",
+            logMessageId: 1090,
+            fallbackItemInfo: itemInfo,
+            afterGrant: function (runtimePlayer) {
+                if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
+                    userGuide.step();
+                    runtimePlayer.room.createBuild(14, 0);
+                }
+            }
+        });
+    },
     _runMakeAction: function (makeCount) {
         makeCount = Math.max(1, parseInt(makeCount, 10) || 1);
         if (makeCount > 1 && !this.supportsBatchCraft()) {
@@ -343,19 +358,7 @@ var Formula = BuildAction.extend({
                 self._finishActioning({resetBuildBtn: false});
             } else {
                 player.costItems(scaledCost);
-
-                var produce = self._buildMakeProduce(makeCount);
-                BuildActionEffectService.grantProducedItems(self, produce, {
-                    achievementMethod: "checkMake",
-                    logMessageId: 1090,
-                    fallbackItemInfo: itemInfo,
-                    afterGrant: function (runtimePlayer) {
-                        if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
-                            userGuide.step();
-                            runtimePlayer.room.createBuild(14, 0);
-                        }
-                    }
-                });
+                self._grantImmediateMakeProduce(makeCount, itemInfo);
             }
         });
         return true;
@@ -370,12 +373,12 @@ var Formula = BuildAction.extend({
         if (!uiUtil.checkVigour())
             return;
         var itemInfo = this.config.produce[0];
-        var itemName = stringUtil.getString(itemInfo.itemId).title;
         if (this.step == 0) {
-            if (this.build && !this.build.canUseAction(this.getActionKey())) {
-                return;
+            if (this._runMakeAction(1)) {
+                this._sendUpdageSignal();
             }
-            this._beginActioning();
+            return;
+            /* Legacy single-craft path kept commented during Phase 2 batch B refactor.
 
 
             //2. 制作
@@ -414,6 +417,7 @@ var Formula = BuildAction.extend({
                     });
                 }
             });
+            */
         } else {
             var produce = BuildActionEffectService.buildPlacedProduce(this, {
                 applyGreenhouseBonus: this.bid == 2,
@@ -540,10 +544,13 @@ var TrapBuildAction = Formula.extend({
             return;
 
         var itemInfo = this.config.produce[0];
-        var itemName = stringUtil.getString(itemInfo.itemId).title;
 
         if (this.step == 0) {
-            this._beginActioning();
+            if (this._runMakeAction(1)) {
+                this._sendUpdageSignal();
+            }
+            return;
+            /* Legacy trap start path kept commented during Phase 2 batch B refactor.
 
             //2. 制作
             var time = this.config["makeTime"];
@@ -569,6 +576,7 @@ var TrapBuildAction = Formula.extend({
                     });
                 }
             });
+            */
         } else {
             var produce = BuildActionEffectService.buildPlacedProduce(this);
             BuildActionEffectService.grantProducedItems(this, produce, {
@@ -583,6 +591,11 @@ var TrapBuildAction = Formula.extend({
     },
     getPlacedTxt: function (time) {
         return stringUtil.getString(1154);
+    },
+    _grantImmediateMakeProduce: function (makeCount, itemInfo) {
+        return BuildActionEffectService.grantProducedItems(this, this.config.produce, {
+            finishOptions: undefined
+        });
     },
     _getUpdateViewInfo: function () {
         var iconName = "#build_action_" + this.id + "_0" + ".png";
