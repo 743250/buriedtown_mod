@@ -139,10 +139,8 @@ var Build = cc.Class.extend({
         }
     },
     getConcurrentActionLimit: function () {
-        if (this.id === 2 && this.level >= 1) {
-            return 2;
-        }
-        return 1;
+        var configuredLimit = this.currentConfig && parseInt(this.currentConfig.concurrentActionLimit, 10);
+        return configuredLimit > 0 ? configuredLimit : 1;
     },
     needBuild: function () {
         return this.level < 0;
