@@ -170,14 +170,16 @@
 
 1. **批次 A：`Build.js` 读取口收口**
    - ~~`Step 2.1`：并发动作上限单点收口~~ ✅ 已完成（`concurrentActionLimit` 已迁到 `buildConfig`）
-   - `Step 2.2`：通电状态读取口统一
-   - `Step 2.3a`：休息动作角色读取口统一
-   - `Step 2.3b`：`Room.init()` 角色读取口统一
+   - ~~`Step 2.2`：通电状态读取口统一~~ ✅ 已完成（电炉 / 电网的激活条件已迁到 `buildConfig.requirePoweredWorksite`）
+   - ~~`Step 2.3a`：休息动作角色读取口统一~~ ✅ 已完成（`RestBuild` 改为复用 `BuildActionFactory.createRestActions()`）
+   - ~~`Step 2.3b`：`Room.init()` 角色读取口统一~~ ✅ 已完成（`RoleRuntimeService.applyRoomBuildStates()` 改为内部兜底当前角色）
+   - ~~`批次 A` 收尾：`_getMaxLevel()` / 动作显隐角色读取口完全退出 `Build.js`~~ ✅ 已完成（`Build.js` 已不再直接读取当前角色）
 
 2. **批次 B：建立通用动作注册模式（Phase 2 的架构关键批次）**
-   - `Step 2.4`：批量制作上限读口收口
-   - `Step 2.5`：单次制作入口复用 `_runMakeAction(1)`
-   - `Step 2.6`：`TrapBuildAction` 复用 `Formula` 的制作启动路径
+   - ~~`Step 2.4`：批量制作上限读口收口~~ ✅ 已完成（`Formula.getMaxBatchCraftCount()` 已统一走 `config.batchCount` 读口）
+   - ~~`Step 2.5`：单次制作入口复用 `_runMakeAction(1)`~~ ✅ 已完成（`Formula.clickAction1()` 已只保留 `_runMakeAction(1)` 启动路径）
+   - ~~`Step 2.6`：`TrapBuildAction` 复用 `Formula` 的制作启动路径~~ ✅ 已完成（陷阱已改为复用 `Formula.clickAction1()` / `place()`，只覆写差异钩子）
+   - ~~`批次 B` 收尾：把 `Formula` / `createTimedEffectBuildAction` 提炼为显式动作类型注册入口~~ ✅ 已完成（`BuildActionTypeRegistry` 已接管 `formula` / `rest` / `smoke` / `drink` / `drink_tea`）
    - **设计目标**：批次 B 的产出不只是"复用代码"，而是**验证并确立一个通用的动作类型注册模式**。这个模式应该回答：新增一种动作类型时，需要提供什么（配置 shape + 行为钩子），框架负责什么（save/restore/生命周期/UI 接入）。`createTimedEffectBuildAction` 工厂和 `Formula` 类是这个模式的两个已有参照。
 
 3. **批次 C：迁移轻量特例到通用模式**
@@ -853,13 +855,16 @@
 
 #### `Phase 2`
 
-- 仍在进行中，当前处于**批次 A**（`Build.js` 读取口迁出）。
+- 仍在进行中，**批次 A**、**批次 B** 已完成，下一步进入**批次 C**。
 - 已完成的工作：
   - `RoleRuntimeService._buildActionVisibilityGroups` 已清空 ✅ 角色标签和运行时条件规则已迁到 `formulaConfig.runtimeRule`。
   - `Step 2.1`：`concurrentActionLimit` 已迁到 `buildConfig` ✅（commit `5b4a493`）。
+  - `Step 2.2`：电炉 / 电网的通电激活读取口已迁到 `buildConfig.requirePoweredWorksite`，`Build.js` 不再保留对应空壳子类 ✅。
+  - `Step 2.3a` / `Step 2.3b`：休息动作与 `Room.init()` 的角色读取口已迁到服务 / 动作工厂侧；`Build.js` 不再直接取当前角色来拼休息动作或初始化房间建筑 ✅。
+  - `批次 A` 收尾：`_getMaxLevel()` 与动作显隐的角色读取已改为服务内部兜底；`Build.js` 已清空当前角色读取口 ✅。
+  - `Step 2.4` / `Step 2.5` / `Step 2.6`：批量制作上限、单次制作启动路径、陷阱制作启动路径都已收进 `Formula` 主路径；`TrapBuildAction` 只保留差异钩子 ✅。
+  - `批次 B` 收尾：`BuildActionTypeRegistry` 已建立，`Build.js` 默认公式动作和休息类动作都已改为通过显式动作类型入口创建 ✅。
 - 当前剩余工作（按批次）：
-  - **批次 A**（机械性）：`Build.js` 读取口继续迁出（`_isWorkSitePowered()`、`_getMaxLevel()` 等），下一步是 `Step 2.2`。
-  - **批次 B**（架构关键）：在 `buildAction.js` 中建立通用动作注册模式——这是 Phase 2 的核心交付物。
   - **批次 C/D**（模式验证）：把 Dog / Bomb / Bonfire 迁移到通用模式。
 - 核心判断变化：Phase 2 的瓶颈已从"三个文件都很乱"收窄到"`buildAction.js` 没有可扩展的动作注册机制"这一个点。`RoleRuntimeService` 的主要阻碍已解除。
 
@@ -872,8 +877,7 @@
 
 当前阻碍和执行顺序见第 `3` 节和第 `4` 节，不在此重复。
 
-Phase 2 批次细化拆解见第 `5` 节。当前处于**批次 A**，`Step 2.1` 已完成，下一步是 `Step 2.2`（通电状态读取口统一）。
+Phase 2 批次细化拆解见第 `5` 节。当前**批次 A**、**批次 B** 已完成，下一步进入**批次 C**，从 `Step 2.7`（`DogBuildAction` 迁移到通用模式）开始。
 
 一句话版：
 - **总路线是 `Phase 0.5 护栏常驻 -> Phase 2 建立动作注册机制 -> Phase 3 角色天赋 -> Phase 4 特殊物品/武器 -> Phase 5 解锁兑换兼容 -> Phase 6 按需插队`；Phase 2 的核心交付物是通用动作类型注册机制（批次 B），批次 A 是前置清场，批次 C/D 是模式验证和迁移。**
-

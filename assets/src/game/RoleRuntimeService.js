@@ -194,6 +194,11 @@ var RoleRuntimeService = {
     },
 
     getBuildMaxLevel: function (roleType, buildId, defaultMaxLevel) {
+        if (arguments.length < 3) {
+            defaultMaxLevel = buildId;
+            buildId = roleType;
+            roleType = undefined;
+        }
         buildId = Number(buildId);
         var buildLevelCaps = this.getRuntimeConfig(roleType).buildLevelCaps || {};
         if (buildLevelCaps.hasOwnProperty(buildId)) {

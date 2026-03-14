@@ -682,6 +682,26 @@ var ContentBlueprint = {
                     }
                     return true;
                 }
+            },
+            {
+                name: "建筑运行时激活条件配置",
+                file: "data/buildConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildConfig(id);
+                    if (!Array.isArray(configs) || configs.length === 0) {
+                        return false;
+                    }
+                    for (var i = 0; i < configs.length; i++) {
+                        if (configs[i].requirePoweredWorksite === undefined) {
+                            continue;
+                        }
+                        if (typeof configs[i].requirePoweredWorksite !== "boolean") {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
             }
         ]
     },

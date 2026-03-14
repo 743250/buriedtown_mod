@@ -183,6 +183,23 @@ var BuildAction = cc.Class.extend({
     }
 });
 
+var BuildActionTypeRegistry = {
+    _types: {},
+    register: function (type, definition) {
+        if (!type || !definition || typeof definition.create !== "function") {
+            return;
+        }
+        this._types[type] = definition;
+    },
+    create: function (type, options) {
+        var definition = this._types[type];
+        if (!definition || typeof definition.create !== "function") {
+            return null;
+        }
+        return definition.create(options || {});
+    }
+};
+
 var createTimedEffectBuildAction = function (options) {
     return BuildAction.extend({
         ctor: function (bid, level, actionIndex) {
@@ -221,7 +238,6 @@ var Formula = BuildAction.extend({
         this.needBuild = null;
         this.step = 0;
         this.maxStep = this.config["placedTime"] ? 2 : 1;
-        this.batchCount = 5;
     },
     save: function () {
         return {step: this.step, pastTime: this.pastTime};
@@ -239,7 +255,8 @@ var Formula = BuildAction.extend({
         uiUtil.showItemDialog(this.config.produce[0].itemId, true);
     },
     getBatchCount: function () {
-        return Math.max(2, parseInt(this.batchCount, 10) || 5);
+        var configuredBatchCount = this.config && parseInt(this.config.batchCount, 10);
+        return configuredBatchCount >= 2 ? configuredBatchCount : 5;
     },
     supportsBatchCraft: function () {
         return !this.config["placedTime"];
@@ -250,7 +267,7 @@ var Formula = BuildAction.extend({
         }
         var cost = this.config.cost || [];
         if (cost.length === 0) {
-            return 99;
+            return this.getBatchCount();
         }
         var maxCount = Number.MAX_SAFE_INTEGER;
         cost.forEach(function (itemInfo) {
@@ -264,7 +281,7 @@ var Formula = BuildAction.extend({
         if (!isFinite(maxCount) || maxCount < 0) {
             return 0;
         }
-        return Math.min(99, maxCount);
+        return Math.min(this.getBatchCount(), maxCount);
     },
     _scaleItemList: function (itemList, count) {
         count = Math.max(1, parseInt(count, 10) || 1);
@@ -363,10 +380,19 @@ var Formula = BuildAction.extend({
         });
         return true;
     },
-    place: function () {
-        BuildActionEffectService.startPlacedTimer(this, {
+    _buildPlacedTimerOptions: function () {
+        return {
             itemInfo: this.config.produce[0],
             placedTime: this.config["placedTime"] * 60
+        };
+    },
+    place: function () {
+        BuildActionEffectService.startPlacedTimer(this, this._buildPlacedTimerOptions());
+    },
+    _buildPlacedProduce: function () {
+        return BuildActionEffectService.buildPlacedProduce(this, {
+            applyGreenhouseBonus: this.bid == 2,
+            rollCraftProduce: true
         });
     },
     clickAction1: function () {
@@ -378,51 +404,8 @@ var Formula = BuildAction.extend({
                 this._sendUpdageSignal();
             }
             return;
-            /* Legacy single-craft path kept commented during Phase 2 batch B refactor.
-
-
-            //2. 制作
-            var time = this.config["makeTime"];
-            time *= 60;
-            var self = this;
-            this.addTimer(time, time, function () {
-                self.step++;
-                if (self.step == self.maxStep) {
-                    self.step = 0;
-                }
-                if (self.step == 1) {
-                    //1. cost成功
-                    player.costItems(self.config.cost);
-                    self.place();
-                    self._finishActioning({resetBuildBtn: false});
-                } else {
-
-                    //1. cost成功
-                    player.costItems(self.config.cost);
-
-                    //非放置类的,第一次进度完成即获取物品
-                    var produce = (typeof ItemRuntimeService !== "undefined" && ItemRuntimeService && ItemRuntimeService.rollCraftProduce)
-                        ? ItemRuntimeService.rollCraftProduce(self.config.produce)
-                        : utils.clone(self.config.produce);
-                    BuildActionEffectService.grantProducedItems(self, produce, {
-                        achievementMethod: "checkMake",
-                        logMessageId: 1090,
-                        fallbackItemInfo: itemInfo,
-                        afterGrant: function (runtimePlayer) {
-                            if (self.build.id === 1 && userGuide.isStep(userGuide.stepName.TOOL_ALEX)) {
-                                userGuide.step();
-                                runtimePlayer.room.createBuild(14, 0);
-                            }
-                        }
-                    });
-                }
-            });
-            */
         } else {
-            var produce = BuildActionEffectService.buildPlacedProduce(this, {
-                applyGreenhouseBonus: this.bid == 2,
-                rollCraftProduce: true
-            });
+            var produce = this._buildPlacedProduce();
             BuildActionEffectService.grantProducedItems(this, produce, {
                 achievementMethod: "checkProduce",
                 logMessageId: 1092,
@@ -516,6 +499,16 @@ var Formula = BuildAction.extend({
     }
 });
 
+BuildActionTypeRegistry.register("formula", {
+    create: function (options) {
+        var action = new Formula(options.actionId, options.bid);
+        if (options.needBuild) {
+            action.needBuild = options.needBuild;
+        }
+        return action;
+    }
+});
+
 var TrapBuildAction = Formula.extend({
     ctor: function (bid) {
         this.isActioning = false;
@@ -529,68 +522,21 @@ var TrapBuildAction = Formula.extend({
     clickIcon: function () {
         uiUtil.showBuildActionDialog(this.bid, 0);
     },
-    place: function () {
+    _buildPlacedTimerOptions: function () {
         var placedTimes = this.config["placedTime"];
         var time = utils.getRandomInt(placedTimes[0], placedTimes[1]);
-        BuildActionEffectService.startPlacedTimer(this, {
+        return {
             itemInfo: this.config.produce[0],
             eventId: this.id,
             placedTime: time * 60,
             totalTime: placedTimes[1] * 60
-        });
-    },
-    clickAction1: function () {
-        if (!uiUtil.checkVigour())
-            return;
-
-        var itemInfo = this.config.produce[0];
-
-        if (this.step == 0) {
-            if (this._runMakeAction(1)) {
-                this._sendUpdageSignal();
-            }
-            return;
-            /* Legacy trap start path kept commented during Phase 2 batch B refactor.
-
-            //2. 制作
-            var time = this.config["makeTime"];
-            time *= 60;
-            var self = this;
-            this.addTimer(time, time, function () {
-                self.step++;
-                if (self.step == self.maxStep) {
-                    self.step = 0;
-                }
-                if (self.step == 1) {
-                    //1. cost成功
-                    player.costItems(self.config.cost);
-                    self.place();
-                    self._finishActioning({resetBuildBtn: false});
-                } else {
-                    //1. cost成功
-                    player.costItems(self.config.cost);
-
-                    //非放置类的,第一次进度完成即获取物品
-                    BuildActionEffectService.grantProducedItems(self, self.config.produce, {
-                        finishOptions: undefined
-                    });
-                }
-            });
-            */
-        } else {
-            var produce = BuildActionEffectService.buildPlacedProduce(this);
-            BuildActionEffectService.grantProducedItems(this, produce, {
-                achievementMethod: "checkProduce",
-                logMessageId: 1092,
-                fallbackItemInfo: itemInfo,
-                resetStep: 0,
-                finishOptions: {enableLeftBtn: false}
-            });
-        }
-        this._sendUpdageSignal();
+        };
     },
     getPlacedTxt: function (time) {
         return stringUtil.getString(1154);
+    },
+    _buildPlacedProduce: function () {
+        return BuildActionEffectService.buildPlacedProduce(this);
     },
     _grantImmediateMakeProduce: function (makeCount, itemInfo) {
         return BuildActionEffectService.grantProducedItems(this, this.config.produce, {
@@ -761,22 +707,43 @@ var SmokeBuildAction = createTimedEffectBuildAction({
     }
 });
 
+BuildActionTypeRegistry.register("rest", {
+    create: function (options) {
+        return new RestBuildAction(options.bid, options.level);
+    }
+});
+BuildActionTypeRegistry.register("drink", {
+    create: function (options) {
+        return new DrinkBuildAction(options.bid, options.level);
+    }
+});
+BuildActionTypeRegistry.register("drink_tea", {
+    create: function (options) {
+        return new DrinkTeaBuildAction(options.bid, options.level);
+    }
+});
+BuildActionTypeRegistry.register("smoke", {
+    create: function (options) {
+        return new SmokeBuildAction(options.bid, options.level, options.actionIndex);
+    }
+});
+
 var BuildActionFactory = {
+    createActionByType: function (actionType, options) {
+        return BuildActionTypeRegistry.create(actionType, options);
+    },
     createRestActionByType: function (actionType, bid, level) {
-        if (actionType === "drink") {
-            return new DrinkBuildAction(bid, level);
-        }
-        if (actionType === "drink_tea") {
-            return new DrinkTeaBuildAction(bid, level);
-        }
-        return null;
+        return this.createActionByType(actionType, {
+            bid: bid,
+            level: level
+        });
     },
     createRestActions: function (bid, level, roleType) {
         var actions = [
-            new RestBuildAction(bid, level),
-            new SmokeBuildAction(bid, level, 3),
-            new SmokeBuildAction(bid, level, 4),
-            new SmokeBuildAction(bid, level, 5)
+            this.createActionByType("rest", { bid: bid, level: level }),
+            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 3 }),
+            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 }),
+            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 5 })
         ];
         RoleRuntimeService.getRestActionTypes(roleType).forEach(function (actionType) {
             var action = this.createRestActionByType(actionType, bid, level);
@@ -784,7 +751,9 @@ var BuildActionFactory = {
                 actions.push(action);
             }
         }, this);
-        return actions;
+        return actions.filter(function (action) {
+            return !!action;
+        });
     }
 };
 

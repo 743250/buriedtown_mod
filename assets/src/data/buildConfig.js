@@ -589,6 +589,7 @@ var buildConfig = {
     }],
     "18": [{
         "id": 18,
+        "requirePoweredWorksite": true,
         "cost": [{
             "itemId": 1101011,
             "num": 1
@@ -611,6 +612,7 @@ var buildConfig = {
     }],
     "19": [{
         "id": 19,
+        "requirePoweredWorksite": true,
         "cost": [{
             "itemId": 1101011,
             "num": 20

@@ -14,6 +14,32 @@ function assert(condition, message) {
     }
 }
 
+function createExtendableBaseClass() {
+    function BaseClass() {
+        if (this.ctor) {
+            this.ctor.apply(this, arguments);
+        }
+    }
+
+    BaseClass.extend = function (definition) {
+        const Parent = this;
+        function SubClass() {
+            if (this.ctor) {
+                this.ctor.apply(this, arguments);
+            }
+        }
+        SubClass.prototype = Object.create(Parent.prototype || {});
+        Object.keys(definition || {}).forEach(function (key) {
+            SubClass.prototype[key] = definition[key];
+        });
+        SubClass.prototype.constructor = SubClass;
+        SubClass.extend = Parent.extend;
+        return SubClass;
+    };
+
+    return BaseClass;
+}
+
 function runSyntaxSmoke() {
     const files = [
         "assets/src/game/GameRuntime.js",
@@ -42,6 +68,10 @@ function runSyntaxSmoke() {
 }
 
 function createVmSandbox() {
+    const scheduler = {
+        scheduleUpdateForTarget: function () {},
+        unscheduleUpdateForTarget: function () {}
+    };
     const sandbox = {
         console: console,
         require: require,
@@ -62,11 +92,26 @@ function createVmSandbox() {
         Record: {
             saveAll: function () {},
             init: function () {},
+            restore: function () { return null; },
             getCurrentRecordName: function () { return "slot1"; }
         },
         cc: {
+            Class: createExtendableBaseClass(),
+            director: {
+                getScheduler: function () {
+                    return scheduler;
+                }
+            },
+            assert: function (condition, message) {
+                if (!condition) {
+                    throw new Error(message || "assert failed");
+                }
+            },
             timer: null,
             color: { WHITE: "white", RED: "red" },
+            d: function () {},
+            e: function () {},
+            i: function () {},
             pDistance: function (a, b) {
                 const dx = a.x - b.x;
                 const dy = a.y - b.y;
@@ -341,6 +386,127 @@ function runRoleRuntimeRuleSmoke() {
     };
 }
 
+function runTimerRepeatAlignmentSmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.player = {
+        log: {
+            addMsg: function () {}
+        }
+    };
+    sandbox.stringUtil = {
+        getString: function () {
+            return "";
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/TimeManager.js");
+
+    const timer = new sandbox.TimerManager();
+    const toTime = function (d, h, m, s) {
+        return timer.objToTime({ d: d, h: h, m: m || 0, s: s || 0 });
+    };
+
+    timer.time = toTime(0, 20, 0, 0);
+    let dayTriggers = 0;
+    const dayCallback = timer.addTimerCallbackDayByDay(null, function () {
+        dayTriggers++;
+    });
+
+    timer.updateTime(toTime(1, 6, 0, 0) - timer.time);
+
+    assert(dayTriggers === 1, "day-by-day callback should trigger once when jumping across midnight");
+    assert(dayCallback.getEndTime() === toTime(2, 0, 0, 0), "day-by-day callback should stay aligned to midnight after a long jump");
+
+    const timer2 = new sandbox.TimerManager();
+    const toTime2 = function (d, h, m, s) {
+        return timer2.objToTime({ d: d, h: h, m: m || 0, s: s || 0 });
+    };
+
+    timer2.time = toTime2(0, 18, 0, 0);
+    const stageTransitions = [];
+    const dayNightCallbacks = timer2.addTimerCallbackDayAndNight(null, function (flag) {
+        stageTransitions.push(flag);
+    });
+
+    timer2.updateTime(toTime2(0, 23, 0, 0) - timer2.time);
+
+    assert(stageTransitions.length === 1 && stageTransitions[0] === "night", "skip-to-night jump should trigger the night transition once");
+    assert(dayNightCallbacks[1].getEndTime() === toTime2(1, 20, 0, 0), "night callback should stay aligned to 20:00 after a long jump");
+
+    return {
+        name: "timer-repeat-alignment",
+        ok: true,
+        detail: "validated recurring timer callbacks stay aligned after long time jumps"
+    };
+}
+
+function runCraftBuildActionReuseSmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.player = {
+        getItemNumInPlayer: function () {
+            return 50;
+        }
+    };
+    sandbox.uiUtil = {
+        checkVigour: function () { return true; },
+        showItemDialog: function () {},
+        showBuildActionDialog: function () {},
+        showCraftCountSliderDialog: function () {},
+        getItemIconFrameName: function () { return ""; },
+        getDefaultSpriteName: function () { return ""; }
+    };
+    sandbox.buildActionConfig = {
+        "8": [{
+            produce: [{ itemId: 1103041, num: 4 }],
+            cost: [{ itemId: 1103011, num: 2 }],
+            makeTime: 30,
+            placedTime: [2880, 4320]
+        }]
+    };
+    sandbox.formulaConfig = {};
+
+    loadIntoSandbox(sandbox, "assets/src/game/buildAction.js");
+
+    const formulaProto = sandbox.Formula && sandbox.Formula.prototype;
+    const trapProto = sandbox.TrapBuildAction && sandbox.TrapBuildAction.prototype;
+    assert(formulaProto && trapProto, "buildAction prototypes should load into sandbox");
+    assert(sandbox.BuildActionTypeRegistry, "BuildActionTypeRegistry should load into sandbox");
+    assert(sandbox.BuildActionTypeRegistry._types.formula, "formula action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.rest, "rest action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.smoke, "smoke action type should be registered");
+
+    assert(formulaProto.getBatchCount.call({ config: { batchCount: 7 } }) === 7, "Formula should read batchCount from config");
+
+    const limitedBatchAction = {
+        config: {
+            cost: [{ itemId: 1103011, num: 2 }],
+            batchCount: 4
+        },
+        supportsBatchCraft: formulaProto.supportsBatchCraft,
+        getBatchCount: formulaProto.getBatchCount
+    };
+    assert(formulaProto.getMaxBatchCraftCount.call(limitedBatchAction) === 4, "Formula batch craft should clamp to configured batchCount");
+
+    const freeBatchAction = {
+        config: {
+            cost: [],
+            batchCount: 6
+        },
+        supportsBatchCraft: formulaProto.supportsBatchCraft,
+        getBatchCount: formulaProto.getBatchCount
+    };
+    assert(formulaProto.getMaxBatchCraftCount.call(freeBatchAction) === 6, "Formula no-cost batch craft should still respect configured batchCount");
+
+    assert(trapProto.clickAction1 === formulaProto.clickAction1, "TrapBuildAction should reuse Formula clickAction1 flow");
+    assert(trapProto.place === formulaProto.place, "TrapBuildAction should reuse Formula place flow");
+
+    return {
+        name: "craft-build-action-reuse",
+        ok: true,
+        detail: "validated Formula batch count config and TrapBuildAction reuse of Formula start/place flow"
+    };
+}
+
 function runLoadChainSmoke() {
     const jsListSource = readFile("assets/src/jsList.js");
     const battleSource = readFile("assets/src/game/Battle.js");
@@ -364,6 +530,8 @@ function main() {
         runSyntaxSmoke(),
         runRuntimeContextSmoke(),
         runRoleRuntimeRuleSmoke(),
+        runTimerRepeatAlignmentSmoke(),
+        runCraftBuildActionReuseSmoke(),
         runLoadChainSmoke()
     ];
 

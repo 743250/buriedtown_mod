@@ -34,9 +34,11 @@ var Build = cc.Class.extend({
         var self = this;
         for (var i = 0; i < this.configs.length; i++) {
             produceList = produceList.concat(this.configs[i].produceList.map(function (fid) {
-                var formula = new Formula(fid, self.id);
-                formula.needBuild = {bid: self.id, level: l};
-                return formula;
+                return BuildActionFactory.createActionByType("formula", {
+                    actionId: fid,
+                    bid: self.id,
+                    needBuild: {bid: self.id, level: l}
+                });
             }));
             l++;
         }
@@ -145,9 +147,6 @@ var Build = cc.Class.extend({
     needBuild: function () {
         return this.level < 0;
     },
-    _getRoleType: function () {
-        return Build.getRuntimeRoleType();
-    },
     _hasStorageItem: function (itemId) {
         return player.storage.validateItem(itemId, 1);
     },
@@ -158,7 +157,6 @@ var Build = cc.Class.extend({
     _buildActionFilterContext: function () {
         var self = this;
         return {
-            roleType: this._getRoleType(),
             isWorkSitePowered: this._isWorkSitePowered(),
             hasStorageItem: function (itemId) {
                 return self._hasStorageItem(itemId);
@@ -167,7 +165,7 @@ var Build = cc.Class.extend({
     },
     _getMaxLevel: function () {
         var defaultMaxLevel = this.configs.length - 1;
-        return RoleRuntimeService.getBuildMaxLevel(this._getRoleType(), this.id, defaultMaxLevel);
+        return RoleRuntimeService.getBuildMaxLevel(this.id, defaultMaxLevel);
     },
     isMax: function () {
         return this.level >= this._getMaxLevel();
@@ -250,8 +248,17 @@ var Build = cc.Class.extend({
     getBuildActions: function () {
         var context = this._buildActionFilterContext();
         return this.actions.filter(function (action) {
-            return RoleRuntimeService.applyBuildActionRuntimeState(action, context.roleType, context);
+            return RoleRuntimeService.applyBuildActionRuntimeState(action, undefined, context);
         });
+    },
+    isActive: function () {
+        if (this.level < 0) {
+            return false;
+        }
+        if (this.currentConfig && this.currentConfig.requirePoweredWorksite) {
+            return this._isWorkSitePowered();
+        }
+        return true;
     },
     isActionActive: function (actionId) {
         actionId = this._normalizeActionKey(actionId);
@@ -334,10 +341,6 @@ var Build = cc.Class.extend({
     }
 });
 
-Build.getRuntimeRoleType = function () {
-    return RoleRuntimeService._normalizeRoleType(player && player.roleType);
-};
-
 var TrapBuild = Build.extend({
     ctor: function (bid, level, saveObj) {
         this._super(bid, level, saveObj);
@@ -365,19 +368,7 @@ var RestBuild = Build.extend({
         this._super(bid, level);
     },
     initBuildActions: function () {
-        var action1 = new RestBuildAction(this.id, this.level);
-        this.actions.push(action1);
-        this.actions.push(new SmokeBuildAction(this.id, this.level, 3));
-        this.actions.push(new SmokeBuildAction(this.id, this.level, 4));
-        this.actions.push(new SmokeBuildAction(this.id, this.level, 5));
-        var restActionTypes = RoleRuntimeService.getRestActionTypes(this._getRoleType());
-        restActionTypes.forEach(function (actionType) {
-            if (actionType === "drink") {
-                this.actions.push(new DrinkBuildAction(this.id, this.level));
-            } else if (actionType === "drink_tea") {
-                this.actions.push(new DrinkTeaBuildAction(this.id, this.level));
-            }
-        }, this);
+        this.actions = BuildActionFactory.createRestActions(this.id, this.level);
     },
     restore: function (opt) {
     }
@@ -425,28 +416,6 @@ var BombBuild = Build.extend({
     }
 });
 
-var ElectricStoveBuild = Build.extend({
-    ctor: function (bid, level, saveObj) {
-        this._super(bid, level, saveObj);
-    },
-    initBuildActions: function () {
-    },
-    isActive: function () {
-        return this._isWorkSitePowered();
-    }
-});
-
-var ElectricFenceBuild = Build.extend({
-    ctor: function (bid, level, saveObj) {
-        this._super(bid, level, saveObj);
-    },
-    initBuildActions: function () {
-    },
-    isActive: function () {
-        return this._isWorkSitePowered();
-    }
-});
-
 var Room = cc.Class.extend({
     ctor: function () {
         this.map = {};
@@ -467,7 +436,7 @@ var Room = cc.Class.extend({
         //狗舍
         this.createBuild(12, -1);
 
-        RoleRuntimeService.applyRoomBuildStates(this, Build.getRuntimeRoleType());
+        RoleRuntimeService.applyRoomBuildStates(this);
 
         //仓库
         this.createBuild(13, 0);
@@ -534,12 +503,6 @@ var Room = cc.Class.extend({
                 break;
             case 17:
                 b = new BombBuild(bid, level, obj);
-                break;
-            case 18:
-                b = new ElectricStoveBuild(bid, level, obj);
-                break;
-            case 19:
-                b = new ElectricFenceBuild(bid, level, obj);
                 break;
             default :
                 b = new Build(bid, level, obj);
