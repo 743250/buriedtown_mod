@@ -617,9 +617,50 @@ var TrapBuildAction = Formula.extend({
         this.needBuild = {bid: this.id, level: 0};
         this.step = 0;
         this.maxStep = this.config["placedTime"] ? 2 : 1;
+        this.autoSetEnabled = false;
+    },
+    save: function () {
+        var saveObj = Formula.prototype.save.call(this);
+        saveObj.autoSetEnabled = !!this.autoSetEnabled;
+        return saveObj;
+    },
+    restore: function (saveObj) {
+        this.autoSetEnabled = !!(saveObj && saveObj.autoSetEnabled);
+        Formula.prototype.restore.call(this, saveObj);
     },
     clickIcon: function () {
         uiUtil.showBuildActionDialog(this.bid, 0);
+    },
+    getAutoSetCost: function () {
+        return utils.clone(this.config.cost || []);
+    },
+    isAutoSetEnabled: function () {
+        return !!this.autoSetEnabled;
+    },
+    setAutoSetEnabled: function (enabled) {
+        this.autoSetEnabled = !!enabled;
+    },
+    tryAutoSet: function () {
+        if (!this.isAutoSetEnabled() || this.step !== 0 || this.isActioning || this._isNeedBuildLocked()) {
+            return false;
+        }
+
+        var cost = this.getAutoSetCost();
+        if (!cost.length || !this._isCostEnough(cost)) {
+            return false;
+        }
+
+        player.costItems(cost);
+        this.step = 1;
+        var trapBuild = this.build || getBuildActionRuntimePlayer().room.getBuild(this.bid);
+        if (trapBuild && typeof trapBuild.setActiveBtnIndex === "function") {
+            trapBuild.setActiveBtnIndex(this.getActionKey());
+        }
+        this.place();
+        player.log.addMsg(stringUtil.getString("trap_auto_set_log", getBuildActionCostText(cost)));
+        this._sendUpdageSignal();
+        getBuildActionRuntimeRecord().saveAll();
+        return true;
     },
     _buildPlacedTimerOptions: function () {
         var placedTimes = this.config["placedTime"];
@@ -630,6 +671,28 @@ var TrapBuildAction = Formula.extend({
             placedTime: time * 60,
             totalTime: placedTimes[1] * 60
         };
+    },
+    clickAction1: function () {
+        if (!uiUtil.checkVigour())
+            return;
+        var itemInfo = this.config.produce[0];
+        if (this.step == 0) {
+            if (this._runMakeAction(1)) {
+                this._sendUpdageSignal();
+            }
+            return;
+        } else {
+            var produce = this._buildPlacedProduce();
+            BuildActionEffectService.grantProducedItems(this, produce, {
+                achievementMethod: "checkProduce",
+                logMessageId: 1092,
+                fallbackItemInfo: itemInfo,
+                resetStep: 0,
+                finishOptions: {enableLeftBtn: false}
+            });
+            this.tryAutoSet();
+        }
+        this._sendUpdageSignal();
     },
     getPlacedTxt: function (time) {
         return stringUtil.getString(1154);
@@ -702,6 +765,87 @@ registerTimedStateBuildActionType("dog", {
     },
     getIdleHint: function (action, runtimePlayer) {
         return runtimePlayer.dog.isActive() ? stringUtil.getString(1021) : stringUtil.getString(1022);
+    }
+});
+
+var getBuildActionCostText = function (cost) {
+    if (!Array.isArray(cost) || cost.length === 0) {
+        return "";
+    }
+    return cost.map(function (itemInfo) {
+        return stringUtil.getString(itemInfo.itemId).title + "x" + itemInfo.num;
+    }).join("、");
+};
+
+var DogAutoFeedBuildAction = BuildAction.extend({
+    ctor: function (bid) {
+        this._super(bid);
+        this.actionKey = this.bid + ":auto_feed";
+        this.needBuild = {bid: this.id, level: 0};
+    },
+    clickIcon: function () {
+        uiUtil.showBuildActionDialog(this.bid, 1, 0);
+    },
+    clickAction1: function () {
+        var runtimePlayer = getBuildActionRuntimePlayer();
+        var enabled = !runtimePlayer.dog.isAutoFeedEnabled();
+        runtimePlayer.dog.setAutoFeedEnabled(enabled);
+        if (!(enabled && runtimePlayer.dog.tryAutoFeed(runtimePlayer))) {
+            getBuildActionRuntimeRecord().saveAll();
+        }
+        this._sendUpdageSignal();
+    },
+    _getUpdateViewInfo: function () {
+        var runtimePlayer = getBuildActionRuntimePlayer();
+        var iconName = "#build_action_" + this.id + "_0" + ".png";
+        var cost = runtimePlayer.dog.getFeedCost();
+        var isEnabled = runtimePlayer.dog.isAutoFeedEnabled();
+        var hint = isEnabled
+            ? stringUtil.getString("dog_auto_feed_enabled_hint", getBuildActionCostText(cost))
+            : stringUtil.getString("dog_auto_feed_disabled_hint", getBuildActionCostText(cost));
+
+        return {
+            iconName: iconName,
+            hint: hint,
+            hintColor: cc.color.WHITE,
+            items: this._buildCostItems(cost),
+            action1: stringUtil.getString(isEnabled ? 1250 : 1249),
+            percentage: 0
+        };
+    }
+});
+
+var TrapAutoSetBuildAction = BuildAction.extend({
+    ctor: function (bid, trapAction) {
+        this._super(bid);
+        this.actionKey = this.bid + ":auto_set";
+        this.needBuild = {bid: this.id, level: 0};
+        this.trapAction = trapAction;
+    },
+    clickIcon: function () {
+        uiUtil.showBuildActionDialog(this.bid, 1, 0);
+    },
+    clickAction1: function () {
+        var enabled = !this.trapAction.isAutoSetEnabled();
+        this.trapAction.setAutoSetEnabled(enabled);
+        getBuildActionRuntimeRecord().saveAll();
+        this._sendUpdageSignal();
+    },
+    _getUpdateViewInfo: function () {
+        var iconName = "#build_action_" + this.id + "_0" + ".png";
+        var cost = this.trapAction.getAutoSetCost();
+        var hint = this.trapAction.isAutoSetEnabled()
+            ? stringUtil.getString("trap_auto_set_enabled_hint", getBuildActionCostText(cost))
+            : stringUtil.getString("trap_auto_set_disabled_hint", getBuildActionCostText(cost));
+
+        return {
+            iconName: iconName,
+            hint: hint,
+            hintColor: cc.color.WHITE,
+            items: this._buildCostItems(cost),
+            action1: stringUtil.getString(this.trapAction.isAutoSetEnabled() ? 1250 : 1249),
+            percentage: 0
+        };
     }
 });
 

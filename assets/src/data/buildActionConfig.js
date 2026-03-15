@@ -44,11 +44,7 @@ var buildActionConfig = {
         }, {
             "cost": [{"itemId": 1105072, "num": 1}],
             "makeTime": 15,
-            "effect": {"spirit": 24, "spirit_chance": 1, "vigour": 4, "vigour_chance": 1}
-        }, {
-            "cost": [{"itemId": 1105083, "num": 1}],
-            "makeTime": 20,
-            "effect": {"spirit": 38, "spirit_chance": 1, "vigour": 8, "vigour_chance": 1}
+            "effect": {"spirit": 40, "spirit_chance": 1, "vigour": 4, "vigour_chance": 1}
         }],
         [{
             "cost": [{"itemId": 1105011, "num": 4}, {
@@ -75,11 +71,7 @@ var buildActionConfig = {
         }, {
             "cost": [{"itemId": 1105072, "num": 1}],
             "makeTime": 15,
-            "effect": {"spirit": 30, "spirit_chance": 1, "vigour": 6, "vigour_chance": 1}
-        }, {
-            "cost": [{"itemId": 1105083, "num": 1}],
-            "makeTime": 20,
-            "effect": {"spirit": 46, "spirit_chance": 1, "vigour": 10, "vigour_chance": 1}
+            "effect": {"spirit": 40, "spirit_chance": 1, "vigour": 6, "vigour_chance": 1}
         }],
         [{
             "cost": [{"itemId": 1105011, "num": 4}, {
@@ -106,11 +98,7 @@ var buildActionConfig = {
         }, {
             "cost": [{"itemId": 1105072, "num": 1}],
             "makeTime": 15,
-            "effect": {"spirit": 36, "spirit_chance": 1, "vigour": 8, "vigour_chance": 1}
-        }, {
-            "cost": [{"itemId": 1105083, "num": 1}],
-            "makeTime": 20,
-            "effect": {"spirit": 54, "spirit_chance": 1, "vigour": 12, "vigour_chance": 1}
+            "effect": {"spirit": 40, "spirit_chance": 1, "vigour": 8, "vigour_chance": 1}
         }]
     ],
     "12": [{

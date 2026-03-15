@@ -25,7 +25,7 @@ var formulaConfig = {
             "itemId": 1302011,
             "num": 1
         }],
-        "makeTime": 300,
+        "makeTime": 30,
         "runtimeRule": {"includeAnyTags": ["yazi"]}
       },
       "1201021": {
@@ -41,7 +41,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 180,
+        "makeTime": 20,
         "runtimeRule": {"includeAnyTags": ["yazi"]}
       },
       "1201041": {
@@ -57,7 +57,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 180,
+        "makeTime": 20,
         "runtimeRule": {"includeAnyTags": ["yazi"]}
       },
       "1201051": {
@@ -73,7 +73,7 @@ var formulaConfig = {
             "itemId": 1101011,
             "num": 3
         }],
-        "makeTime": 180,
+        "makeTime": 20,
         "runtimeRule": {"includeAnyTags": ["yazi"]}
       },
       "1201013": {
@@ -259,7 +259,7 @@ var formulaConfig = {
             "num": 1
         }],
         "makeTime": 30,
-        "runtimeRule": {"hideWhenPoweredWorksiteForTags": ["powered"]}
+        "runtimeRule": {"includeAnyTags": ["powered"], "requirePoweredWorksite": true}
     },
     "1203033": {
         "id": "1203033",
@@ -294,7 +294,7 @@ var formulaConfig = {
             "num": 2
         }],
         "makeTime": 30,
-        "runtimeRule": {"hideWhenPoweredWorksiteForTags": ["powered"]}
+        "runtimeRule": {"includeAnyTags": ["powered"], "requirePoweredWorksite": true}
     },
     "1203041": {
         "id": "1203041",
@@ -326,7 +326,7 @@ var formulaConfig = {
             "num": 2
         }],
         "makeTime": 30,
-        "runtimeRule": {"includeAnyTags": ["powered"], "requirePoweredWorksite": true}
+        "runtimeRule": {"hideWhenPoweredWorksiteForTags": ["powered"]}
     },
     "1203053": {
         "id": "1203053",
@@ -342,7 +342,7 @@ var formulaConfig = {
             "num": 2
         }],
         "makeTime": 30,
-        "runtimeRule": {"hideWhenPoweredWorksiteForTags": ["powered"]}
+        "runtimeRule": {"includeAnyTags": ["powered"], "requirePoweredWorksite": true}
     },
     "1203063": {
         "id": "1203063",
@@ -402,7 +402,7 @@ var formulaConfig = {
             "num": 1
         }],
         "makeTime": 45,
-        "runtimeRule": {"hideWhenPoweredWorksiteForTags": ["powered"]}
+        "runtimeRule": {"includeAnyTags": ["stranger"]}
     },
     "1203075": {
         "id": "1203075",
@@ -427,7 +427,7 @@ var formulaConfig = {
             "num": 1
         }],
         "makeTime": 45,
-        "runtimeRule": {"includeAnyTags": ["powered"], "requirePoweredWorksite": true}
+        "runtimeRule": {"includeAnyTags": ["stranger"], "requirePoweredWorksite": true}
     },
     "1204011": {
         "id": "1204011",
@@ -708,21 +708,6 @@ var formulaConfig = {
             "num": 1
         }],
         "makeTime": 20
-    },
-    "1205083": {
-        "id": "1205083",
-        "produce": [{
-            "itemId": 1105083,
-            "num": 4
-        }],
-        "cost": [{
-            "itemId": 1105072,
-            "num": 4
-        }, {
-            "itemId": 1105052,
-            "num": 2
-        }],
-        "makeTime": 30
     },
     "1207012": {
         "id": "1207012",

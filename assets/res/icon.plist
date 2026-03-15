@@ -1083,6 +1083,19 @@
                 <key>sourceSize</key>
                 <string>{84,84}</string>
             </dict>
+            <key>icon_item_1105061.png</key>
+            <dict>
+                <key>frame</key>
+                <string>{{362,1124},{68,44}}</string>
+                <key>offset</key>
+                <string>{0,1}</string>
+                <key>rotated</key>
+                <false/>
+                <key>sourceColorRect</key>
+                <string>{{8,19},{68,44}}</string>
+                <key>sourceSize</key>
+                <string>{84,84}</string>
+            </dict>
             <key>icon_item_1105052.png</key>
             <dict>
                 <key>frame</key>

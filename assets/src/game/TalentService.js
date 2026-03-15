@@ -7,7 +7,7 @@ var TalentService = {
     _chosenTalentIds: null,
     MAX_CHOSEN_TALENT_COUNT: 3,
     ELITE_PISTOL_ITEM_ID: 1301091,
-    ELITE_PISTOL_ATK_CD_MULTIPLIER: 0.8,
+    ELITE_PISTOL_ATK_CD_MULTIPLIER: 1,
     ELITE_PISTOL_PRECISE_BONUS: 0.15,
     ELITE_PISTOL_HEADSHOT_BONUS: 0.05,
     _getTalentConfigTable: function () {
@@ -241,13 +241,13 @@ var TalentService = {
         if (isLikelyEnglish) {
             return {
                 title: "Sharpshooter's Beloved Pistol",
-                des: "A tuned sidearm from your old range days. It never breaks and stays deadly steady (20% faster fire rate, +15% precision, +12% headshot chance)."
+                des: "A tuned sidearm from your old range days. It never breaks and stays deadly steady (+15% precision, +12% headshot chance)."
             };
         }
 
         return {
             title: "神射手珍爱的手枪",
-            des: "这是你在靶场时代就用惯的配枪，准星和扳机都校到了你的节奏上。它永不损坏，开火更快，也更容易把子弹送进要害。（射击间隔-20%，额外精准+15%，额外爆头率+12%）"
+            des: "这是你在靶场时代就用惯的配枪，准星和扳机都校到了你的节奏上。它永不损坏，也更容易把子弹送进要害。（额外精准+15%，额外爆头率+12%）"
         };
     },
     getElitePistolAtkCdMultiplier: function () {

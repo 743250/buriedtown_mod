@@ -67,6 +67,13 @@ var string = {
     "1021": "The dog is happy. It is guarding the house.  ",
     "1022": "The dog is hungry, feed it some meat.",
     "1023": "The dog is happily eating the fresh meat.",
+    "dog_auto_feed_enabled_hint": "Auto-feed is on. The dog will automatically consume %s when it gets hungry.",
+    "dog_auto_feed_disabled_hint": "Auto-feed is off. Turn it on and the dog will automatically consume %s when it gets hungry.",
+    "dog_auto_feed_log": "The dog got hungry and ate %s on its own (stock: %s).",
+    "trap_auto_set_enabled_hint": "Auto-reset is on. After you collect the prey, the trap will automatically consume %s and reset itself.",
+    "trap_auto_set_disabled_hint": "Auto-reset is off. Turn it on and the trap will automatically consume %s after you collect the prey.",
+    "trap_auto_set_log": "After you collected the prey, the trap automatically consumed %s and reset itself.",
+    "worksite_power_active": "Power On",
     "1024": "None",
     "1025": "WT:",
     "1026": "Stock:",
@@ -384,7 +391,7 @@ var string = {
     "1372": "Will consume: %s",
     "1373": "You sit quietly for a while, smoking %s (stock: %s) to steady yourself.",
     "1374": "You force yourself to chew some %s (stock: %s).",
-    "1375": "You need tobacco, a hand-rolled cigarette, or a fine cigarette.",
+    "1375": "You need tobacco or a hand-rolled cigarette.",
     "1376": "Batch",
     "1350": "Travel quickly by zipline!",
     "1351": "Zipline build mode: select a starting target on the map.",
@@ -596,10 +603,6 @@ var string = {
     "1105072": {
         "title": "Hand-rolled cigarette",
         "des": "A rough cigarette rolled by hand from tobacco and paper. Crude, but comforting."
-    },
-    "1105083": {
-        "title": "Fine cigarette",
-        "des": "A carefully rolled and well-packed cigarette. In the apocalypse, this counts as a luxury item."
     },
     "1106013": {
         "title": "Dog",
@@ -837,9 +840,17 @@ var string = {
         "title": "Trap",
         "des": "Simple traps that can catch hares in the grass. In this world, hares are a valuable source of protein. Fortunately, hares are unaffected by the zombie virus."
     },
+    "b_a_8_1": {
+        "title": "Auto-reset Trap",
+        "des": "When enabled, the trap will automatically rearm itself after you collect the prey, as long as there are enough materials in storage."
+    },
     "b_a_12": {
         "title": "Feed",
         "des": "Dogs cannot help with your defenses when they're hungry. Feed your dogs at least once a day."
+    },
+    "b_a_12_1": {
+        "title": "Auto-feed Dog",
+        "des": "When enabled, the dog will automatically eat as soon as it gets hungry, as long as there is enough meat in storage."
     },
     "b_a_10": {
         "title": "Coffee Time",
@@ -886,10 +897,6 @@ var string = {
     "b_a_10_4": {
         "title": "Smoke Hand-rolled Cigarette",
         "des": "A rough hand-rolled cigarette does not burn evenly, but it is enough to help you steady your nerves."
-    },
-    "b_a_10_5": {
-        "title": "Smoke Fine Cigarette",
-        "des": "A fine cigarette burns smoothly and brings the strongest relief. In times like these, it is a real luxury."
     },
     "npc_1": {
         "name": "Mr. Luo",

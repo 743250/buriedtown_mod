@@ -141,6 +141,14 @@ var Player = cc.Class.extend({
         return Record;
     },
 
+    getEmitter: function () {
+        var runtime = this.getRuntime();
+        if (runtime && typeof runtime.getEmitter === "function") {
+            return runtime.getEmitter();
+        }
+        return utils.emitter;
+    },
+
     //包扎
     bindUp: function () {
         this.binded = true;
@@ -470,16 +478,6 @@ var Player = cc.Class.extend({
                 storage.decreaseItem(itemId, 1);
                 this.log.addMsg(1095, itemName, storage.getNumByItemId(itemId));
                 this.buffManager.applyBuff(itemId);
-                return {result: true};
-            } else if (itemId == 1105061) {
-                storage.decreaseItem(itemId, 1);
-                this.log.addMsg(1374, itemName, storage.getNumByItemId(itemId));
-                this.itemEffect(item, {
-                    "spirit": 6,
-                    "spirit_chance": 1,
-                    "infect": 4,
-                    "infect_chance": 1
-                });
                 return {result: true};
             } else {
                 return {result: false, type: 2, msg: "this type can't use"};
@@ -896,6 +894,7 @@ var Dog = cc.Class.extend({
         //饥饿
         this.starve = 0;
         this.starveMax = 72;
+        this.autoFeedEnabled = false;
     },
 
     changeAttr: function (key, value) {
@@ -907,18 +906,73 @@ var Dog = cc.Class.extend({
     changeStarve: function (value) {
         this.changeAttr("starve", value);
     },
+    getFeedCost: function () {
+        if (typeof buildActionConfig === "undefined"
+            || !buildActionConfig
+            || !buildActionConfig[12]
+            || !buildActionConfig[12][0]
+            || !buildActionConfig[12][0].cost) {
+            return [];
+        }
+        return utils.clone(buildActionConfig[12][0].cost);
+    },
     canFeed: function () {
         return this.starve < this.starveMax;
     },
     feed: function () {
         this.changeStarve(this.starveMax - this.starve);
     },
+    isHungry: function () {
+        return this.starve <= 0;
+    },
     isActive: function () {
         return this.starve > 0;
     },
+    isAutoFeedEnabled: function () {
+        return !!this.autoFeedEnabled;
+    },
+    setAutoFeedEnabled: function (enabled) {
+        this.autoFeedEnabled = !!enabled;
+    },
+    tryAutoFeed: function (playerInstance) {
+        if (!playerInstance
+            || !this.isAutoFeedEnabled()
+            || !this.isHungry()
+            || !playerInstance.room
+            || playerInstance.room.getBuildLevel(12) < 0) {
+            return false;
+        }
+
+        var cost = this.getFeedCost();
+        if (!cost.length || !playerInstance.validateItems(cost)) {
+            return false;
+        }
+
+        playerInstance.costItems(cost);
+        this.feed();
+
+        var primaryCost = cost[0];
+        var costLabel = stringUtil.getString(primaryCost.itemId).title + "x" + primaryCost.num;
+        playerInstance.log.addMsg(stringUtil.getString(
+            "dog_auto_feed_log",
+            costLabel,
+            playerInstance.storage.getNumByItemId(primaryCost.itemId)
+        ));
+
+        var buildNodeUpdateEvent = (typeof GameEvents !== "undefined" && GameEvents && GameEvents.BUILD_NODE_UPDATE)
+            ? GameEvents.BUILD_NODE_UPDATE
+            : "build_node_update";
+        var emitter = playerInstance.getEmitter();
+        if (emitter && typeof emitter.emit === "function") {
+            emitter.emit(buildNodeUpdateEvent);
+        }
+        playerInstance.getRecord().saveAll();
+        return true;
+    },
     save: function () {
         var opt = {
-            starve: this.starve
+            starve: this.starve,
+            autoFeedEnabled: !!this.autoFeedEnabled
         };
         return opt;
     },
@@ -926,6 +980,7 @@ var Dog = cc.Class.extend({
     restore: function (opt) {
         if (opt) {
             this.starve = opt.starve;
+            this.autoFeedEnabled = !!opt.autoFeedEnabled;
         }
     }
 });

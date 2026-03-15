@@ -1,3 +1,11 @@
+var isMapWorkSitePowered = function () {
+    var workSiteId = (typeof WORK_SITE !== "undefined") ? WORK_SITE : 204;
+    var workSite = player && player.map && typeof player.map.getSite === "function"
+        ? player.map.getSite(workSiteId)
+        : null;
+    return !!(workSite && workSite.isActive);
+};
+
 var MapNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -15,6 +23,38 @@ var MapNode = BottomFrameNode.extend({
         this.bg.addChild(mapView, 2);
         mapView.attachZiplineUi(this.bg);
 
+        this.powerStatusLabel = new cc.LabelTTF(stringUtil.getString("worksite_power_active"), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
+        this.powerStatusLabel.setAnchorPoint(1, 1);
+        this.powerStatusLabel.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
+        this.powerStatusLabel.setColor(cc.color(255, 238, 170));
+        this.bg.addChild(this.powerStatusLabel, 3);
+        this.powerStatusLabel.setName("power_status_label");
+        this.updatePowerStatusHint();
+
+    },
+    createFuncOnWorkSiteChange: function () {
+        var self = this;
+        return function () {
+            self.updatePowerStatusHint();
+        };
+    },
+    updatePowerStatusHint: function () {
+        if (this.powerStatusLabel) {
+            this.powerStatusLabel.setVisible(isMapWorkSitePowered());
+        }
+    },
+    onEnter: function () {
+        this._super();
+        this.updatePowerStatusHint();
+        this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
+        utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
+    },
+    onExit: function () {
+        this._super();
+        if (this.funcOnWorkSiteChange) {
+            utils.emitter.off("onWorkSiteChange", this.funcOnWorkSiteChange);
+            this.funcOnWorkSiteChange = null;
+        }
     },
     initRes: function () {
 

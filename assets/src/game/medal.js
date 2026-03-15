@@ -130,7 +130,7 @@ var MedalConfig = {
         completed: 0,
         claimed: 0,
         points: 200,
-        effect: {items: [{itemId: 1301011, num: 1}, {itemId: 1302011, num: 30}]}
+        effect: {items: [{itemId: 1301011, num: 1}]}
     },
     301: {
         categoryId: 3,

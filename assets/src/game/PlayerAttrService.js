@@ -168,6 +168,7 @@ var PlayerAttrService = {
 
         playerInstance.changeStarve(this.getHourlyStarveChange(playerInstance, changeConfig));
         playerInstance.dog.changeStarve(changeConfig[1][0]);
+        playerInstance.dog.tryAutoFeed(playerInstance);
         playerInstance.changeVigour(this.getHourlyVigourChange(playerInstance, changeConfig));
 
         if (playerInstance.isInSleep) {

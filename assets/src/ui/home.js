@@ -2,6 +2,14 @@
  * Created by lancelot on 15/4/17.
  */
 
+var isHomeWorkSitePowered = function () {
+    var workSiteId = (typeof WORK_SITE !== "undefined") ? WORK_SITE : 204;
+    var workSite = player && player.map && typeof player.map.getSite === "function"
+        ? player.map.getSite(workSiteId)
+        : null;
+    return !!(workSite && workSite.isActive);
+};
+
 var HomeNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -104,6 +112,14 @@ var HomeNode = BottomFrameNode.extend({
 
         this.updateRadioChatEntry();
 
+        this.powerStatusLabel = new cc.LabelTTF(stringUtil.getString("worksite_power_active"), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
+        this.powerStatusLabel.setAnchorPoint(1, 1);
+        this.powerStatusLabel.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
+        this.powerStatusLabel.setColor(cc.color(255, 238, 170));
+        this.bg.addChild(this.powerStatusLabel, 4);
+        this.powerStatusLabel.setName("power_status_label");
+        this.updatePowerStatusHint();
+
     },
     updateRadioChatEntry: function () {
         var isVisible = player.room.getBuildLevel(15) >= 0;
@@ -112,6 +128,17 @@ var HomeNode = BottomFrameNode.extend({
         }
         if (this.btnRadioChatLabel) {
             this.btnRadioChatLabel.setVisible(isVisible);
+        }
+    },
+    createFuncOnWorkSiteChange: function () {
+        var self = this;
+        return function () {
+            self.updatePowerStatusHint();
+        };
+    },
+    updatePowerStatusHint: function () {
+        if (this.powerStatusLabel) {
+            this.powerStatusLabel.setVisible(isHomeWorkSitePowered());
         }
     },
     updateBtn: function (bid) {
@@ -192,11 +219,18 @@ var HomeNode = BottomFrameNode.extend({
     onExit: function () {
         this._super();
         utils.emitter.off("placed_success");
+        if (this.funcOnWorkSiteChange) {
+            utils.emitter.off("onWorkSiteChange", this.funcOnWorkSiteChange);
+            this.funcOnWorkSiteChange = null;
+        }
     },
     onEnter: function () {
         var self = this;
         this._super();
         this.updateDogHouse();
+        this.updatePowerStatusHint();
+        this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
+        utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
         //新手引导文字
         this.scheduleOnce(function () {
             if (userGuide.isStep(userGuide.stepName.GAME_START)) {

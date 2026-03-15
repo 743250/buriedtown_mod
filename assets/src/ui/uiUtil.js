@@ -714,15 +714,28 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
     iconBg.setName("iconBg");
     bgNode.addChild(iconBg);
 
-    var hint = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(268, 0));
-    hint.setPosition(iconBg.getPositionX() + iconBg.getContentSize().width / 2 + 10, iconBg.getPositionY() + iconBg.getContentSize().height / 2);
+    var contentBaseX = iconBg.getPositionX() + iconBg.getContentSize().width / 2 + 10;
+    var contentRightPadding = 16;
+    var contentActionGap = 12;
+    var contentTopPadding = 8;
+    var contentBottomPadding = 6;
+    var contentBaseY = bgNode.getContentSize().height - contentTopPadding;
+    var contentGap = 2;
+    var progressGap = 4;
+    var progressMinY = contentBottomPadding;
+    var progressDefaultY = contentBottomPadding;
+    var contentMinWidth = 220;
+    var contentDefaultWidth = 300;
+
+    var hint = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(contentDefaultWidth, 0));
+    hint.setPosition(contentBaseX, contentBaseY);
     hint.setAnchorPoint(0, 1);
     hint.setName("hint");
     hint.setColor(UITheme.colors.WHITE);
     bgNode.addChild(hint);
 
     var pbBg = autoSpriteFrameController.getSpriteFromSpriteName("#pb_bg.png");
-    pbBg.setPosition(iconBg.getPositionX() + iconBg.getContentSize().width / 2 + 10, iconBg.getPositionY() - iconBg.getContentSize().height / 2);
+    pbBg.setPosition(contentBaseX, progressDefaultY);
     pbBg.setAnchorPoint(0, 0);
     pbBg.setName("pbBg");
     bgNode.addChild(pbBg);
@@ -760,6 +773,63 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
         action2.setVisible(false);
         bgNode.addChild(action2);
     }
+
+    var getVisibleActionButtons = function () {
+        var buttons = [];
+        if (action1 && action1.isVisible()) {
+            buttons.push(action1);
+        }
+        if (action2 && action2.isVisible()) {
+            buttons.push(action2);
+        }
+        return buttons;
+    };
+
+    var getContentWidth = function () {
+        var rightEdge = bgNode.getContentSize().width - contentRightPadding;
+        var visibleButtons = getVisibleActionButtons();
+        visibleButtons.forEach(function (button) {
+            rightEdge = Math.min(rightEdge, button.getPositionX() - button.getContentSize().width / 2 - contentActionGap);
+        });
+        return Math.max(contentMinWidth, rightEdge - contentBaseX);
+    };
+
+    var updateHintWidth = function () {
+        var contentWidth = getContentWidth();
+        if (hint.setDimensions) {
+            hint.setDimensions(cc.size(contentWidth, 0));
+        }
+        return contentWidth;
+    };
+
+    var ensureRichTextButton = function (richText) {
+        if (!richText || richText.getChildByName("itemListBtn")) {
+            return;
+        }
+
+        var itemListBtn = new ButtonWithPressed(richText.getContentSize());
+        itemListBtn.setAnchorPoint(0, 0);
+        itemListBtn.setPosition(0, 0);
+        richText.addChild(itemListBtn);
+        itemListBtn.setClickListener(richText, function () {
+            uiUtil.showItemListDialog(this.itemInfos);
+        });
+        itemListBtn.setName("itemListBtn");
+    };
+
+    var refreshRichTextWidth = function (richText) {
+        if (!richText) {
+            return;
+        }
+
+        var contentWidth = getContentWidth();
+        if (richText.width !== contentWidth) {
+            richText.width = contentWidth;
+            richText.updateView(richText.itemInfos || []);
+            ensureRichTextButton(richText);
+        }
+    };
+
     var actionLayoutMode = "horizontal";
     var refreshActionButtonLayout = function () {
         if (actionLayoutMode === "stacked"
@@ -800,27 +870,47 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
             rightEdge -= button.getContentSize().width + gap;
         }
     };
-    bgNode.updateItemRichText = function (items) {
+    var relayoutContent = function () {
+        updateHintWidth();
+
+        var nextContentY = contentBaseY;
+        var hintText = hint.getString ? hint.getString() : "";
+        hint.setPosition(contentBaseX, contentBaseY);
+        if (hintText) {
+            nextContentY -= uiUtil.getNodeLayoutHeight(hint);
+        }
+
         var richText = bgNode.getChildByName("richText");
         if (richText) {
+            refreshRichTextWidth(richText);
+            if (hintText) {
+                nextContentY -= contentGap;
+            }
+            richText.setPosition(contentBaseX, nextContentY);
+            nextContentY -= uiUtil.getNodeLayoutHeight(richText);
+        }
+
+        var progressY = progressDefaultY;
+        if (hintText || richText) {
+            progressY = Math.max(progressMinY, nextContentY - progressGap - pbBg.getContentSize().height);
+        }
+        pbBg.setPosition(contentBaseX, progressY);
+        pb.setPosition(pbBg.getPositionX() + pbBg.getContentSize().width / 2, pbBg.getPositionY() + pbBg.getContentSize().height / 2);
+    };
+    bgNode.updateItemRichText = function (items) {
+        var richText = bgNode.getChildByName("richText");
+        var contentWidth = getContentWidth();
+        if (richText) {
+            richText.width = contentWidth;
             richText.updateView(items);
         } else {
-            richText = new ItemRichText(items, 268, 3, 0.3);
+            richText = new ItemRichText(items, contentWidth, 3, 0.3);
             richText.setName("richText");
             richText.setAnchorPoint(0, 1);
-            richText.setPosition(iconBg.getPositionX() + iconBg.getContentSize().width / 2 + 10, iconBg.getPositionY() + iconBg.getContentSize().height / 2);
             bgNode.addChild(richText);
         }
-        if (!richText.getChildByName("itemListBtn")) {
-            var itemListBtn = new ButtonWithPressed(richText.getContentSize());
-            itemListBtn.setAnchorPoint(0, 0);
-            itemListBtn.setPosition(0, 0);
-            richText.addChild(itemListBtn);
-            itemListBtn.setClickListener(richText, function () {
-                uiUtil.showItemListDialog(this.itemInfos);
-            });
-            itemListBtn.setName("itemListBtn");
-        }
+        richText.setPosition(contentBaseX, contentBaseY);
+        ensureRichTextButton(richText);
 
     };
     bgNode.updateView = function (newData) {
@@ -844,23 +934,12 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
 
             if (newData.hintColor) {
                 hint.setColor(newData.hintColor);
+            } else {
+                hint.setColor(UITheme.colors.WHITE);
             }
         } else {
             hint.setString("");
-        }
-
-        if (newData.items) {
-            this.updateItemRichText(newData.items);
-
-            //如果同时出现hint和items,items的位置下移
-            if (newData.hint) {
-                var richText = bgNode.getChildByName("richText");
-                richText.setPosition(richText.getPositionX(), richText.getPositionY() - hint.getContentSize().height);
-            }
-        } else {
-            if (bgNode.getChildByName("richText")) {
-                bgNode.removeChildByName("richText");
-            }
+            hint.setColor(UITheme.colors.WHITE);
         }
 
         if (newData.action1) {
@@ -881,6 +960,15 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
             action2.setVisible(false);
         }
         refreshActionButtonLayout();
+
+        if (newData.items) {
+            this.updateItemRichText(newData.items);
+        } else {
+            if (bgNode.getChildByName("richText")) {
+                bgNode.removeChildByName("richText");
+            }
+        }
+        relayoutContent();
 
         if (newData.percentage != undefined) {
             pb.setPercentage(newData.percentage);
@@ -906,6 +994,7 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
 
     bgNode.updateHint = function (hintTxt) {
         hint.setString(hintTxt);
+        relayoutContent();
     };
     return bgNode;
 }
@@ -1029,31 +1118,24 @@ uiUtil.showBuildDialog = function (bid, level) {
     dialog.show();
 };
 
-uiUtil.showBuildActionDialog = function (bid, index) {
+uiUtil.showBuildActionDialog = function (bid, index, iconIndex) {
     var config = utils.clone(stringUtil.getString("build"));
     var strConfig = stringUtil.getString("b_a_" + bid);
-    //为喝酒加入的特例
-    if (bid == 10 && index == 1) {
-        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
+    var indexedStrConfig = stringUtil.getString("b_a_" + bid + "_" + index);
+    if (indexedStrConfig && typeof indexedStrConfig === "object") {
+        strConfig = indexedStrConfig;
     }
-    if (bid == 10 && index == 2) {
-        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
-        index=0;
-    }
-    if (bid == 10 && index == 3) {
-        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
-        index=1;
-    }
-    if (bid == 10 && index == 4) {
-        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
-        index=1;
-    }
-    if (bid == 10 && index == 5) {
-        strConfig = stringUtil.getString("b_a_" + bid + "_" + index);
-        index=1;
+    if (iconIndex === undefined || iconIndex === null) {
+        iconIndex = index;
+        if (bid == 10 && index == 2) {
+            iconIndex = 0;
+        }
+        if (bid == 10 && (index == 3 || index == 4 || index == 5)) {
+            iconIndex = 1;
+        }
     }
     config.title.title = strConfig.title;
-    config.title.icon = "#build_action_" + bid + "_" + index + ".png";
+    config.title.icon = "#build_action_" + bid + "_" + iconIndex + ".png";
     config.content.des = strConfig.des;
     var dialog = new DialogSmall(config);
     dialog.show();

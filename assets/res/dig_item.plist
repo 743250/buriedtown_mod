@@ -433,6 +433,19 @@
                 <key>sourceSize</key>
                 <string>{446,264}</string>
             </dict>
+            <key>dig_item_1105061.png</key>
+            <dict>
+                <key>frame</key>
+                <string>{{1774,974},{254,196}}</string>
+                <key>offset</key>
+                <string>{0,1}</string>
+                <key>rotated</key>
+                <false/>
+                <key>sourceColorRect</key>
+                <string>{{96,33},{254,196}}</string>
+                <key>sourceSize</key>
+                <string>{446,264}</string>
+            </dict>
             <key>dig_item_1105052.png</key>
             <dict>
                 <key>frame</key>

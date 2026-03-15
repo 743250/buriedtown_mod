@@ -348,6 +348,7 @@ var TrapBuild = Build.extend({
     initBuildActions: function () {
         var action = new TrapBuildAction(this.id);
         this.actions.push(action);
+        this.actions.push(new TrapAutoSetBuildAction(this.id, action));
     }
 });
 
@@ -356,7 +357,12 @@ var DogBuild = Build.extend({
         this._super(bid, level);
     },
     initBuildActions: function () {
-        this.actions = [BuildActionFactory.createActionByType("dog", { bid: this.id })];
+        this.actions = [
+            BuildActionFactory.createActionByType("dog", { bid: this.id }),
+            new DogAutoFeedBuildAction(this.id)
+        ].filter(function (action) {
+            return !!action;
+        });
     },
     restore: function (opt) {
     }

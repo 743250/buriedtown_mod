@@ -1,6 +1,17 @@
 /**
  * Created by lancelot on 15/7/7.
  */
+var NPC_SMOKE_FAVORITE_PRICE = 1.2;
+var NPC_SMOKE_FAVORITE_ITEM_IDS = [1105061, 1105072];
+var NPC_MALE_IDS = {
+    1: true,
+    3: true,
+    5: true,
+    6: true,
+    7: true,
+    8: true
+};
+
 var NPC = BaseSite.extend({
     ctor: function (npcId) {
         this._super();
@@ -184,8 +195,36 @@ var NPC = BaseSite.extend({
         var rand = utils.getRandomInt(0, this.dialogs.length - 1);
         return this.dialogs[rand];
     },
+    _isMaleNpc: function () {
+        return !!NPC_MALE_IDS[this.id];
+    },
+    _getCurrentFavoriteList: function () {
+        var favorite = utils.clone(this.favoriteList[memoryUtil.decode(this.reputation)] || []);
+        var seenItemMap = {};
+        favorite.forEach(function (itemInfo) {
+            var itemId = parseInt(itemInfo.itemId, 10);
+            if (!isNaN(itemId)) {
+                seenItemMap[itemId] = true;
+            }
+        });
+
+        if (!this._isMaleNpc()) {
+            return favorite;
+        }
+
+        NPC_SMOKE_FAVORITE_ITEM_IDS.forEach(function (itemId) {
+            if (seenItemMap[itemId]) {
+                return;
+            }
+            favorite.push({
+                itemId: itemId,
+                price: NPC_SMOKE_FAVORITE_PRICE
+            });
+        });
+        return favorite;
+    },
     getCurrentFavoriteTradeInfo: function () {
-        var favorite = this.favoriteList[memoryUtil.decode(this.reputation)] || [];
+        var favorite = this._getCurrentFavoriteList();
         var favoriteInfoList = [];
         var seenItemMap = {};
         favorite.forEach(function (itemInfo) {
@@ -212,7 +251,7 @@ var NPC = BaseSite.extend({
         return deltaPrice;
     },
     _getTradeSummary: function (storage) {
-        var favorite = this.favoriteList[memoryUtil.decode(this.reputation)] || [];
+        var favorite = this._getCurrentFavoriteList();
         var itemIdMap = {};
         this.storage.forEach(function (item) {
             itemIdMap[item.id] = true;
