@@ -230,6 +230,105 @@ var createTimedEffectBuildAction = function (options) {
     });
 };
 
+var createTimedStateBuildAction = function (options) {
+    return BuildAction.extend({
+        ctor: function (bid) {
+            this._super(bid);
+            this.config = utils.clone(buildActionConfig[this.id][0]);
+            this.needBuild = {bid: this.id, level: 0};
+        },
+        clickIcon: function () {
+            uiUtil.showBuildActionDialog(this.bid, options.dialogIndex || 0);
+        },
+        isActive: function () {
+            if (typeof options.isActive !== "function") {
+                return false;
+            }
+            return !!options.isActive(this, getBuildActionRuntimePlayer());
+        },
+        clickAction1: function () {
+            if (!uiUtil.checkVigour()) {
+                return;
+            }
+
+            var runtimePlayer = getBuildActionRuntimePlayer();
+            if (typeof options.beforeStart === "function"
+                && options.beforeStart(this, runtimePlayer) === false) {
+                return;
+            }
+
+            this._beginActioning();
+
+            var time = this.config["makeTime"] * 60;
+            var self = this;
+            this.addTimer(time, time, function () {
+                runtimePlayer.costItems(self.config.cost);
+
+                if (typeof options.afterComplete === "function") {
+                    options.afterComplete(self, runtimePlayer);
+                }
+
+                self._finishActioning(options.finishOptions);
+            });
+            this._sendUpdageSignal();
+        },
+        _getUpdateViewInfo: function () {
+            var iconName = "#build_action_" + this.id + "_0" + ".png";
+            var action1Txt = stringUtil.getString(options.actionTextId, this.config["makeTime"]);
+
+            var hint, hintColor, items, action1Disabled;
+            if (this._isNeedBuildLocked()) {
+                hint = this._getNeedBuildHint();
+                hintColor = cc.color.RED;
+                action1Disabled = true;
+            } else if (this.isActioning) {
+                hint = stringUtil.getString(options.actioningHintId);
+                hintColor = cc.color.WHITE;
+                action1Disabled = true;
+            } else {
+                hint = typeof options.getIdleHint === "function"
+                    ? options.getIdleHint(this, getBuildActionRuntimePlayer())
+                    : "";
+                var cost = this.config.cost;
+                if (!this._isCostEnough(cost)) {
+                    action1Disabled = true;
+                }
+                items = this._buildCostItems(cost);
+            }
+
+            return {
+                iconName: iconName,
+                hint: hint,
+                hintColor: hintColor,
+                items: items,
+                action1: action1Txt,
+                action1Disabled: action1Disabled,
+                percentage: 0
+            };
+        },
+        save: function () {
+            if (typeof options.save !== "function") {
+                return {};
+            }
+            return options.save(this, getBuildActionRuntimePlayer()) || {};
+        },
+        restore: function (saveObj) {
+            if (typeof options.restore === "function") {
+                options.restore(this, saveObj, getBuildActionRuntimePlayer());
+            }
+        }
+    });
+};
+
+var registerTimedStateBuildActionType = function (type, options) {
+    var ActionClass = createTimedStateBuildAction(options);
+    BuildActionTypeRegistry.register(type, {
+        create: function (createOptions) {
+            return new ActionClass(createOptions.bid);
+        }
+    });
+};
+
 var Formula = BuildAction.extend({
     ctor: function (fid, bid) {
         this._super(bid);
@@ -588,70 +687,21 @@ var TrapBuildAction = Formula.extend({
     }
 });
 
-var DogBuildAction = BuildAction.extend({
-    ctor: function (bid) {
-        this._super(bid);
-        this.config = utils.clone(buildActionConfig[this.id][0]);
-        this.needBuild = {bid: this.id, level: 0};
-    },
-    clickIcon: function () {
-        uiUtil.showBuildActionDialog(this.bid, 0);
-    },
-    clickAction1: function () {
-        if (!uiUtil.checkVigour())
-            return;
-        if (!player.dog.canFeed()) {
+registerTimedStateBuildActionType("dog", {
+    actionTextId: 1020,
+    actioningHintId: 1023,
+    beforeStart: function (action, runtimePlayer) {
+        if (!runtimePlayer.dog.canFeed()) {
             uiUtil.showTinyInfoDialog(1130);
-            return;
+            return false;
         }
-        this._beginActioning();
-
-        //2. 制作
-        var time = this.config["makeTime"];
-        time *= 60;
-        var self = this;
-        this.addTimer(time, time, function () {
-            //1. cost成功
-            player.costItems(self.config.cost);
-
-            player.dog.feed();
-            self._finishActioning();
-        });
-        this._sendUpdageSignal();
+        return true;
     },
-    _getUpdateViewInfo: function () {
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
-
-        var action1Txt = stringUtil.getString(1020, this.config["makeTime"]);
-
-        var hint, hintColor, items, action1Disabled;
-        if (this._isNeedBuildLocked()) {
-            hint = this._getNeedBuildHint();
-            hintColor = cc.color.RED;
-            action1Disabled = true;
-        } else if (this.isActioning) {
-            hint = stringUtil.getString(1023);
-            hintColor = cc.color.WHITE;
-            action1Disabled = true;
-        } else {
-            hint = player.dog.isActive() ? stringUtil.getString(1021) : stringUtil.getString(1022);
-            var cost = this.config.cost;
-            if (!this._isCostEnough(cost)) {
-                action1Disabled = true;
-            }
-            items = this._buildCostItems(cost);
-        }
-
-        var res = {
-            iconName: iconName,
-            hint: hint,
-            hintColor: hintColor,
-            items: items,
-            action1: action1Txt,
-            action1Disabled: action1Disabled,
-            percentage: 0
-        };
-        return res;
+    afterComplete: function (action, runtimePlayer) {
+        runtimePlayer.dog.feed();
+    },
+    getIdleHint: function (action, runtimePlayer) {
+        return runtimePlayer.dog.isActive() ? stringUtil.getString(1021) : stringUtil.getString(1022);
     }
 });
 
@@ -1005,85 +1055,33 @@ var BonfireBuildAction = BuildAction.extend({
     }
 });
 
-var BombBuildAction = BuildAction.extend({
-    ctor: function (bid) {
-        this._super(bid);
-        this.config = utils.clone(buildActionConfig[this.id][0]);
-        this.needBuild = {bid: this.id, level: 0};
+registerTimedStateBuildActionType("bomb", {
+    actionTextId: 1303,
+    actioningHintId: 1302,
+    isActive: function (action, runtimePlayer) {
+        return runtimePlayer.isBombActive;
     },
-    active: function () {
-        player.isBombActive = true;
-    },
-    isActive: function () {
-        return player.isBombActive;
-    },
-    clickIcon: function () {
-        uiUtil.showBuildActionDialog(this.bid, 0);
-    },
-    clickAction1: function () {
-        if (!uiUtil.checkVigour())
-            return;
-        if (this.isActive()) {
+    beforeStart: function (action) {
+        if (action.isActive()) {
             uiUtil.showTinyInfoDialog(1304);
-            return;
+            return false;
         }
-        this._beginActioning();
-
-        //2. 制作
-        var time = this.config["makeTime"];
-        time *= 60;
-        var self = this;
-        this.addTimer(time, time, function () {
-            //1. cost成功
-            player.costItems(self.config.cost);
-
-            self.active();
-            self._finishActioning();
-        });
-        this._sendUpdageSignal();
+        return true;
     },
-    _getUpdateViewInfo: function () {
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
-
-        var action1Txt = stringUtil.getString(1303, this.config["makeTime"]);
-
-        var hint, hintColor, items, action1Disabled;
-        if (this._isNeedBuildLocked()) {
-            hint = this._getNeedBuildHint();
-            hintColor = cc.color.RED;
-            action1Disabled = true;
-        } else if (this.isActioning) {
-            hint = stringUtil.getString(1302);
-            hintColor = cc.color.WHITE;
-            action1Disabled = true;
-        } else {
-            hint = this.isActive() ? stringUtil.getString(1300) : stringUtil.getString(1301);
-            var cost = this.config.cost;
-            if (!this._isCostEnough(cost)) {
-                action1Disabled = true;
-            }
-            items = this._buildCostItems(cost);
-        }
-
-        var res = {
-            iconName: iconName,
-            hint: hint,
-            hintColor: hintColor,
-            items: items,
-            action1: action1Txt,
-            action1Disabled: action1Disabled,
-            percentage: 0
-        };
-        return res;
+    afterComplete: function (action, runtimePlayer) {
+        runtimePlayer.isBombActive = true;
     },
-    save: function () {
+    getIdleHint: function (action) {
+        return action.isActive() ? stringUtil.getString(1300) : stringUtil.getString(1301);
+    },
+    save: function (action) {
         return {
-            isActive: this.isActive()
+            isActive: action.isActive()
         };
     },
-    restore: function (saveObj) {
+    restore: function (action, saveObj, runtimePlayer) {
         if (saveObj) {
-            player.isBombActive = !!saveObj.isActive;
+            runtimePlayer.isBombActive = !!saveObj.isActive;
         }
     }
 });

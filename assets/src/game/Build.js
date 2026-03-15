@@ -356,8 +356,7 @@ var DogBuild = Build.extend({
         this._super(bid, level);
     },
     initBuildActions: function () {
-        var action = new DogBuildAction(this.id);
-        this.actions.push(action);
+        this.actions = [BuildActionFactory.createActionByType("dog", { bid: this.id })];
     },
     restore: function (opt) {
     }
@@ -409,8 +408,7 @@ var BombBuild = Build.extend({
         this._super(bid, level);
     },
     initBuildActions: function () {
-        var action = new BombBuildAction(this.id);
-        this.actions.push(action);
+        this.actions = [BuildActionFactory.createActionByType("bomb", { bid: this.id })];
     },
     restore: function (opt) {
     }

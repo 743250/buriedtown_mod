@@ -24,9 +24,19 @@ function createExtendableBaseClass() {
     BaseClass.extend = function (definition) {
         const Parent = this;
         function SubClass() {
+            const previousSuper = this._super;
+            this._super = function () {
+                if (Parent.prototype && typeof Parent.prototype.ctor === "function") {
+                    return Parent.prototype.ctor.apply(this, arguments);
+                }
+                if (typeof Parent === "function") {
+                    return Parent.apply(this, arguments);
+                }
+            };
             if (this.ctor) {
                 this.ctor.apply(this, arguments);
             }
+            this._super = previousSuper;
         }
         SubClass.prototype = Object.create(Parent.prototype || {});
         Object.keys(definition || {}).forEach(function (key) {
@@ -443,19 +453,32 @@ function runTimerRepeatAlignmentSmoke() {
 function runCraftBuildActionReuseSmoke() {
     const sandbox = createVmSandbox();
     sandbox.player = {
-        getItemNumInPlayer: function () {
-            return 50;
-        }
+        getItemNumInPlayer: function () { return 50; },
+        dog: {
+            canFeed: function () { return true; },
+            feed: function () {},
+            isActive: function () { return false; }
+        },
+        isBombActive: false
     };
     sandbox.uiUtil = {
         checkVigour: function () { return true; },
         showItemDialog: function () {},
         showBuildActionDialog: function () {},
+        showTinyInfoDialog: function () {},
         showCraftCountSliderDialog: function () {},
         getItemIconFrameName: function () { return ""; },
         getDefaultSpriteName: function () { return ""; }
     };
     sandbox.buildActionConfig = {
+        "12": [{
+            cost: [{ itemId: 1103041, num: 2 }],
+            makeTime: 30
+        }],
+        "17": [{
+            cost: [{ itemId: 1303012, num: 3 }],
+            makeTime: 30
+        }],
         "8": [{
             produce: [{ itemId: 1103041, num: 4 }],
             cost: [{ itemId: 1103011, num: 2 }],
@@ -474,6 +497,8 @@ function runCraftBuildActionReuseSmoke() {
     assert(sandbox.BuildActionTypeRegistry._types.formula, "formula action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.rest, "rest action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.smoke, "smoke action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.dog, "dog action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.bomb, "bomb action type should be registered");
 
     assert(formulaProto.getBatchCount.call({ config: { batchCount: 7 } }) === 7, "Formula should read batchCount from config");
 
@@ -500,10 +525,15 @@ function runCraftBuildActionReuseSmoke() {
     assert(trapProto.clickAction1 === formulaProto.clickAction1, "TrapBuildAction should reuse Formula clickAction1 flow");
     assert(trapProto.place === formulaProto.place, "TrapBuildAction should reuse Formula place flow");
 
+    const dogAction = sandbox.BuildActionTypeRegistry.create("dog", { bid: 12 });
+    const bombAction = sandbox.BuildActionTypeRegistry.create("bomb", { bid: 17 });
+    assert(dogAction && typeof dogAction.clickAction1 === "function", "dog action type should create runnable actions");
+    assert(bombAction && typeof bombAction.clickAction1 === "function", "bomb action type should create runnable actions");
+
     return {
         name: "craft-build-action-reuse",
         ok: true,
-        detail: "validated Formula batch count config and TrapBuildAction reuse of Formula start/place flow"
+        detail: "validated Formula batch count config plus Trap/Dog/Bomb registry-backed action reuse"
     };
 }
 
