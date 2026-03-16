@@ -457,7 +457,7 @@ var formulaConfig = {
         "runtimeRule": {"excludeAnyTags": ["jin"]}
     },
     "1204012": {
-        "id": "1204011",
+        "id": "1204012",
         "produce": [{
             "itemId": 1104011,
             "num": 1
@@ -495,7 +495,7 @@ var formulaConfig = {
         "runtimeRule": {"excludeAnyTags": ["jin"]}
     },
     "1204022": {
-        "id": "1204021",
+        "id": "1204022",
         "produce": [{
             "itemId": 1104021,
             "num": 1

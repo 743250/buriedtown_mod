@@ -29,6 +29,13 @@ var Build = cc.Class.extend({
         this.restore(saveObj);
     },
     initBuildActions: function () {
+        if (typeof BuildActionFactory !== "undefined"
+            && BuildActionFactory
+            && typeof BuildActionFactory.createBuildActions === "function") {
+            this.actions = BuildActionFactory.createBuildActions(this.id, this.level);
+            return;
+        }
+
         var produceList = [];
         var l = 0;
         var self = this;
@@ -255,8 +262,17 @@ var Build = cc.Class.extend({
         if (this.level < 0) {
             return false;
         }
-        if (this.currentConfig && this.currentConfig.requirePoweredWorksite) {
-            return this._isWorkSitePowered();
+        if (this.currentConfig && this.currentConfig.requirePoweredWorksite && !this._isWorkSitePowered()) {
+            return false;
+        }
+
+        if (typeof BuildActionFactory !== "undefined"
+            && BuildActionFactory
+            && typeof BuildActionFactory.resolveBuildActiveState === "function") {
+            var runtimeActive = BuildActionFactory.resolveBuildActiveState(this);
+            if (runtimeActive !== null) {
+                return runtimeActive;
+            }
         }
         return true;
     },
@@ -341,85 +357,6 @@ var Build = cc.Class.extend({
     }
 });
 
-var TrapBuild = Build.extend({
-    ctor: function (bid, level, saveObj) {
-        this._super(bid, level, saveObj);
-    },
-    initBuildActions: function () {
-        var action = new TrapBuildAction(this.id);
-        this.actions.push(action);
-        this.actions.push(new TrapAutoSetBuildAction(this.id, action));
-    }
-});
-
-var DogBuild = Build.extend({
-    ctor: function (bid, level) {
-        this._super(bid, level);
-    },
-    initBuildActions: function () {
-        this.actions = [
-            BuildActionFactory.createActionByType("dog", { bid: this.id }),
-            new DogAutoFeedBuildAction(this.id)
-        ].filter(function (action) {
-            return !!action;
-        });
-    },
-    restore: function (opt) {
-    }
-});
-
-var RestBuild = Build.extend({
-    ctor: function (bid, level) {
-        this._super(bid, level);
-    },
-    initBuildActions: function () {
-        this.actions = BuildActionFactory.createRestActions(this.id, this.level);
-    },
-    restore: function (opt) {
-    }
-});
-
-var BedBuild = Build.extend({
-    ctor: function (bid, level) {
-        this._super(bid, level);
-    },
-    initBuildActions: function () {
-        for (var type in BedBuildActionType) {
-            var action = new BedBuildAction(this.id, this.level, BedBuildActionType[type]);
-            this.actions.push(action);
-        }
-    },
-    restore: function (opt) {
-    }
-});
-
-var BonfireBuild = Build.extend({
-    ctor: function (bid, level, saveObj) {
-        this._super(bid, level, saveObj);
-    },
-    initBuildActions: function () {
-        var action = new BonfireBuildAction(this.id);
-        this.actions.push(action);
-    },
-    isActive: function () {
-        if (this.level >= 0) {
-            return this.actions[0].fuel > 0;
-        }
-        return false;
-    }
-});
-
-var BombBuild = Build.extend({
-    ctor: function (bid, level) {
-        this._super(bid, level);
-    },
-    initBuildActions: function () {
-        this.actions = [BuildActionFactory.createActionByType("bomb", { bid: this.id })];
-    },
-    restore: function (opt) {
-    }
-});
-
 var Room = cc.Class.extend({
     ctor: function () {
         this.map = {};
@@ -486,33 +423,9 @@ var Room = cc.Class.extend({
         return false;
     },
     createBuild: function (bid, level, obj) {
-        var b;
         bid = Number(bid);
         level = Number(level);
-        switch (bid) {
-            case 5:
-                b = new BonfireBuild(bid, level, obj);
-                break;
-            case 8:
-                b = new TrapBuild(bid, level, obj);
-                break;
-            case 9:
-                b = new BedBuild(bid, level, obj);
-                break;
-            case 10:
-                b = new RestBuild(bid, level, obj);
-                break;
-            case 12:
-                b = new DogBuild(bid, level, obj);
-                break;
-            case 17:
-                b = new BombBuild(bid, level, obj);
-                break;
-            default :
-                b = new Build(bid, level, obj);
-                break;
-        }
-        this.map[bid] = b;
+        this.map[bid] = new Build(bid, level, obj);
     },
     getBuild: function (bid) {
         return this.map[bid];

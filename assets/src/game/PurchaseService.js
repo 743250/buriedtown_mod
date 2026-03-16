@@ -121,6 +121,15 @@ var PurchaseService = {
         }
         return IAPPackage.getPriceOff(purchaseId);
     },
+    isPurchaseLockUnlocked: function (purchaseLock) {
+        if (!purchaseLock || typeof purchaseLock !== "object") {
+            return true;
+        }
+        if (typeof purchaseLock.checkFn !== "string" || !this._hasIAPMethod(purchaseLock.checkFn)) {
+            return true;
+        }
+        return !!IAPPackage[purchaseLock.checkFn].call(IAPPackage);
+    },
     _getSortedPurchaseIds: function (filterFn) {
         if (typeof PurchaseList === "undefined" || !PurchaseList) {
             return [];
@@ -226,40 +235,92 @@ var PurchaseService = {
             return purchaseId >= 200;
         });
     },
-    _grantUnlockReward: function (purchaseId) {
+    _singleUnlockRewardMap: {
+        105: { type: "item", itemId: 1305024, num: 1 },
+        106: { type: "item", itemId: 1304024, num: 1 },
+        107: { type: "build", bid: 12, level: 0 }
+    },
+    _getSingleUnlockReward: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null
-            || typeof player === "undefined"
-            || !player
-            || !player.storage
-            || !player.room) {
+        if (purchaseId === null) {
+            return null;
+        }
+        return this._singleUnlockRewardMap[purchaseId] || null;
+    },
+    _getPlayerOwnedItemCount: function (playerObj, itemId) {
+        if (!playerObj) {
+            return 0;
+        }
+        if (typeof playerObj.getItemNumInPlayer === "function") {
+            var totalNum = Number(playerObj.getItemNumInPlayer(itemId));
+            return isNaN(totalNum) ? 0 : totalNum;
+        }
+
+        var total = 0;
+        ["storage", "bag"].forEach(function (key) {
+            var storageLike = playerObj[key];
+            if (storageLike && typeof storageLike.getNumByItemId === "function") {
+                total += Number(storageLike.getNumByItemId(itemId) || 0);
+            }
+        });
+        return total;
+    },
+    grantUnlockRewardToPlayer: function (playerObj, purchaseId) {
+        var reward = this._getSingleUnlockReward(purchaseId);
+        if (!reward || !playerObj) {
             return false;
         }
 
-        if (purchaseId === 105) {
-            if (!player.storage.validateItem(1305024, 1)) {
-                player.storage.increaseItem(1305024, 1);
-                return true;
+        if (reward.type === "item") {
+            if (!playerObj.storage || typeof playerObj.storage.increaseItem !== "function") {
+                return false;
             }
-            return false;
+            var ownedNum = this._getPlayerOwnedItemCount(playerObj, reward.itemId);
+            if (ownedNum >= reward.num) {
+                return false;
+            }
+            playerObj.storage.increaseItem(reward.itemId, reward.num - ownedNum);
+            return true;
         }
 
-        if (purchaseId === 106) {
-            if (!player.storage.validateItem(1304024, 1)) {
-                player.storage.increaseItem(1304024, 1);
-                return true;
+        if (reward.type === "build") {
+            if (!playerObj.room
+                || typeof playerObj.room.isBuildExist !== "function"
+                || typeof playerObj.room.createBuild !== "function") {
+                return false;
             }
-            return false;
-        }
-
-        if (purchaseId === 107) {
-            if (!player.room.isBuildExist(12, 0)) {
-                player.room.createBuild(12, 0);
-                return true;
+            if (playerObj.room.isBuildExist(reward.bid, reward.level)) {
+                return false;
             }
+            playerObj.room.createBuild(reward.bid, reward.level);
+            return true;
         }
 
         return false;
+    },
+    reconcileUnlockRewardsForPlayer: function (playerObj, purchaseIds) {
+        var changed = false;
+        var targetPurchaseIds = Array.isArray(purchaseIds)
+            ? purchaseIds.slice()
+            : Object.keys(this._singleUnlockRewardMap);
+
+        targetPurchaseIds.forEach(function (purchaseId) {
+            purchaseId = this._normalizePurchaseId(purchaseId);
+            if (purchaseId === null || !this.isUnlocked(purchaseId)) {
+                return;
+            }
+            if (this.grantUnlockRewardToPlayer(playerObj, purchaseId)) {
+                changed = true;
+            }
+        }, this);
+
+        return changed;
+    },
+    _grantUnlockReward: function (purchaseId) {
+        if (typeof player === "undefined" || !player) {
+            return false;
+        }
+        return this.grantUnlockRewardToPlayer(player, purchaseId);
     },
     syncPurchasedUnlock: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);

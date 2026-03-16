@@ -132,6 +132,17 @@ var ContentBlueprint = {
         }
         return true;
     },
+    _hasValidResolvableItemIdList: function (list) {
+        if (!Array.isArray(list) || list.length === 0) {
+            return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+            if (!ContentBlueprint._hasResolvableItemId(list[i])) {
+                return false;
+            }
+        }
+        return true;
+    },
     _hasValidSpecialItems: function (list) {
         if (!Array.isArray(list)) {
             return false;
@@ -367,6 +378,101 @@ var ContentBlueprint = {
             }
         }
         return hasAnyEffectKey;
+    },
+    _hasOnlyKnownKeys: function (obj, allowedKeys) {
+        if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+            return false;
+        }
+        allowedKeys = Array.isArray(allowedKeys) ? allowedKeys : [];
+        for (var key in obj) {
+            if (allowedKeys.indexOf(key) === -1) {
+                return false;
+            }
+        }
+        return true;
+    },
+    _hasIAPMethod: function (methodName) {
+        return typeof methodName === "string"
+            && methodName.length > 0
+            && typeof IAPPackage !== "undefined"
+            && IAPPackage
+            && typeof IAPPackage[methodName] === "function";
+    },
+    _hasValidPurchaseLock: function (purchaseLock) {
+        if (!purchaseLock
+            || typeof purchaseLock !== "object"
+            || Array.isArray(purchaseLock)
+            || !ContentBlueprint._hasOnlyKnownKeys(purchaseLock, ["purchaseId", "checkFn"])) {
+            return false;
+        }
+        if (!ContentBlueprint._hasIAPMethod(purchaseLock.checkFn)) {
+            return false;
+        }
+        if (purchaseLock.purchaseId === undefined) {
+            return true;
+        }
+        return ContentBlueprint._hasPurchaseConfig(purchaseLock.purchaseId);
+    },
+    _hasValidRuntimeRule: function (runtimeRule) {
+        if (!runtimeRule
+            || typeof runtimeRule !== "object"
+            || Array.isArray(runtimeRule)
+            || !ContentBlueprint._hasOnlyKnownKeys(runtimeRule, [
+                "includeAnyTags",
+                "excludeAnyTags",
+                "hideWhenPoweredWorksiteForTags",
+                "hideWhenOwnedItems",
+                "requireOwnedItems",
+                "requirePoweredWorksite",
+                "purchaseLock"
+            ])) {
+            return false;
+        }
+
+        var hasAnyRule = false;
+        if (runtimeRule.includeAnyTags !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidStringList(runtimeRule.includeAnyTags)) {
+                return false;
+            }
+        }
+        if (runtimeRule.excludeAnyTags !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidStringList(runtimeRule.excludeAnyTags)) {
+                return false;
+            }
+        }
+        if (runtimeRule.hideWhenPoweredWorksiteForTags !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidStringList(runtimeRule.hideWhenPoweredWorksiteForTags)) {
+                return false;
+            }
+        }
+        if (runtimeRule.hideWhenOwnedItems !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidResolvableItemIdList(runtimeRule.hideWhenOwnedItems)) {
+                return false;
+            }
+        }
+        if (runtimeRule.requireOwnedItems !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidResolvableItemIdList(runtimeRule.requireOwnedItems)) {
+                return false;
+            }
+        }
+        if (runtimeRule.requirePoweredWorksite !== undefined) {
+            hasAnyRule = true;
+            if (typeof runtimeRule.requirePoweredWorksite !== "boolean") {
+                return false;
+            }
+        }
+        if (runtimeRule.purchaseLock !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidPurchaseLock(runtimeRule.purchaseLock)) {
+                return false;
+            }
+        }
+        return hasAnyRule;
     },
     _walkBuildActionEntries: function (configList, entryValidator) {
         if (!Array.isArray(configList) || configList.length === 0) {
@@ -783,6 +889,69 @@ var ContentBlueprint = {
                         }
                         return true;
                     });
+                }
+            }
+        ]
+    },
+    formula: {
+        fields: [
+            {
+                name: "鍏紡閰嶇疆",
+                file: "data/formulaConfig.js",
+                required: true,
+                validator: function (id) {
+                    return !!ContentBlueprint._getFormulaConfig(id);
+                }
+            },
+            {
+                name: "鍏紡ID缁撴瀯閰嶇疆",
+                file: "data/formulaConfig.js",
+                required: true,
+                validator: function (id) {
+                    var config = ContentBlueprint._getFormulaConfig(id);
+                    return !!config && parseInt(config.id) === parseInt(id);
+                }
+            },
+            {
+                name: "鍏紡鎴愭湰/浜у嚭閰嶇疆",
+                file: "data/formulaConfig.js",
+                required: true,
+                validator: function (id) {
+                    var config = ContentBlueprint._getFormulaConfig(id);
+                    return !!config
+                        && ContentBlueprint._hasValidItemStackList(config.cost || [], true)
+                        && ContentBlueprint._hasValidItemStackList(config.produce || []);
+                }
+            },
+            {
+                name: "鍏紡鏃堕棿閰嶇疆",
+                file: "data/formulaConfig.js",
+                required: true,
+                validator: function (id) {
+                    var config = ContentBlueprint._getFormulaConfig(id);
+                    if (!config || !ContentBlueprint._isFiniteNumber(config.makeTime) || Number(config.makeTime) < 0) {
+                        return false;
+                    }
+                    if (config.placedTime !== undefined && !ContentBlueprint._hasValidPositiveNumberList(config.placedTime)) {
+                        return false;
+                    }
+                    if (config.batchCount !== undefined
+                        && (!ContentBlueprint._isFiniteNumber(config.batchCount) || Number(config.batchCount) <= 0)) {
+                        return false;
+                    }
+                    return true;
+                }
+            },
+            {
+                name: "鍏紡 runtimeRule schema",
+                file: "data/formulaConfig.js",
+                required: false,
+                validator: function (id) {
+                    var config = ContentBlueprint._getFormulaConfig(id);
+                    if (!config || config.runtimeRule === undefined) {
+                        return true;
+                    }
+                    return ContentBlueprint._hasValidRuntimeRule(config.runtimeRule);
                 }
             }
         ]

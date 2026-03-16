@@ -56,6 +56,8 @@ function runSyntaxSmoke() {
         "assets/src/game/game.js",
         "assets/src/game/player.js",
         "assets/src/game/TravelService.js",
+        "assets/src/game/Build.js",
+        "assets/src/game/PlayerPersistenceService.js",
         "assets/src/game/BuildActionEffectService.js",
         "assets/src/game/buildAction.js",
         "assets/src/game/Battle.js",
@@ -287,7 +289,12 @@ function runRoleRuntimeRuleSmoke() {
     };
     sandbox.RoleType = { STRANGER: 6 };
     sandbox.npcConfig = {};
+    sandbox.IAPPackage = {
+        isBootUnlocked: function () { return false; },
+        isBigBagUnlocked: function () { return true; }
+    };
     loadIntoSandbox(sandbox, "assets/src/data/formulaConfig.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
     loadIntoSandbox(sandbox, "assets/src/game/RoleRuntimeService.js");
 
     const jinOnlyAction = {
@@ -342,6 +349,15 @@ function runRoleRuntimeRuleSmoke() {
         id: 1401052,
         config: sandbox.formulaConfig["1401052"]
     };
+    const purchaseLockedAction = {
+        id: 999001,
+        runtimeRule: {
+            purchaseLock: {
+                purchaseId: 106,
+                checkFn: "isBootUnlocked"
+            }
+        }
+    };
 
     assert(sandbox.RoleRuntimeService._getBuildActionRules(jinOnlyAction).length === 1, "jin include rule should now come from formulaConfig only");
     assert(sandbox.RoleRuntimeService._getBuildActionRules(nonJinAction).length === 1, "jin exclude rule should now come from formulaConfig only");
@@ -387,12 +403,24 @@ function runRoleRuntimeRuleSmoke() {
     assert(sandbox.RoleRuntimeService.isBuildActionVisible(bierKingAction, 93, {}) === true, "bier-tagged role should see bier/king action");
     assert(sandbox.RoleRuntimeService.isBuildActionVisible(bierKingAction, 96, {}) === true, "king-tagged role should see bier/king action");
     assert(sandbox.RoleRuntimeService.isBuildActionVisible(bierKingAction, 6, {}) === false, "default role should not see bier/king action");
+    assert(sandbox.PurchaseService.isPurchaseLockUnlocked(purchaseLockedAction.runtimeRule.purchaseLock) === false,
+        "PurchaseService should interpret purchaseLock compatibility checks");
+    assert(sandbox.RoleRuntimeService.getBuildActionLockState(purchaseLockedAction).isLocked === true,
+        "RoleRuntimeService should lock actions when PurchaseService reports purchaseLock unmet");
+    sandbox.PurchaseService.isPurchaseLockUnlocked = function (purchaseLock) {
+        return purchaseLock && purchaseLock.checkFn === "isBootUnlocked";
+    };
+    sandbox.IAPPackage.isBootUnlocked = function () {
+        throw new Error("RoleRuntimeService should use PurchaseService before direct IAPPackage checks");
+    };
+    assert(sandbox.RoleRuntimeService.getBuildActionLockState(purchaseLockedAction).isLocked === false,
+        "RoleRuntimeService should delegate purchaseLock checks through PurchaseService when available");
     assert(sandbox.RoleRuntimeService._buildActionVisibilityGroups.length === 0, "RoleRuntimeService legacy visibility groups should now be empty");
 
     return {
         name: "role-runtime-rules",
         ok: true,
-        detail: "validated config-driven jin, luo, stranger, jie, yazi, bier, king and powered build action visibility rules"
+        detail: "validated config-driven jin, luo, stranger, jie, yazi, bier, king, powered and purchase-lock build action rules"
     };
 }
 
@@ -471,6 +499,11 @@ function runCraftBuildActionReuseSmoke() {
         getDefaultSpriteName: function () { return ""; }
     };
     sandbox.buildActionConfig = {
+        "5": [{
+            cost: [{ itemId: 1101011, num: 1 }],
+            makeTime: 240,
+            max: 6
+        }],
         "12": [{
             cost: [{ itemId: 1103041, num: 2 }],
             makeTime: 30
@@ -484,9 +517,24 @@ function runCraftBuildActionReuseSmoke() {
             cost: [{ itemId: 1103011, num: 2 }],
             makeTime: 30,
             placedTime: [2880, 4320]
+        }],
+        "9": [{
+            effect: {
+                spirit: 1
+            }
+        }],
+        "19": [{
+            effect: {
+                spirit: 1
+            }
         }]
     };
     sandbox.formulaConfig = {};
+    sandbox.RoleRuntimeService = {
+        getRestActionTypes: function () {
+            return [];
+        }
+    };
 
     loadIntoSandbox(sandbox, "assets/src/game/buildAction.js");
 
@@ -497,8 +545,15 @@ function runCraftBuildActionReuseSmoke() {
     assert(sandbox.BuildActionTypeRegistry._types.formula, "formula action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.rest, "rest action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.smoke, "smoke action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.trap, "trap action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.bed, "bed action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.dog, "dog action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.bomb, "bomb action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.bonfire, "bonfire action type should be registered");
+    assert(typeof sandbox.BuildActionFactory.registerBuildActionGroup === "function",
+        "BuildActionFactory should expose build-action group registration");
+    assert(typeof sandbox.BuildActionFactory.createBuildActions === "function",
+        "BuildActionFactory should expose build-action group creation");
 
     assert(formulaProto.getBatchCount.call({ config: { batchCount: 7 } }) === 7, "Formula should read batchCount from config");
 
@@ -522,18 +577,395 @@ function runCraftBuildActionReuseSmoke() {
     };
     assert(formulaProto.getMaxBatchCraftCount.call(freeBatchAction) === 6, "Formula no-cost batch craft should still respect configured batchCount");
 
-    assert(trapProto.clickAction1 === formulaProto.clickAction1, "TrapBuildAction should reuse Formula clickAction1 flow");
     assert(trapProto.place === formulaProto.place, "TrapBuildAction should reuse Formula place flow");
+    assert(typeof trapProto.tryAutoSet === "function", "TrapBuildAction should expose auto-set flow");
+    assert(typeof sandbox.TrapAutoSetBuildAction === "function", "Trap auto-set companion action should load into sandbox");
+    assert(typeof sandbox.DogAutoFeedBuildAction === "function", "Dog auto-feed companion action should load into sandbox");
 
+    const trapAction = sandbox.BuildActionTypeRegistry.create("trap", { bid: 8 });
+    const bedAction = sandbox.BuildActionTypeRegistry.create("bed", {
+        bid: 19,
+        level: 0,
+        bedActionType: sandbox.BedBuildActionType.SLEEP_4_HOUR
+    });
+    const bedActions = sandbox.BuildActionFactory.createBedActions(19, 0);
+    const trapBuildActions = sandbox.BuildActionFactory.createBuildActions(8, 0);
+    const bedBuildActions = sandbox.BuildActionFactory.createBuildActions(9, 0);
+    const bonfireBuildActions = sandbox.BuildActionFactory.createBuildActions(5, 0);
+    const dogBuildActions = sandbox.BuildActionFactory.createBuildActions(12, 0);
+    const bombBuildActions = sandbox.BuildActionFactory.createBuildActions(17, 0);
     const dogAction = sandbox.BuildActionTypeRegistry.create("dog", { bid: 12 });
     const bombAction = sandbox.BuildActionTypeRegistry.create("bomb", { bid: 17 });
+    assert(trapAction && typeof trapAction.clickAction1 === "function", "trap action type should create runnable actions");
+    assert(bedAction && bedAction.getActionKey() === "19:2", "bed action type should create keyed actions");
+    assert(bedActions.length === 4, "bed action factory should create all bed action variants");
+    assert(bedActions.map(function (action) { return action.getActionKey(); }).join(",") === "19:1,19:2,19:3,19:4",
+        "bed action factory should create stable keyed variants");
+    assert(trapBuildActions.length === 2 && trapBuildActions[1].getActionKey() === "8:auto_set",
+        "build action group factory should compose trap auto-set companion actions");
+    assert(bedBuildActions.length === 4 && bedBuildActions[0].getActionKey() === "9:1",
+        "build action group factory should compose bed action variants by build id");
+    assert(bonfireBuildActions.length === 1 && bonfireBuildActions[0].id === 5,
+        "build action group factory should compose bonfire fuel actions");
+    assert(dogBuildActions.length === 2 && dogBuildActions[1].getActionKey() === "12:auto_feed",
+        "build action group factory should compose dog auto-feed companion actions");
+    assert(bombBuildActions.length === 1 && bombBuildActions[0].id === 17,
+        "build action group factory should compose bomb timed-state actions");
     assert(dogAction && typeof dogAction.clickAction1 === "function", "dog action type should create runnable actions");
     assert(bombAction && typeof bombAction.clickAction1 === "function", "bomb action type should create runnable actions");
+    assert(sandbox.BuildActionFactory.resolveBuildActiveState({
+        id: 5,
+        actions: [{
+            isActive: function () {
+                return true;
+            }
+        }]
+    }) === true, "BuildActionFactory should expose build active-state hooks for bonfire-like builds");
+    assert(sandbox.BuildActionFactory.resolveBuildActiveState({ id: 2, actions: [] }) === null,
+        "BuildActionFactory should keep default builds on generic active-state handling");
 
     return {
         name: "craft-build-action-reuse",
         ok: true,
-        detail: "validated Formula batch count config plus Trap/Dog/Bomb registry-backed action reuse"
+        detail: "validated action type registry plus build-level action group composition for Trap/Bed/Dog/Bomb/Bonfire"
+    };
+}
+
+function runBonfireStateSmoke() {
+    const sandbox = createVmSandbox();
+    const timerCallbacks = [];
+    const buildSignals = [];
+    let recordSaveCount = 0;
+    let temperatureUpdates = 0;
+    let itemCosts = 0;
+
+    sandbox.TimerCallback = function (time, target, callbacks) {
+        this.time = time;
+        this.target = target;
+        this.process = callbacks.process;
+        this.end = callbacks.end;
+    };
+    sandbox.cc.timer = {
+        time: 360,
+        addTimerCallback: function (timerCallback, startTime) {
+            const callbackInfo = {
+                callback: timerCallback,
+                startTime: startTime === undefined || startTime === null ? this.time : startTime
+            };
+            timerCallbacks.push(callbackInfo);
+            return callbackInfo;
+        }
+    };
+    sandbox.Record.saveAll = function () {
+        recordSaveCount++;
+    };
+    sandbox.player = {
+        validateItems: function () { return true; },
+        costItems: function () { itemCosts++; },
+        updateTemperature: function () { temperatureUpdates++; },
+        log: {
+            addMsg: function () {}
+        }
+    };
+    sandbox.uiUtil = {
+        checkVigour: function () { return true; },
+        showBuildActionDialog: function () {},
+        showTinyInfoDialog: function () {},
+        getItemIconFrameName: function () { return ""; },
+        getDefaultSpriteName: function () { return ""; }
+    };
+    sandbox.buildActionConfig = {
+        "5": [{
+            cost: [{ itemId: 1101011, num: 1 }],
+            makeTime: 240,
+            max: 6
+        }]
+    };
+    sandbox.formulaConfig = {};
+
+    loadIntoSandbox(sandbox, "assets/src/game/buildAction.js");
+
+    const bonfireAction = sandbox.BuildActionTypeRegistry.create("bonfire", { bid: 5 });
+    bonfireAction.build = {
+        setActiveBtnIndex: function (key) {
+            buildSignals.push(["set", key]);
+        },
+        resetActiveBtnIndex: function (key) {
+            buildSignals.push(["reset", key]);
+        }
+    };
+
+    bonfireAction.clickAction1();
+
+    assert(itemCosts === 1, "bonfire click should spend cost once");
+    assert(bonfireAction.fuel === 1, "bonfire click should add one fuel");
+    assert(temperatureUpdates === 1, "bonfire fuel add should refresh temperature once");
+    assert(recordSaveCount === 1, "bonfire fuel add should save record once");
+    assert(timerCallbacks.length === 1, "bonfire first fuel should schedule one timer");
+    assert(buildSignals.length === 1 && buildSignals[0][0] === "set", "bonfire first fuel should activate build button");
+
+    const savedState = bonfireAction.save();
+    assert(savedState.fuel === 1, "bonfire save should persist fuel");
+    assert(savedState.startTime === timerCallbacks[0].startTime, "bonfire save should persist timer start time");
+
+    const restoredAction = sandbox.BuildActionTypeRegistry.create("bonfire", { bid: 5 });
+    restoredAction.build = bonfireAction.build;
+    restoredAction.restore(savedState);
+    assert(restoredAction.fuel === 1, "bonfire restore should recover fuel");
+    assert(timerCallbacks.length === 2, "bonfire restore should resubscribe timer");
+
+    timerCallbacks[1].callback.end();
+
+    assert(restoredAction.fuel === 0, "bonfire timer end should consume fuel");
+    assert(temperatureUpdates === 2, "bonfire fuel depletion should refresh temperature");
+    assert(recordSaveCount === 2, "bonfire timer end should save record");
+    assert(buildSignals[1][0] === "reset", "bonfire depletion should reset build button");
+
+    return {
+        name: "bonfire-state",
+        ok: true,
+        detail: "validated bonfire registry action save/restore and fuel timer state transitions"
+    };
+}
+
+function runBuildRegistrySmoke() {
+    const sandbox = createVmSandbox();
+    const buildActionCalls = [];
+    function createAction(id, actionKey) {
+        return {
+            id: id,
+            actionKey: actionKey,
+            step: 0,
+            fuel: 0,
+            isActioning: false,
+            save: function () { return {}; },
+            restore: function () {},
+            canMake: function () { return false; },
+            getActionKey: function () { return this.actionKey || this.id; }
+        };
+    }
+
+    sandbox.buildConfig = {
+        "2": [{ produceList: [] }],
+        "5": [{ produceList: [] }],
+        "8": [{ produceList: [] }],
+        "9": [{ produceList: [] }],
+        "10": [{ produceList: [] }],
+        "12": [{ produceList: [] }],
+        "17": [{ produceList: [] }]
+    };
+    sandbox.buildUpgradeConfig = {};
+    sandbox.BuildActionFactory = {
+        createBuildActions: function (bid, level) {
+            buildActionCalls.push([bid, level]);
+            switch (bid) {
+                case 5:
+                    return [createAction(bid, bid + ":bonfire")];
+                case 8:
+                    return [
+                        createAction(bid, bid + ":trap"),
+                        createAction(bid, bid + ":auto_set")
+                    ];
+                case 9:
+                    return [
+                        createAction(bid, bid + ":1"),
+                        createAction(bid, bid + ":2"),
+                        createAction(bid, bid + ":3"),
+                        createAction(bid, bid + ":4")
+                    ];
+                case 10:
+                    return [createAction(bid, bid + ":rest")];
+                case 12:
+                    return [
+                        createAction(bid, bid + ":dog"),
+                        createAction(bid, bid + ":auto_feed")
+                    ];
+                case 17:
+                    return [createAction(bid, bid + ":bomb")];
+                default:
+                    return [createAction(bid, bid + ":formula")];
+            }
+        }
+    };
+    sandbox.RoleRuntimeService = {
+        applyRoomBuildStates: function () {}
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/Build.js");
+
+    const room = new sandbox.Room();
+    room.createBuild(5, 0);
+    room.createBuild(8, 0);
+    room.createBuild(9, 0);
+    room.createBuild(10, 0);
+    room.createBuild(12, 0);
+    room.createBuild(17, 0);
+    room.createBuild(2, 0);
+
+    assert(typeof sandbox.BuildTypeRegistry === "undefined",
+        "Build.js should no longer expose special build-type registration");
+    assert(buildActionCalls.map(function (entry) { return entry.join(":"); }).join(",") === "5:0,8:0,9:0,10:0,12:0,17:0,2:0",
+        "Room.createBuild should delegate all action composition through BuildActionFactory.createBuildActions");
+    assert(room.getBuild(5) instanceof sandbox.Build, "bonfire should now use the generic Build model");
+    assert(room.getBuild(8) instanceof sandbox.Build, "trap should now use the generic Build model");
+    assert(room.getBuild(9) instanceof sandbox.Build, "bed should now use the generic Build model");
+    assert(room.getBuild(10) instanceof sandbox.Build, "rest build should now use the generic Build model");
+    assert(room.getBuild(12) instanceof sandbox.Build, "dog build should now use the generic Build model");
+    assert(room.getBuild(17) instanceof sandbox.Build, "bomb build should now use the generic Build model");
+    assert(room.getBuild(8).actions.length === 2 && room.getBuild(8).actions[1].getActionKey() === "8:auto_set",
+        "trap build should restore both primary and companion actions from the factory");
+    assert(room.getBuild(9).actions.length === 4 && room.getBuild(9).actions[3].getActionKey() === "9:4",
+        "bed build should restore all sleep action variants from the factory");
+    assert(room.getBuild(12).actions.length === 2 && room.getBuild(12).actions[1].getActionKey() === "12:auto_feed",
+        "dog build should restore auto-feed companion action from the factory");
+    assert(room.getBuild(2).actions.length === 1 && room.getBuild(2).actions[0].getActionKey() === "2:formula",
+        "default builds should still restore action lists from the shared factory entry point");
+
+    return {
+        name: "build-registry",
+        ok: true,
+        detail: "validated Build.js delegates action composition to BuildActionFactory and keeps builds on the generic model"
+    };
+}
+
+function createCountStorage(initialCounts) {
+    const counts = Object.assign({}, initialCounts || {});
+    return {
+        counts: counts,
+        validateItem: function (itemId, num) {
+            return (this.counts[itemId] || 0) >= Number(num);
+        },
+        getNumByItemId: function (itemId) {
+            return this.counts[itemId] || 0;
+        },
+        increaseItem: function (itemId, num) {
+            this.counts[itemId] = (this.counts[itemId] || 0) + Number(num);
+        },
+        decreaseItem: function (itemId, num) {
+            const nextValue = (this.counts[itemId] || 0) - Number(num);
+            if (nextValue > 0) {
+                this.counts[itemId] = nextValue;
+            } else {
+                delete this.counts[itemId];
+            }
+        }
+    };
+}
+
+function createPurchaseRewardPlayer(initialState) {
+    initialState = initialState || {};
+    const playerObj = {
+        storage: createCountStorage(initialState.storage),
+        bag: createCountStorage(initialState.bag),
+        room: {
+            buildLevels: Object.assign({}, initialState.buildLevels || {}),
+            createCalls: [],
+            isBuildExist: function (bid, level) {
+                return Object.prototype.hasOwnProperty.call(this.buildLevels, bid) && this.buildLevels[bid] >= level;
+            },
+            createBuild: function (bid, level) {
+                this.buildLevels[bid] = level;
+                this.createCalls.push([bid, level]);
+            }
+        }
+    };
+    playerObj.getItemNumInPlayer = function (itemId) {
+        return this.storage.getNumByItemId(itemId) + this.bag.getNumByItemId(itemId);
+    };
+    return playerObj;
+}
+
+function runPurchaseUnlockRewardSmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.IAPPackage = {
+        isIAPUnlocked: function (purchaseId) {
+            return purchaseId === 105 || purchaseId === 106 || purchaseId === 107;
+        }
+    };
+    sandbox.player = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
+
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
+
+    assert(sandbox.PurchaseService._grantUnlockReward(105) === false,
+        "PurchaseService should not duplicate unlock reward items already owned in bag");
+    assert(sandbox.player.storage.getNumByItemId(1305024) === 0,
+        "PurchaseService should not backfill storage when bag already owns the unlock reward item");
+
+    const reconcilePlayer = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
+    assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [105, 106, 107]) === true,
+        "PurchaseService should reconcile missing unlock rewards for unlocked purchases");
+    assert(reconcilePlayer.storage.getNumByItemId(1305024) === 0,
+        "PurchaseService should not duplicate big bag reward when it already exists in bag");
+    assert(reconcilePlayer.storage.getNumByItemId(1304024) === 1,
+        "PurchaseService should restore the boots unlock reward when it is missing");
+    assert(reconcilePlayer.room.buildLevels[12] === 0,
+        "PurchaseService should restore dog house unlock reward at build level 0");
+    assert(reconcilePlayer.room.createCalls.length === 1 && reconcilePlayer.room.createCalls[0][1] === 0,
+        "PurchaseService should create dog house using the unlocked build level");
+    assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [105, 106, 107]) === false,
+        "PurchaseService unlock reward reconciliation should be idempotent once rewards exist");
+
+    return {
+        name: "purchase-unlock-rewards",
+        ok: true,
+        detail: "validated purchase unlock reward grant/reconcile flow avoids duplicate items and restores dog house at unlocked level"
+    };
+}
+
+function runPlayerPersistencePurchaseDelegationSmoke() {
+    const sandbox = createVmSandbox();
+    let purchaseReconcileCount = 0;
+    let recordSaveCount = 0;
+
+    sandbox.IAPPackage = {
+        migrateLegacyElitePistol: function () { return false; },
+        reconcilePlayerHpByTalentSelection: function () {},
+        isBigBagUnlocked: function () {
+            throw new Error("PlayerPersistenceService should prefer PurchaseService unlock reconciliation");
+        },
+        isBootUnlocked: function () {
+            throw new Error("PlayerPersistenceService should prefer PurchaseService unlock reconciliation");
+        },
+        isDogHouseUnlocked: function () {
+            throw new Error("PlayerPersistenceService should prefer PurchaseService unlock reconciliation");
+        }
+    };
+    sandbox.PurchaseService = {
+        reconcileUnlockRewardsForPlayer: function () {
+            purchaseReconcileCount++;
+            return true;
+        }
+    };
+    sandbox.RoleRuntimeService = {
+        ensureRoomBuildStates: function () { return false; },
+        ensureInitialUnlocks: function () { return false; },
+        ensureSpecialItems: function () {}
+    };
+    sandbox.Record = {
+        saveAll: function () {
+            recordSaveCount++;
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
+
+    sandbox.PlayerPersistenceService._applyPostRestoreFixups({
+        storage: createCountStorage(),
+        bag: createCountStorage(),
+        room: {},
+        map: {},
+        roleType: 6
+    });
+
+    assert(purchaseReconcileCount === 1,
+        "PlayerPersistenceService should delegate unlock reward reconciliation to PurchaseService when available");
+    assert(recordSaveCount === 1,
+        "PlayerPersistenceService should persist post-restore mutations after PurchaseService reconciliation");
+
+    return {
+        name: "player-persistence-purchase-delegation",
+        ok: true,
+        detail: "validated PlayerPersistenceService delegates unlock reward reconciliation to PurchaseService"
     };
 }
 
@@ -562,6 +994,10 @@ function main() {
         runRoleRuntimeRuleSmoke(),
         runTimerRepeatAlignmentSmoke(),
         runCraftBuildActionReuseSmoke(),
+        runBonfireStateSmoke(),
+        runBuildRegistrySmoke(),
+        runPurchaseUnlockRewardSmoke(),
+        runPlayerPersistencePurchaseDelegationSmoke(),
         runLoadChainSmoke()
     ];
 

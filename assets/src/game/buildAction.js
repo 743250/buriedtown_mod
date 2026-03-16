@@ -329,6 +329,167 @@ var registerTimedStateBuildActionType = function (type, options) {
     });
 };
 
+var createFuelBuildAction = function (options) {
+    return BuildAction.extend({
+        ctor: function (bid) {
+            this._super(bid);
+            this.config = utils.clone(buildActionConfig[this.id][0]);
+            this.fuel = 0;
+            this.pastTime = 0;
+            this.startTime = null;
+            this.fuelMax = this.config.max;
+            this.timePerFuel = this.config[(options.timeField || "makeTime")] * 60;
+            this.needBuild = {bid: this.id, level: 0};
+        },
+        clickIcon: function () {
+            uiUtil.showBuildActionDialog(this.bid, options.dialogIndex || 0);
+        },
+        isActive: function () {
+            return this.fuel > 0;
+        },
+        clickAction1: function () {
+            if (!uiUtil.checkVigour()) {
+                return;
+            }
+
+            var runtimePlayer = getBuildActionRuntimePlayer();
+            if (!runtimePlayer.validateItems(this.config.cost)) {
+                uiUtil.showTinyInfoDialog(options.costMissingHintId);
+                return;
+            }
+            if (this.fuel >= this.fuelMax) {
+                uiUtil.showTinyInfoDialog(options.maxHintId);
+                return;
+            }
+
+            runtimePlayer.costItems(this.config.cost);
+            this.addFuel();
+        },
+        addFuelTimer: function () {
+            var self = this;
+            var runtimePlayer = getBuildActionRuntimePlayer();
+            this._addFuelTimer(this.timePerFuel, function () {
+                self.fuel--;
+                if (self.fuel > 0) {
+                    self.addFuelTimer();
+                } else {
+                    if (self.build) {
+                        self.build.resetActiveBtnIndex(self.getActionKey());
+                    }
+                    if (typeof options.onFuelDepleted === "function") {
+                        options.onFuelDepleted(self, runtimePlayer);
+                    }
+                }
+                getBuildActionRuntimeRecord().saveAll();
+            }, this.startTime);
+        },
+        addFuel: function () {
+            var runtimePlayer = getBuildActionRuntimePlayer();
+
+            if (this.fuel === 0) {
+                this.addFuelTimer();
+                if (this.build) {
+                    this.build.setActiveBtnIndex(this.getActionKey());
+                }
+            }
+            this.fuel++;
+
+            if (typeof options.onFuelAdded === "function") {
+                options.onFuelAdded(this, runtimePlayer);
+            }
+
+            this._sendUpdageSignal();
+            if (options.logMessageId) {
+                runtimePlayer.log.addMsg(options.logMessageId);
+            }
+            getBuildActionRuntimeRecord().saveAll();
+        },
+        save: function () {
+            return {
+                fuel: this.fuel,
+                pastTime: this.pastTime,
+                startTime: this.startTime
+            };
+        },
+        restore: function (saveObj) {
+            if (saveObj) {
+                this.fuel = saveObj.fuel || 0;
+                this.pastTime = saveObj.pastTime || 0;
+                this.startTime = saveObj.startTime;
+            }
+            if (this.fuel > 0) {
+                this.addFuelTimer();
+            }
+        },
+        _addFuelTimer: function (time, endCb, startTime) {
+            this.isActioning = true;
+            var self = this;
+            var runtimeTimer = getBuildActionRuntimeTimer();
+            var tcb = runtimeTimer.addTimerCallback(new TimerCallback(time, this, {
+                process: function (dt) {
+                    self.pastTime += dt;
+                    self.totalTime = self.fuel * self.timePerFuel;
+                    if (self.view && self.totalTime > 0) {
+                        self.view.updatePercentage((self.totalTime - self.pastTime) / self.totalTime * 100);
+                    }
+                },
+                end: function () {
+                    self.isActioning = false;
+                    self.pastTime = 0;
+                    self.startTime = null;
+
+                    if (endCb) {
+                        endCb();
+                    }
+
+                    self._sendUpdageSignal();
+                }
+            }), startTime);
+            this.startTime = tcb.startTime;
+        },
+        _getUpdateViewInfo: function () {
+            var iconName = "#build_action_" + this.id + "_0" + ".png";
+            var action1Txt = stringUtil.getString(options.actionTextId);
+
+            var hint, hintColor, items, action1Disabled;
+            if (this._isNeedBuildLocked()) {
+                hint = this._getNeedBuildHint();
+                hintColor = cc.color.RED;
+                action1Disabled = true;
+            } else if (this.isActioning) {
+                hint = typeof options.getActioningHint === "function"
+                    ? options.getActioningHint(this, getBuildActionRuntimePlayer())
+                    : "";
+                hintColor = cc.color.WHITE;
+            } else {
+                hint = typeof options.getIdleHint === "function"
+                    ? options.getIdleHint(this, getBuildActionRuntimePlayer())
+                    : "";
+                hintColor = cc.color.WHITE;
+            }
+
+            return {
+                iconName: iconName,
+                hint: hint,
+                hintColor: hintColor,
+                items: items,
+                action1: action1Txt,
+                action1Disabled: action1Disabled,
+                percentage: 0
+            };
+        }
+    });
+};
+
+var registerFuelBuildActionType = function (type, options) {
+    var ActionClass = createFuelBuildAction(options);
+    BuildActionTypeRegistry.register(type, {
+        create: function (createOptions) {
+            return new ActionClass(createOptions.bid);
+        }
+    });
+};
+
 var Formula = BuildAction.extend({
     ctor: function (fid, bid) {
         this._super(bid);
@@ -750,6 +911,12 @@ var TrapBuildAction = Formula.extend({
     }
 });
 
+BuildActionTypeRegistry.register("trap", {
+    create: function (options) {
+        return new TrapBuildAction(options.bid);
+    }
+});
+
 registerTimedStateBuildActionType("dog", {
     actionTextId: 1020,
     actioningHintId: 1023,
@@ -923,8 +1090,66 @@ BuildActionTypeRegistry.register("smoke", {
 });
 
 var BuildActionFactory = {
+    _buildActionGroups: {},
     createActionByType: function (actionType, options) {
         return BuildActionTypeRegistry.create(actionType, options);
+    },
+    registerBuildActionGroup: function (bid, definition) {
+        if (bid === undefined || bid === null || !definition || typeof definition.createActions !== "function") {
+            return;
+        }
+        this._buildActionGroups[Number(bid)] = definition;
+    },
+    createFormulaActions: function (bid) {
+        bid = Number(bid);
+        if (isNaN(bid) || typeof buildConfig === "undefined" || !buildConfig || !Array.isArray(buildConfig[bid])) {
+            return [];
+        }
+
+        var produceList = [];
+        for (var i = 0; i < buildConfig[bid].length; i++) {
+            var needBuild = {bid: bid, level: i};
+            var formulaIds = Array.isArray(buildConfig[bid][i].produceList) ? buildConfig[bid][i].produceList : [];
+            produceList = produceList.concat(formulaIds.map(function (fid) {
+                return BuildActionFactory.createActionByType("formula", {
+                    actionId: fid,
+                    bid: bid,
+                    needBuild: needBuild
+                });
+            }));
+        }
+        return produceList.filter(function (action) {
+            return !!action;
+        });
+    },
+    createBuildActions: function (bid, level, roleType) {
+        bid = Number(bid);
+        level = Number(level);
+
+        var definition = this._buildActionGroups[bid];
+        if (definition && typeof definition.createActions === "function") {
+            var actions = definition.createActions.call(this, {
+                bid: bid,
+                level: isNaN(level) ? 0 : level,
+                roleType: roleType
+            });
+            return Array.isArray(actions) ? actions.filter(function (action) {
+                return !!action;
+            }) : [];
+        }
+
+        return this.createFormulaActions(bid);
+    },
+    resolveBuildActiveState: function (build) {
+        if (!build) {
+            return null;
+        }
+
+        var definition = this._buildActionGroups[Number(build.id)];
+        if (!definition || typeof definition.isBuildActive !== "function") {
+            return null;
+        }
+        return !!definition.isBuildActive.call(this, build);
     },
     createRestActionByType: function (actionType, bid, level) {
         return this.createActionByType(actionType, {
@@ -947,6 +1172,17 @@ var BuildActionFactory = {
         return actions.filter(function (action) {
             return !!action;
         });
+    },
+    createBedActions: function (bid, level) {
+        return Object.keys(BedBuildActionType).map(function (key) {
+            return this.createActionByType("bed", {
+                bid: bid,
+                level: level,
+                bedActionType: BedBuildActionType[key]
+            });
+        }, this).filter(function (action) {
+            return !!action;
+        });
     }
 };
 
@@ -955,7 +1191,7 @@ var BedBuildActionType = {
     SLEEP_4_HOUR: 2,
     SLEEP_ALL_NIGHT: 3,
     SLEEP_TO_NIGHT: 4
-}
+};
 var BedBuildAction = BuildAction.extend({
     ctor: function (bid, level, bedBuildActionType) {
         this._super(bid);
@@ -1064,137 +1300,28 @@ var BedBuildAction = BuildAction.extend({
     }
 });
 
-var BonfireBuildAction = BuildAction.extend({
-    ctor: function (bid) {
-        this._super(bid);
-        this.config = utils.clone(buildActionConfig[this.id][0]);
-        this.fuel = 0;
-        this.pastTime = 0;
-        this.startTime = null;
-        this.fuelMax = this.config.max;
-        this.timePerFuel = this.config["makeTime"] * 60;
-        this.needBuild = {bid: this.id, level: 0};
+BuildActionTypeRegistry.register("bed", {
+    create: function (options) {
+        return new BedBuildAction(options.bid, options.level, options.bedActionType);
+    }
+});
+
+registerFuelBuildActionType("bonfire", {
+    actionTextId: 1010,
+    maxHintId: 1134,
+    costMissingHintId: 1146,
+    logMessageId: 1097,
+    onFuelAdded: function (action, runtimePlayer) {
+        runtimePlayer.updateTemperature();
     },
-    clickIcon: function () {
-        uiUtil.showBuildActionDialog(this.bid, 0);
+    onFuelDepleted: function (action, runtimePlayer) {
+        runtimePlayer.updateTemperature();
     },
-    clickAction1: function () {
-        if (!uiUtil.checkVigour())
-            return;
-        if (player.validateItems(this.config.cost)) {
-            if (this.fuel >= this.fuelMax) {
-                uiUtil.showTinyInfoDialog(1134);
-            } else {
-                player.costItems(this.config.cost);
-
-                this.addFuel();
-            }
-        } else {
-            uiUtil.showTinyInfoDialog(1146);
-        }
+    getActioningHint: function (action) {
+        return stringUtil.getString(1012, action.fuel, Math.floor(action.fuel * action.config["makeTime"] / 60));
     },
-    addFuelTimer: function () {
-        var self = this;
-        this.addTimer(this.timePerFuel, function () {
-            self.fuel--;
-            if (self.fuel > 0) {
-                self.addFuelTimer();
-            } else {
-                //中断回复后,并不需要build resetActiveBtnIndex
-                if (self.build) {
-                    self.build.resetActiveBtnIndex(self.getActionKey());
-                }
-                //燃料用尽刷新温度
-                player.updateTemperature();
-            }
-            Record.saveAll();
-        }, this.startTime);
-    },
-    addFuel: function () {
-        //燃料空的时候,注册timer
-        if (this.fuel == 0) {
-            this.addFuelTimer();
-            this.build.setActiveBtnIndex(this.getActionKey());
-        }
-        this.fuel++;
-
-        player.updateTemperature();
-
-        this._sendUpdageSignal();
-        player.log.addMsg(1097);
-
-        Record.saveAll();
-    },
-    save: function () {
-        return {
-            fuel: this.fuel,
-            pastTime: this.pastTime,
-            startTime: this.startTime
-        };
-    },
-    restore: function (saveObj) {
-        if (saveObj) {
-            this.fuel = saveObj.fuel || 0;
-            this.pastTime = saveObj.pastTime || 0;
-            this.startTime = saveObj.startTime;
-        }
-        if (this.fuel > 0) {
-            this.addFuelTimer();
-        }
-    },
-    addTimer: function (time, endCb, startTime) {
-        this.isActioning = true;
-        var self = this;
-        var tcb = cc.timer.addTimerCallback(new TimerCallback(time, this, {
-            process: function (dt) {
-                self.pastTime += dt;
-                self.totalTime = self.fuel * self.timePerFuel;
-                if (self.view) {
-                    self.view.updatePercentage((self.totalTime - self.pastTime ) / self.totalTime * 100);
-                }
-            },
-            end: function () {
-                self.isActioning = false;
-                self.pastTime = 0;
-                self.startTime = null;
-
-                if (endCb) {
-                    endCb();
-                }
-
-                self._sendUpdageSignal();
-            }
-        }), startTime);
-        this.startTime = tcb.startTime;
-    },
-    _getUpdateViewInfo: function () {
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
-
-        var action1Txt = stringUtil.getString(1010);
-
-        var hint, hintColor, items, action1Disabled;
-        if (this._isNeedBuildLocked()) {
-            hint = this._getNeedBuildHint();
-            hintColor = cc.color.RED;
-            action1Disabled = true;
-        } else if (this.isActioning) {
-            hint = stringUtil.getString(1012, this.fuel, Math.floor(this.fuel * this.config["makeTime"] / 60));
-            hintColor = cc.color.WHITE;
-        } else {
-            hint = stringUtil.getString(1011);
-            hintColor = cc.color.WHITE;
-        }
-
-        var res = {
-            iconName: iconName,
-            hint: hint,
-            hintColor: hintColor,
-            items: items,
-            action1: action1Txt,
-            action1Disabled: action1Disabled,
-            percentage: 0
-        };
-        return res;
+    getIdleHint: function () {
+        return stringUtil.getString(1011);
     }
 });
 
@@ -1226,5 +1353,52 @@ registerTimedStateBuildActionType("bomb", {
         if (saveObj) {
             runtimePlayer.isBombActive = !!saveObj.isActive;
         }
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(5, {
+    createActions: function (options) {
+        return [this.createActionByType("bonfire", { bid: options.bid })];
+    },
+    isBuildActive: function (build) {
+        var action = build.actions && build.actions[0];
+        return !!(action && typeof action.isActive === "function" && action.isActive());
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(8, {
+    createActions: function (options) {
+        var trapAction = this.createActionByType("trap", { bid: options.bid });
+        if (!trapAction) {
+            return [];
+        }
+        return [trapAction, new TrapAutoSetBuildAction(options.bid, trapAction)];
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(9, {
+    createActions: function (options) {
+        return this.createBedActions(options.bid, options.level);
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(10, {
+    createActions: function (options) {
+        return this.createRestActions(options.bid, options.level, options.roleType);
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(12, {
+    createActions: function (options) {
+        return [
+            this.createActionByType("dog", { bid: options.bid }),
+            new DogAutoFeedBuildAction(options.bid)
+        ];
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(17, {
+    createActions: function (options) {
+        return [this.createActionByType("bomb", { bid: options.bid })];
     }
 });

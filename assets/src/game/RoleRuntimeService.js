@@ -424,6 +424,13 @@ var RoleRuntimeService = {
         }
 
         state.purchaseId = purchaseLock.purchaseId || null;
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isPurchaseLockUnlocked === "function") {
+            state.isLocked = !PurchaseService.isPurchaseLockUnlocked(purchaseLock);
+            return state;
+        }
+
         var checkFn = purchaseLock.checkFn
             && typeof IAPPackage !== "undefined"
             && IAPPackage

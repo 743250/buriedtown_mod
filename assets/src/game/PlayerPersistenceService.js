@@ -328,19 +328,27 @@ var PlayerPersistenceService = {
             IAPPackage.reconcilePlayerHpByTalentSelection(playerInstance);
         }
 
-        if (IAPPackage.isBigBagUnlocked() && !playerInstance.storage.validateItem(1305024, 1)) {
-            playerInstance.storage.increaseItem(1305024, 1);
-            hasPostRestoreMutation = true;
-        }
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.reconcileUnlockRewardsForPlayer === "function") {
+            if (PurchaseService.reconcileUnlockRewardsForPlayer(playerInstance, [105, 106, 107])) {
+                hasPostRestoreMutation = true;
+            }
+        } else {
+            if (IAPPackage.isBigBagUnlocked() && !playerInstance.storage.validateItem(1305024, 1)) {
+                playerInstance.storage.increaseItem(1305024, 1);
+                hasPostRestoreMutation = true;
+            }
 
-        if (IAPPackage.isBootUnlocked() && !playerInstance.storage.validateItem(1304024, 1)) {
-            playerInstance.storage.increaseItem(1304024, 1);
-            hasPostRestoreMutation = true;
-        }
+            if (IAPPackage.isBootUnlocked() && !playerInstance.storage.validateItem(1304024, 1)) {
+                playerInstance.storage.increaseItem(1304024, 1);
+                hasPostRestoreMutation = true;
+            }
 
-        if (IAPPackage.isDogHouseUnlocked() && !playerInstance.room.isBuildExist(12, 0)) {
-            playerInstance.room.createBuild(12, -1);
-            hasPostRestoreMutation = true;
+            if (IAPPackage.isDogHouseUnlocked() && !playerInstance.room.isBuildExist(12, 0)) {
+                playerInstance.room.createBuild(12, 0);
+                hasPostRestoreMutation = true;
+            }
         }
 
         if (typeof RoleRuntimeService !== "undefined"

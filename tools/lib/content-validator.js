@@ -10,7 +10,8 @@ const TYPE_TO_GLOBAL = {
     item: "itemConfig",
     site: "siteConfig",
     build: "buildConfig",
-    "build-action": "buildActionConfig"
+    "build-action": "buildActionConfig",
+    formula: "formulaConfig"
 };
 
 function deepClone(value) {
@@ -154,6 +155,9 @@ function createRuntime(lang) {
     context.utils = createUtils(context.itemConfig, context.blackList);
     context.stringUtil = createStringUtil(context.string);
     context.autoSpriteFrameController = createSpriteFrameController(itemAssets.iconPlist, itemAssets.digItemPlist);
+    context.TalentService = {
+        bindIAPCompatApi: function () {}
+    };
     context.EnvironmentConfig = {
         isContentValidationEnabled: function () {
             return true;
@@ -162,6 +166,7 @@ function createRuntime(lang) {
 
     vm.createContext(context);
     loadScriptIntoContext(rootDir, context, "assets/src/game/WeaponCraftService.js");
+    loadScriptIntoContext(rootDir, context, "assets/src/game/IAPPackage.js");
     loadScriptIntoContext(rootDir, context, "assets/src/util/contentBlueprint.js");
     loadScriptIntoContext(rootDir, context, "assets/src/util/configValidator.js");
     return context;
@@ -239,7 +244,7 @@ function buildValidationResult(type, lang, scope, ids, report) {
 function validateLinks(type, options) {
     const opts = options || {};
     const languages = expandLanguages(opts.lang);
-    const types = type === "all" ? ["role", "talent", "item", "site", "build", "build-action"] : [type];
+    const types = type === "all" ? ["role", "talent", "item", "site", "build", "build-action", "formula"] : [type];
     const results = [];
 
     types.forEach(function (oneType) {
