@@ -46,6 +46,8 @@ var ResourceFallback = {
         var iconName = null;
         if (typeof IconHelper !== "undefined" && IconHelper && typeof IconHelper.getRolePortraitFrameName === "function") {
             iconName = IconHelper.getRolePortraitFrameName(roleType, false, fallbackName || this.DEFAULT_SPRITES.character);
+        } else if (typeof role !== "undefined" && role && typeof role.getAvatarFallbackByRoleType === "function") {
+            iconName = role.getAvatarFallbackByRoleType(roleType);
         } else {
             iconName = "npc_dig_" + roleType + ".png";
         }

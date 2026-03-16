@@ -60,13 +60,14 @@ var WorkSiteNode = BottomFrameNode.extend({
         var pastTime = 0;
         var self = this;
         var time = workSiteConfig.costTime * 60;
-        var a=0;
-        if (player.roleType === RoleType.YAZI) {
-            workSiteConfig.lastTime=96*60;
-            workSiteConfig.brokenProbability=0.02;
-        }else if (player.roleType === RoleType.KING) {
-            workSiteConfig.lastTime=a;
-            workSiteConfig.brokenProbability=0;
+        var runtimeRepairConfig = (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.getWorkSiteRepairConfig === "function")
+            ? RoleRuntimeService.getWorkSiteRepairConfig(player.roleType)
+            : null;
+        if (runtimeRepairConfig) {
+            workSiteConfig.lastTime = runtimeRepairConfig.lastTimeMinutes;
+            workSiteConfig.brokenProbability = runtimeRepairConfig.brokenProbability;
         }
         cc.timer.addTimerCallback(new TimerCallback(time, this, {
             process: function (dt) {

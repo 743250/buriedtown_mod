@@ -19,14 +19,14 @@ var formulaConfig = {
         "id": "1201022",
         "produce": [{
             "itemId": 1101022,
-            "num": 1
+            "num": 4,
+            "minNum": 2,
+            "maxNum": 6
         }],
-        "cost": [{
-            "itemId": 1302011,
-            "num": 1
-        }],
+        "cost": [],
         "makeTime": 30,
-        "runtimeRule": {"includeAnyTags": ["yazi"]}
+        "runtimeRule": {"includeAnyTags": ["yazi"]},
+        "placedTime": [2880]
       },
       "1201021": {
         "id": "1201021",
@@ -92,11 +92,13 @@ var formulaConfig = {
         "makeTime": 720,
         "runtimeRule": {"includeAnyTags": ["jie"]}
       },
-      "1201012": {
+    "1201012": {
         "id": "1201012",
         "produce": [{
             "itemId": 1101012,
-            "num": 40
+            "num": 40,
+            "minNum": 32,
+            "maxNum": 48
         }],
         "cost": [{
             "itemId": 1101061,
@@ -123,7 +125,9 @@ var formulaConfig = {
         "id": "1201061",
         "produce": [{
             "itemId": 1101061,
-            "num": 24
+            "num": 24,
+            "minNum": 20,
+            "maxNum": 28
         }],
         "cost": [{
             "itemId": 1101011,
@@ -199,7 +203,9 @@ var formulaConfig = {
         "id": "1203011",
         "produce": [{
             "itemId": 1103011,
-            "num": 12
+            "num": 12,
+            "minNum": 10,
+            "maxNum": 14
         }],
         "cost": [{
             "itemId": 1105042,
@@ -216,7 +222,9 @@ var formulaConfig = {
         "id": "1203012",
         "produce": [{
             "itemId": 1103011,
-            "num": 8
+            "num": 8,
+            "minNum": 6,
+            "maxNum": 10
         }],
         "cost": [{
             "itemId": 1105042,
@@ -559,7 +567,9 @@ var formulaConfig = {
         "id": "1205011",
         "produce": [{
             "itemId": 1105011,
-            "num": 8
+            "num": 8,
+            "minNum": 6,
+            "maxNum": 10
         }],
         "cost": [{
             "itemId": 1101061,
@@ -604,7 +614,9 @@ var formulaConfig = {
         "id": "1205022",
         "produce": [{
             "itemId": 1105022,
-            "num": 4
+            "num": 4,
+            "minNum": 3,
+            "maxNum": 5
         }],
         "cost": [{
             "itemId": 1103011,
@@ -623,7 +635,9 @@ var formulaConfig = {
         "id": "1205033",
         "produce": [{
             "itemId": 1105033,
-            "num": 4
+            "num": 4,
+            "minNum": 3,
+            "maxNum": 5
         }],
         "cost": [{
             "itemId": 1105022,
@@ -655,10 +669,9 @@ var formulaConfig = {
         "id": "1205051",
         "produce": [{
             "itemId": 1105051,
-            "num": 8
-        }, {
-            "itemId": 1105061,
-            "num": 1
+            "num": 8,
+            "minNum": 6,
+            "maxNum": 10
         }],
         "cost": [{
             "itemId": 1101061,
@@ -671,7 +684,9 @@ var formulaConfig = {
         "id": "1205052",
         "produce": [{
             "itemId": 1105052,
-            "num": 10
+            "num": 10,
+            "minNum": 8,
+            "maxNum": 12
         }],
         "cost": [{
             "itemId": 1101061,
@@ -685,7 +700,9 @@ var formulaConfig = {
         "id": "1205061",
         "produce": [{
             "itemId": 1105061,
-            "num": 10
+            "num": 10,
+            "minNum": 8,
+            "maxNum": 12
         }],
         "cost": [{
             "itemId": 1101061,
@@ -977,7 +994,7 @@ var formulaConfig = {
             "num": 3
         }],
         "makeTime": 30,
-        "runtimeRule": {"includeAnyTags": ["bier", "king"]}
+        "runtimeRule": {"includeAnyTags": ["bier", "king", "yazi"]}
     },
     "1402021": {
         "id": "1402021",

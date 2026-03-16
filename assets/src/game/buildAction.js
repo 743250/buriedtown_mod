@@ -936,8 +936,7 @@ var BuildActionFactory = {
         var actions = [
             this.createActionByType("rest", { bid: bid, level: level }),
             this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 3 }),
-            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 }),
-            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 5 })
+            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 })
         ];
         RoleRuntimeService.getRestActionTypes(roleType).forEach(function (actionType) {
             var action = this.createRestActionByType(actionType, bid, level);

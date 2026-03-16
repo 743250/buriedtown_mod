@@ -15,29 +15,11 @@ var IconHelper = {
     // 开发模式标志（生产环境设为false）
     DEV_MODE: true,
 
-    // 内联配置表 - 角色图标映射
-    _roleIconMap: {
-        1: "npc_dig_1.png",  // 陌生人
-        2: "npc_dig_2.png",  // 金医生
-        3: "npc_dig_3.png",  // 杰夫
-        4: "npc_dig_4.png",  // 雅子
-        5: "npc_dig_5.png",  // 比尔
-        6: "npc_dig_6.png",  // 陌生人
-        7: "npc_dig_7.png",  // 测试人物
-        8: "npc_dig_8.png"   // 贝尔
-    },
+    // 仅保留覆盖入口；默认优先从角色配置表读取，避免角色数量写死。
+    _roleIconMap: {},
 
-    // 内联配置表 - 角色头像fallback映射
-    _roleAvatarMap: {
-        1: "npc_dig_1.png",
-        2: "npc_dig_2.png",
-        3: "npc_dig_3.png",
-        4: "npc_dig_4.png",
-        5: "npc_dig_5.png",
-        6: "npc_dig_6.png",
-        7: "npc_dig_7.png",
-        8: "npc_dig_8.png"
-    },
+    // 仅保留覆盖入口；默认优先从角色配置表读取，避免角色数量写死。
+    _roleAvatarMap: {},
 
     _getRoleConfig: function(roleType) {
         roleType = parseInt(roleType);
@@ -49,6 +31,32 @@ var IconHelper = {
         }
         if (typeof RoleConfigTable !== "undefined" && RoleConfigTable) {
             return RoleConfigTable[roleType] || null;
+        }
+        return null;
+    },
+
+    _getDefaultCharacterSpriteName: function() {
+        if (typeof ResourceFallback !== "undefined"
+            && ResourceFallback
+            && ResourceFallback.DEFAULT_SPRITES
+            && ResourceFallback.DEFAULT_SPRITES.character) {
+            return ResourceFallback.DEFAULT_SPRITES.character;
+        }
+        return "npc_dig_6.png";
+    },
+
+    _getConfiguredAvatarName: function(roleType) {
+        var config = this._getRoleConfig(roleType);
+        if (config && typeof config.avatarFallback === "string" && config.avatarFallback.length > 0) {
+            return config.avatarFallback;
+        }
+        if (typeof role !== "undefined"
+            && role
+            && typeof role.getAvatarFallbackByRoleType === "function") {
+            var avatarFallback = role.getAvatarFallbackByRoleType(roleType);
+            if (typeof avatarFallback === "string" && avatarFallback.length > 0) {
+                return avatarFallback;
+            }
         }
         return null;
     },
@@ -65,9 +73,6 @@ var IconHelper = {
         if (config && isFinite(config.mapRoleType)) {
             return parseInt(config.mapRoleType);
         }
-        if (roleType === 8) {
-            return 7;
-        }
         return roleType;
     },
 
@@ -79,10 +84,10 @@ var IconHelper = {
      */
     getRoleIcon: function(roleType, defaultIcon) {
         roleType = parseInt(roleType);
-        var mapped = this._roleIconMap[roleType];
+        var mapped = this._roleIconMap[roleType] || this._getConfiguredAvatarName(roleType);
         if (!mapped) {
-            this._warn("角色", roleType, defaultIcon);
-            return defaultIcon;
+            this._warn("角色", roleType, defaultIcon || this._getDefaultCharacterSpriteName());
+            return defaultIcon || this._getDefaultCharacterSpriteName();
         }
         return mapped;
     },
@@ -95,14 +100,10 @@ var IconHelper = {
      */
     getRoleAvatar: function(roleType, defaultAvatar) {
         roleType = parseInt(roleType);
-        var config = this._getRoleConfig(roleType);
-        var mapped = config && config.avatarFallback ? config.avatarFallback : this._roleAvatarMap[roleType];
-        if (!mapped && this._roleAvatarMap[roleType]) {
-            mapped = this._roleAvatarMap[roleType];
-        }
+        var mapped = this._roleAvatarMap[roleType] || this._getConfiguredAvatarName(roleType);
         if (!mapped) {
-            this._warn("角色头像", roleType, defaultAvatar);
-            return defaultAvatar || "npc_dig_6.png";
+            this._warn("角色头像", roleType, defaultAvatar || this._getDefaultCharacterSpriteName());
+            return defaultAvatar || this._getDefaultCharacterSpriteName();
         }
         return mapped;
     },
@@ -149,7 +150,7 @@ var IconHelper = {
     _warn: function(type, id, defaultValue) {
         if (this.DEV_MODE) {
             cc.warn("[IconHelper] " + type + " " + id + " 未配置图标映射，使用默认值: " + defaultValue);
-            cc.warn("[IconHelper] 请在 iconHelper.js 中添加映射配置");
+            cc.warn("[IconHelper] 请在角色配置表或 iconHelper.js 中添加映射配置");
         }
     },
 
@@ -178,10 +179,11 @@ var IconHelper = {
      */
     checkMappings: function(type, ids) {
         var missing = [];
+        var self = this;
         var map = type === "role" ? this._roleIconMap : this._roleAvatarMap;
 
         ids.forEach(function(id) {
-            if (!map[id]) {
+            if (!map[id] && !self._getConfiguredAvatarName(id)) {
                 missing.push(id);
             }
         });

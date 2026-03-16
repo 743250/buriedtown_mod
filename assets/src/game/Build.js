@@ -521,7 +521,8 @@ var Room = cc.Class.extend({
         return stringUtil.getString(bid + "_" + level).title;
     },
     getBuildLevel: function (bid) {
-        return this.getBuild(bid).level;
+        var build = this.getBuild(bid);
+        return build ? build.level : -1;
     },
     getBuildCurrentName: function (bid) {
         var level = this.getBuildLevel(bid);

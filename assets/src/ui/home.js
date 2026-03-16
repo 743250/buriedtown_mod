@@ -3,10 +3,11 @@
  */
 
 var isHomeWorkSitePowered = function () {
+    if (typeof player === "undefined" || !player || !player.map || typeof player.map.getSite !== "function") {
+        return false;
+    }
     var workSiteId = (typeof WORK_SITE !== "undefined") ? WORK_SITE : 204;
-    var workSite = player && player.map && typeof player.map.getSite === "function"
-        ? player.map.getSite(workSiteId)
-        : null;
+    var workSite = player.map.getSite(workSiteId);
     return !!(workSite && workSite.isActive);
 };
 
@@ -42,22 +43,25 @@ var HomeNode = BottomFrameNode.extend({
             {bid: 14, pos: {x: 425, y: 216}},
             {bid: 15, pos: {x: 270, y: 656}}
         ];
-        if (player.roleType === RoleType.LUO) {
-            infos.push({bid: 16, pos: {x: 480, y: 656}});
-            infos.push({bid: 17, pos: {x: 430, y: 82}});
-            infos.push({bid: 5, pos: {x: 310, y: 318}});
-        } else if (player.roleType === RoleType.YAZI) {
-            infos.push({bid: 7, pos: {x: 503, y: 657}});
-            infos.push({bid: 19, pos: {x: 430, y: 82}});
-            infos.push({bid: 18, pos: {x: 310, y: 318}});
-        } else if (player.roleType === RoleType.KING) {
-            infos.push({bid: 7, pos: {x: 503, y: 657}});
-            infos.push({bid: 19, pos: {x: 430, y: 82}});
-            infos.push({bid: 18, pos: {x: 310, y: 318}});
-        } else {
-            infos.push({bid: 7, pos: {x: 503, y: 657}});
-            infos.push({bid: 11, pos: {x: 430, y: 82}});
-            infos.push({bid: 5, pos: {x: 310, y: 318}});
+        var roleBuildPositions = [
+            {x: 503, y: 657},
+            {x: 430, y: 82},
+            {x: 310, y: 318}
+        ];
+        var roleRoomBuildStates = (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.getRoomBuildStates === "function")
+            ? RoleRuntimeService.getRoomBuildStates(player.roleType)
+            : [];
+        roleRoomBuildStates.forEach(function (buildState, index) {
+            if (roleBuildPositions[index]) {
+                infos.push({bid: buildState.id, pos: roleBuildPositions[index]});
+            }
+        });
+        if (roleRoomBuildStates.length === 0) {
+            infos.push({bid: 7, pos: roleBuildPositions[0]});
+            infos.push({bid: 11, pos: roleBuildPositions[1]});
+            infos.push({bid: 5, pos: roleBuildPositions[2]});
         }
         //由于图层问题,狗舍一定最后加入
         infos.push({bid: 12, pos: {x: 349, y: 110}});
@@ -66,7 +70,10 @@ var HomeNode = BottomFrameNode.extend({
 
         var self = this;
         infos.forEach(function (info) {
-            var buildLevel = player.room.getBuildLevel(info.bid);
+            var build = player.room && typeof player.room.getBuild === "function"
+                ? player.room.getBuild(info.bid)
+                : null;
+            var buildLevel = build ? build.level : -1;
             buildLevel = Math.max(0, buildLevel);
             var btn = new ButtonAtHome("#icon_start_build_" + info.bid + "_" + buildLevel + ".png");
             btn.setClickListener(self, self.onClickBuild);
@@ -112,17 +119,14 @@ var HomeNode = BottomFrameNode.extend({
 
         this.updateRadioChatEntry();
 
-        this.powerStatusLabel = new cc.LabelTTF(stringUtil.getString("worksite_power_active"), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
-        this.powerStatusLabel.setAnchorPoint(1, 1);
-        this.powerStatusLabel.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
-        this.powerStatusLabel.setColor(cc.color(255, 238, 170));
-        this.bg.addChild(this.powerStatusLabel, 4);
-        this.powerStatusLabel.setName("power_status_label");
-        this.updatePowerStatusHint();
+        this.createPowerStatusHint();
 
     },
     updateRadioChatEntry: function () {
-        var isVisible = player.room.getBuildLevel(15) >= 0;
+        var radioBuild = player.room && typeof player.room.getBuild === "function"
+            ? player.room.getBuild(15)
+            : null;
+        var isVisible = !!(radioBuild && radioBuild.level >= 0);
         if (this.btnRadioChat) {
             this.btnRadioChat.setVisible(isVisible);
         }
@@ -133,17 +137,42 @@ var HomeNode = BottomFrameNode.extend({
     createFuncOnWorkSiteChange: function () {
         var self = this;
         return function () {
-            self.updatePowerStatusHint();
+            self.refreshPowerStatusHint();
         };
     },
-    updatePowerStatusHint: function () {
-        if (this.powerStatusLabel) {
-            this.powerStatusLabel.setVisible(isHomeWorkSitePowered());
+    createPowerStatusHint: function () {
+        if (!this.bg || this.bg.getChildByName("power_status_hint")) {
+            return;
         }
+        var powerHint = uiUtil.createLabel(
+            stringUtil.getString("worksite_power_active") || "已通电",
+            "caption",
+            {
+                anchorX: 1,
+                anchorY: 1,
+                color: cc.color(255, 238, 170, 255)
+            }
+        );
+        powerHint.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
+        powerHint.setName("power_status_hint");
+        powerHint.setVisible(false);
+        this.bg.addChild(powerHint, 4);
+    },
+    refreshPowerStatusHint: function () {
+        var powerHint = this.bg ? this.bg.getChildByName("power_status_hint") : null;
+        if (!powerHint) {
+            return;
+        }
+        powerHint.setVisible(isHomeWorkSitePowered());
     },
     updateBtn: function (bid) {
         var btn = this.btnList[bid];
-        var build = player.room.getBuild(bid);
+        var build = player.room && typeof player.room.getBuild === "function"
+            ? player.room.getBuild(bid)
+            : null;
+        if (!btn || !build) {
+            return;
+        }
         if (build.level >= 0) {
             btn.changeType(ButtonAtHomeType.WHITE);
         } else {
@@ -184,7 +213,10 @@ var HomeNode = BottomFrameNode.extend({
                 this.forward(Navigation.nodeName.STORAGE_NODE, sender.info);
                 break;
             case 14:
-                if (player.room.getBuildLevel(bid) >= 0) {
+                var gateBuild = player.room && typeof player.room.getBuild === "function"
+                    ? player.room.getBuild(bid)
+                    : null;
+                if (gateBuild && gateBuild.level >= 0) {
                     this.forward(Navigation.nodeName.GATE_NODE, sender.info);
                 }
                 break;
@@ -228,7 +260,7 @@ var HomeNode = BottomFrameNode.extend({
         var self = this;
         this._super();
         this.updateDogHouse();
-        this.updatePowerStatusHint();
+        this.refreshPowerStatusHint();
         this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
         utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
         //新手引导文字

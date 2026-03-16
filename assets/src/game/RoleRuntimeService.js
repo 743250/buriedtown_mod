@@ -24,6 +24,10 @@ var RoleRuntimeService = {
             buildFromSiteOnly: false,
             buildCost: []
         },
+        workSiteRepair: {
+            lastTimeMinutes: 0,
+            brokenProbability: 0.02
+        },
         attrModifiers: {},
         battleModifiers: {
             precisePenalty: false,
@@ -155,6 +159,7 @@ var RoleRuntimeService = {
         var attrModifiers = config.attrModifiers || {};
         var temperatureBuild = config.temperatureBuild || defaultConfig.temperatureBuild;
         var ziplineConfig = config.zipline || defaultConfig.zipline;
+        var workSiteRepairConfig = config.workSiteRepair || defaultConfig.workSiteRepair;
         var ziplineTimeRatio = Number(ziplineConfig.timeRatio);
         if (!(ziplineTimeRatio > 0)) {
             ziplineTimeRatio = defaultConfig.zipline.timeRatio;
@@ -182,6 +187,10 @@ var RoleRuntimeService = {
                 homeOnly: !!ziplineConfig.homeOnly,
                 buildFromSiteOnly: !!ziplineConfig.buildFromSiteOnly,
                 buildCost: ziplineBuildCost
+            },
+            workSiteRepair: {
+                lastTimeMinutes: Number(workSiteRepairConfig.lastTimeMinutes) || 0,
+                brokenProbability: Math.max(0, Number(workSiteRepairConfig.brokenProbability) || 0)
             },
             attrModifiers: {
                 hungerDecay: typeof attrModifiers.hungerDecay === "number" ? attrModifiers.hungerDecay : null
@@ -216,9 +225,27 @@ var RoleRuntimeService = {
             room.createBuild(buildState.id, buildState.level);
         });
     },
+    ensureRoomBuildStates: function (room, roleType) {
+        if (!room || typeof room.getBuild !== "function" || typeof room.createBuild !== "function") {
+            return false;
+        }
+
+        var changed = false;
+        this.getRoomBuildStates(roleType).forEach(function (buildState) {
+            var build = room.getBuild(buildState.id);
+            if (!build || typeof build.level !== "number" || build.level < buildState.level) {
+                room.createBuild(buildState.id, buildState.level);
+                changed = true;
+            }
+        });
+        return changed;
+    },
 
     getRestActionTypes: function (roleType) {
         return this.getRuntimeConfig(roleType).restActionTypes;
+    },
+    getWorkSiteRepairConfig: function (roleType) {
+        return this.getRuntimeConfig(roleType).workSiteRepair;
     },
 
     getActionTags: function (roleType) {
@@ -580,5 +607,31 @@ var RoleRuntimeService = {
         this.getInitialUnlockNpcs(roleType).forEach(function (npcId) {
             mapObj.unlockNpc(npcId);
         });
+    },
+    ensureInitialUnlocks: function (mapObj, roleType) {
+        if (!mapObj) {
+            return false;
+        }
+
+        var changed = false;
+        this.getInitialUnlockSites(roleType).forEach(function (siteId) {
+            if (typeof mapObj.getSite === "function" && mapObj.getSite(siteId)) {
+                return;
+            }
+            if (typeof mapObj.unlockSite === "function") {
+                mapObj.unlockSite(siteId);
+                changed = true;
+            }
+        });
+        this.getInitialUnlockNpcs(roleType).forEach(function (npcId) {
+            if (typeof mapObj.getNpc === "function" && mapObj.getNpc(npcId)) {
+                return;
+            }
+            if (typeof mapObj.unlockNpc === "function") {
+                mapObj.unlockNpc(npcId);
+                changed = true;
+            }
+        });
+        return changed;
     }
 };

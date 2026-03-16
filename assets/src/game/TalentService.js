@@ -5,11 +5,105 @@
  */
 var TalentService = {
     _chosenTalentIds: null,
+    _chosenTalentSlotKey: null,
     MAX_CHOSEN_TALENT_COUNT: 3,
     ELITE_PISTOL_ITEM_ID: 1301091,
     ELITE_PISTOL_ATK_CD_MULTIPLIER: 1,
     ELITE_PISTOL_PRECISE_BONUS: 0.15,
     ELITE_PISTOL_HEADSHOT_BONUS: 0.05,
+    _getCurrentSlot: function () {
+        if (typeof Record !== "undefined" && Record && typeof Record.getCurrentSlot === "function") {
+            return Record.getCurrentSlot();
+        }
+        return 1;
+    },
+    _getCurrentSlotKey: function () {
+        return String(this._getCurrentSlot());
+    },
+    _getChosenTalentsStorageKey: function () {
+        return "chosenTalents_slot_" + this._getCurrentSlotKey();
+    },
+    _getChosenTalentStorageKey: function () {
+        return "chosenTalent_slot_" + this._getCurrentSlotKey();
+    },
+    _readStorageValue: function (key) {
+        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
+            return null;
+        }
+        return cc.sys.localStorage.getItem(key);
+    },
+    _writeStorageValue: function (key, value) {
+        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
+            return;
+        }
+        cc.sys.localStorage.setItem(key, value);
+    },
+    _currentSlotHasRecord: function () {
+        if (typeof Record !== "undefined"
+            && Record
+            && typeof Record.hasRecord === "function"
+            && typeof Record.getCurrentSlot === "function") {
+            return !!Record.hasRecord(Record.getCurrentSlot());
+        }
+        return false;
+    },
+    _canUseLegacySelectionFallback: function () {
+        if (!this._currentSlotHasRecord()) {
+            return false;
+        }
+        if (typeof Record === "undefined"
+            || !Record
+            || typeof Record.getAllRecordNames !== "function"
+            || typeof Record.hasRecord !== "function") {
+            return true;
+        }
+
+        var recordCount = 0;
+        Record.getAllRecordNames().forEach(function (_, index) {
+            if (Record.hasRecord(index + 1)) {
+                recordCount++;
+            }
+        });
+        return recordCount <= 1;
+    },
+    _getLegacyChosenTalentPurchaseIds: function () {
+        if (!this._canUseLegacySelectionFallback()) {
+            return [];
+        }
+
+        var purchaseIdList = [];
+        var chosenTalents = this._readStorageValue("chosenTalents");
+
+        if (chosenTalents !== undefined && chosenTalents !== null && chosenTalents !== "") {
+            try {
+                var parsed = JSON.parse(chosenTalents);
+                if (Array.isArray(parsed)) {
+                    purchaseIdList = parsed;
+                } else {
+                    purchaseIdList = [parsed];
+                }
+            } catch (e) {
+                purchaseIdList = chosenTalents.split(",");
+            }
+        }
+
+        if (purchaseIdList.length === 0) {
+            var purchaseId = this._readStorageValue("chosenTalent");
+            if (purchaseId !== undefined && purchaseId !== null && purchaseId !== "") {
+                purchaseIdList = [purchaseId];
+            }
+        }
+
+        return purchaseIdList;
+    },
+    _isCurrentSlotCacheValid: function () {
+        return this._chosenTalentIds && this._chosenTalentIds.length > 0
+            && this._chosenTalentSlotKey === this._getCurrentSlotKey();
+    },
+    resetChosenTalentCache: function () {
+        this._chosenTalentIds = null;
+        this._chosenTalentSlotKey = null;
+    },
     _getTalentConfigTable: function () {
         if (typeof TalentConfigTable !== "undefined" && TalentConfigTable) {
             return TalentConfigTable;
@@ -388,19 +482,20 @@ var TalentService = {
     chooseTalents: function (purchaseIdList) {
         var chosenTalents = this._normalizeChosenTalentPurchaseIds(purchaseIdList);
         this._chosenTalentIds = chosenTalents.slice();
-        cc.sys.localStorage.setItem("chosenTalents", JSON.stringify(chosenTalents));
-        cc.sys.localStorage.setItem("chosenTalent", chosenTalents[0]);
+        this._chosenTalentSlotKey = this._getCurrentSlotKey();
+        this._writeStorageValue(this._getChosenTalentsStorageKey(), JSON.stringify(chosenTalents));
+        this._writeStorageValue(this._getChosenTalentStorageKey(), chosenTalents[0]);
     },
     chooseTalent: function (purchaseId) {
         this.chooseTalents([purchaseId]);
     },
     getChosenTalentPurchaseIds: function () {
-        if (this._chosenTalentIds && this._chosenTalentIds.length > 0) {
+        if (this._isCurrentSlotCacheValid()) {
             return this._chosenTalentIds.slice();
         }
 
         var purchaseIdList = [];
-        var chosenTalents = cc.sys.localStorage.getItem("chosenTalents");
+        var chosenTalents = this._readStorageValue(this._getChosenTalentsStorageKey());
 
         if (chosenTalents !== undefined && chosenTalents !== null && chosenTalents !== "") {
             try {
@@ -416,15 +511,20 @@ var TalentService = {
         }
 
         if (purchaseIdList.length === 0) {
-            var purchaseId = cc.sys.localStorage.getItem("chosenTalent");
+            var purchaseId = this._readStorageValue(this._getChosenTalentStorageKey());
             if (purchaseId !== undefined && purchaseId !== null && purchaseId !== "") {
                 purchaseIdList = [purchaseId];
             }
         }
 
+        if (purchaseIdList.length === 0) {
+            purchaseIdList = this._getLegacyChosenTalentPurchaseIds();
+        }
+
         this._chosenTalentIds = this._normalizeChosenTalentPurchaseIds(purchaseIdList);
-        cc.sys.localStorage.setItem("chosenTalents", JSON.stringify(this._chosenTalentIds));
-        cc.sys.localStorage.setItem("chosenTalent", this._chosenTalentIds[0]);
+        this._chosenTalentSlotKey = this._getCurrentSlotKey();
+        this._writeStorageValue(this._getChosenTalentsStorageKey(), JSON.stringify(this._chosenTalentIds));
+        this._writeStorageValue(this._getChosenTalentStorageKey(), this._chosenTalentIds[0]);
         return this._chosenTalentIds.slice();
     },
     getChosenTalentPurchaseId: function () {

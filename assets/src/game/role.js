@@ -34,11 +34,73 @@ var _defaultRoleInfo = {
 };
 
 var role = {
+    LEGACY_STORAGE_KEY: "roleType",
+    SLOT_STORAGE_KEY_PREFIX: "roleType_slot_",
     _getRoleConfigTable: function () {
         if (typeof RoleConfigTable !== "undefined" && RoleConfigTable) {
             return RoleConfigTable;
         }
         return _fallbackRoleConfigTable;
+    },
+    _getCurrentSlot: function () {
+        if (typeof Record !== "undefined" && Record && typeof Record.getCurrentSlot === "function") {
+            return Record.getCurrentSlot();
+        }
+        return 1;
+    },
+    _getScopedStorageKey: function () {
+        return this.SLOT_STORAGE_KEY_PREFIX + this._getCurrentSlot();
+    },
+    _readStorageValue: function (key) {
+        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
+            return null;
+        }
+        return cc.sys.localStorage.getItem(key);
+    },
+    _writeStorageValue: function (key, value) {
+        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
+            return;
+        }
+        cc.sys.localStorage.setItem(key, value);
+    },
+    _currentSlotHasRecord: function () {
+        if (typeof Record !== "undefined"
+            && Record
+            && typeof Record.hasRecord === "function"
+            && typeof Record.getCurrentSlot === "function") {
+            return !!Record.hasRecord(Record.getCurrentSlot());
+        }
+        return false;
+    },
+    _canUseLegacySelectionFallback: function () {
+        if (!this._currentSlotHasRecord()) {
+            return false;
+        }
+        if (typeof Record === "undefined"
+            || !Record
+            || typeof Record.getAllRecordNames !== "function"
+            || typeof Record.hasRecord !== "function") {
+            return true;
+        }
+
+        var recordCount = 0;
+        Record.getAllRecordNames().forEach(function (_, index) {
+            if (Record.hasRecord(index + 1)) {
+                recordCount++;
+            }
+        });
+        return recordCount <= 1;
+    },
+    _normalizeStoredRoleType: function (roleType, fallbackRoleType) {
+        roleType = Number(roleType);
+        fallbackRoleType = fallbackRoleType === undefined ? RoleType.STRANGER : fallbackRoleType;
+        return this.getRoleConfig(roleType) ? roleType : fallbackRoleType;
+    },
+    _getLegacyStoredRoleType: function () {
+        if (!this._canUseLegacySelectionFallback()) {
+            return null;
+        }
+        return this._readStorageValue(this.LEGACY_STORAGE_KEY);
     },
     _getRoleStringValue: function (stringId) {
         if (stringId === undefined || stringId === null || typeof stringUtil === "undefined" || !stringUtil) {
@@ -162,15 +224,19 @@ var role = {
         return !!this.getPurchaseIdByRoleType(roleType);
     },
     chooseRoleType: function (roleType) {
-        cc.sys.localStorage.setItem("roleType", roleType);
+        roleType = this._normalizeStoredRoleType(roleType);
+        this._writeStorageValue(this._getScopedStorageKey(), roleType);
+        return roleType;
     },
     getChoosenRoleType: function () {
-        var roleType = cc.sys.localStorage.getItem("roleType");
+        var roleType = this._readStorageValue(this._getScopedStorageKey());
         if (SafetyHelper.isEmpty(roleType)) {
-            return RoleType.STRANGER;
+            roleType = this._getLegacyStoredRoleType();
+            if (!SafetyHelper.isEmpty(roleType)) {
+                this._writeStorageValue(this._getScopedStorageKey(), roleType);
+            }
         }
-        roleType = Number(roleType);
-        return this.getRoleConfig(roleType) ? roleType : RoleType.STRANGER;
+        return this._normalizeStoredRoleType(roleType);
     },
     isRoleUnlocked: function (roleType) {
         if (roleType === RoleType.STRANGER) {

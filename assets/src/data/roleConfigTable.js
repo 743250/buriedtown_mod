@@ -102,6 +102,10 @@ var RoleConfigTable = {
             id: 18,
             levels: [0]
         },
+        workSiteRepair: {
+            lastTimeMinutes: 96 * 60,
+            brokenProbability: 0.02
+        },
         unlockSites: [204, 43, 41],
         battleModifiers: {
             homeDefenseMode: "dog_only"
@@ -172,6 +176,10 @@ var RoleConfigTable = {
             id: 18,
             levels: [0]
         },
+        workSiteRepair: {
+            lastTimeMinutes: 0,
+            brokenProbability: 0
+        },
         siteNpcUnlocksEnabled: false,
         unlockSites: [61, 204, 301],
         unlockNpcs: [1, 2, 3, 4, 6],
@@ -202,9 +210,9 @@ var RoleConfigTable = {
             homeOnly: true,
             buildFromSiteOnly: true,
             buildCost: [
-                {itemId: 1101011, num: 8},
+                {itemId: 1101011, num: 6},
                 {itemId: 1101021, num: 4},
-                {itemId: 1101031, num: 4}
+                {itemId: 1101031, num: 2}
             ]
         }
     }

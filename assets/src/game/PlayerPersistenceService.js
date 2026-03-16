@@ -29,6 +29,196 @@ var PlayerPersistenceService = {
         {key: "npcManager", context: "Player.restore.npcManager"},
         {key: "map", context: "Player.restore.map"}
     ],
+    _isValidRoleType: function (roleType) {
+        roleType = parseInt(roleType);
+        return !(isNaN(roleType)
+            || typeof role === "undefined"
+            || !role
+            || typeof role.getRoleConfig !== "function"
+            || !role.getRoleConfig(roleType));
+    },
+    _normalizeRoleType: function (roleType, fallbackRoleType) {
+        fallbackRoleType = fallbackRoleType === undefined ? 6 : fallbackRoleType;
+        roleType = parseInt(roleType);
+        return this._isValidRoleType(roleType) ? roleType : fallbackRoleType;
+    },
+    _getSavedIdSet: function (sourceObj) {
+        var idSet = {};
+        if (!sourceObj || typeof sourceObj !== "object") {
+            return idSet;
+        }
+        Object.keys(sourceObj).forEach(function (id) {
+            var normalizedId = parseInt(id);
+            if (!isNaN(normalizedId)) {
+                idSet[normalizedId] = true;
+            }
+        });
+        return idSet;
+    },
+    _getSavedRoomLevelMap: function (saveData) {
+        var levelMap = {};
+        var roomSave = saveData && saveData.room;
+        if (!roomSave || typeof roomSave !== "object") {
+            return levelMap;
+        }
+        Object.keys(roomSave).forEach(function (id) {
+            var normalizedId = parseInt(id);
+            var buildSave = roomSave[id];
+            if (!isNaN(normalizedId) && buildSave && buildSave.level !== undefined) {
+                levelMap[normalizedId] = Number(buildSave.level);
+            }
+        });
+        return levelMap;
+    },
+    _getLegacyRoleInferenceCandidateList: function () {
+        if (typeof role !== "undefined" && role && typeof role.getAllRoleTypes === "function") {
+            return role.getAllRoleTypes();
+        }
+        if (typeof RoleConfigTable !== "undefined" && RoleConfigTable) {
+            return Object.keys(RoleConfigTable).map(function (roleType) {
+                return parseInt(roleType);
+            }).filter(function (roleType) {
+                return !isNaN(roleType);
+            });
+        }
+        if (typeof RoleType !== "undefined" && RoleType) {
+            return Object.keys(RoleType).map(function (key) {
+                return parseInt(RoleType[key]);
+            }).filter(function (roleType) {
+                return !isNaN(roleType);
+            });
+        }
+        return [];
+    },
+    _hasSavedChosenTalentIds: function (saveData) {
+        return !!(saveData && Array.isArray(saveData.chosenTalentIds) && saveData.chosenTalentIds.length > 0);
+    },
+    _hasSavedZiplineLinks: function (saveData) {
+        if (!saveData) {
+            return false;
+        }
+
+        var ziplineSave = saveData.ziplineNetwork || saveData.ziplineManager;
+        if (!ziplineSave || typeof ziplineSave !== "object") {
+            return false;
+        }
+
+        if (Array.isArray(ziplineSave.links) && ziplineSave.links.length > 0) {
+            return true;
+        }
+
+        if (ziplineSave.map && typeof ziplineSave.map === "object") {
+            return Object.keys(ziplineSave.map).length > 0;
+        }
+
+        return false;
+    },
+    _inferRoleTypeFromSaveData: function (saveData) {
+        if (!saveData
+            || typeof RoleRuntimeService === "undefined"
+            || !RoleRuntimeService
+            || typeof RoleRuntimeService.getRoomBuildStates !== "function"
+            || typeof RoleRuntimeService.getInitialUnlockSites !== "function"
+            || typeof RoleRuntimeService.getInitialUnlockNpcs !== "function") {
+            return null;
+        }
+
+        var roomLevelMap = this._getSavedRoomLevelMap(saveData);
+        var siteIdSet = this._getSavedIdSet(saveData.map && saveData.map.siteMap);
+        var hasSavedZiplineLinks = this._hasSavedZiplineLinks(saveData);
+        var npcIdSet = {};
+        var npcSave = saveData.map && saveData.map.npcMap;
+        if (Array.isArray(npcSave)) {
+            npcSave.forEach(function (id) {
+                var normalizedId = parseInt(id);
+                if (!isNaN(normalizedId)) {
+                    npcIdSet[normalizedId] = true;
+                }
+            });
+        }
+
+        var defaultRoleType = (typeof RoleType !== "undefined" && RoleType && RoleType.STRANGER !== undefined)
+            ? RoleType.STRANGER
+            : 6;
+        var defaultRoomBuildMap = {};
+        RoleRuntimeService.getRoomBuildStates(defaultRoleType).forEach(function (buildState) {
+            defaultRoomBuildMap[buildState.id] = Number(buildState.level);
+        });
+
+        var inferredRoleType = null;
+        var inferredScore = 0;
+        this._getLegacyRoleInferenceCandidateList().forEach(function (roleType) {
+            var score = 0;
+            RoleRuntimeService.getRoomBuildStates(roleType).forEach(function (buildState) {
+                var defaultLevel = defaultRoomBuildMap.hasOwnProperty(buildState.id)
+                    ? defaultRoomBuildMap[buildState.id]
+                    : null;
+                if (defaultLevel !== null && defaultLevel >= Number(buildState.level)) {
+                    return;
+                }
+                if (roomLevelMap[buildState.id] !== undefined && roomLevelMap[buildState.id] >= Number(buildState.level)) {
+                    score += 10;
+                }
+            });
+            RoleRuntimeService.getInitialUnlockSites(roleType).forEach(function (siteId) {
+                if (siteIdSet[siteId]) {
+                    score += 3;
+                }
+            });
+            RoleRuntimeService.getInitialUnlockNpcs(roleType).forEach(function (npcId) {
+                if (npcIdSet[npcId]) {
+                    score += 2;
+                }
+            });
+            if (hasSavedZiplineLinks
+                && typeof RoleRuntimeService.supportsZipline === "function"
+                && RoleRuntimeService.supportsZipline(roleType)) {
+                score += 12;
+            }
+
+            if (score > inferredScore) {
+                inferredRoleType = roleType;
+                inferredScore = score;
+            } else if (score > 0 && score === inferredScore) {
+                inferredRoleType = null;
+            }
+        });
+
+        return inferredScore > 0 ? inferredRoleType : null;
+    },
+    _resolveRoleTypeFromSaveData: function (saveData, fallbackRoleType) {
+        if (saveData && this._isValidRoleType(saveData.roleType)) {
+            return parseInt(saveData.roleType);
+        }
+        var inferredRoleType = this._inferRoleTypeFromSaveData(saveData);
+        if (this._isValidRoleType(inferredRoleType)) {
+            return inferredRoleType;
+        }
+        return this._normalizeRoleType(fallbackRoleType);
+    },
+    _syncRoleSelectionState: function (playerInstance, saveData) {
+        var fallbackRoleType = playerInstance && playerInstance.roleType !== undefined
+            ? playerInstance.roleType
+            : ((typeof RoleType !== "undefined" && RoleType && RoleType.STRANGER !== undefined) ? RoleType.STRANGER : 6);
+        var resolvedRoleType = this._resolveRoleTypeFromSaveData(saveData, fallbackRoleType);
+        playerInstance.roleType = resolvedRoleType;
+        if (typeof role !== "undefined" && role && typeof role.chooseRoleType === "function") {
+            role.chooseRoleType(resolvedRoleType);
+        }
+
+        var chosenTalentIds = this._hasSavedChosenTalentIds(saveData) ? saveData.chosenTalentIds : null;
+        if (saveData
+            && chosenTalentIds
+            && typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.chooseTalents === "function") {
+            TalentService.chooseTalents(chosenTalentIds);
+            if (!this._isValidRoleType(saveData.roleType)
+                || !this._hasSavedChosenTalentIds(saveData)) {
+                playerInstance._selectionStateNeedsSave = true;
+            }
+        }
+    },
     buildSaveData: function (playerInstance, attrHelper) {
         var attrData = attrHelper.saveAttrs(playerInstance, this.ATTR_KEYS);
         var saveData = {
@@ -48,8 +238,15 @@ var PlayerPersistenceService = {
             navigationState: playerInstance.navigationState.save(),
             deathCausedInfect: playerInstance.deathCausedInfect,
             setting: playerInstance.setting,
-            isBombActive: playerInstance.isBombActive
+            isBombActive: playerInstance.isBombActive,
+            roleType: playerInstance.roleType
         };
+
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.getChosenTalentPurchaseIds === "function") {
+            saveData.chosenTalentIds = TalentService.getChosenTalentPurchaseIds();
+        }
 
         this.SAVE_COMPONENTS.forEach(function (component) {
             saveData[component.key] = PlayerPersistenceService._safeSaveComponent(playerInstance, component);
@@ -79,6 +276,7 @@ var PlayerPersistenceService = {
         }, component.context);
     },
     _restoreExistingSave: function (playerInstance, saveData, attrHelper) {
+        this._syncRoleSelectionState(playerInstance, saveData);
         attrHelper.restoreAttrs(playerInstance, saveData, this.RESTORE_ATTR_KEYS);
         playerInstance.cured = !!saveData.cured;
         playerInstance.cureTime = saveData.cureTime;
@@ -114,12 +312,13 @@ var PlayerPersistenceService = {
         playerInstance.navigationState.syncMapEntityIdFromMap(playerInstance.map);
     },
     _applyPostRestoreFixups: function (playerInstance) {
+        var hasPostRestoreMutation = !!(playerInstance && playerInstance._selectionStateNeedsSave);
         if (typeof IAPPackage !== "undefined"
             && IAPPackage
             && typeof IAPPackage.migrateLegacyElitePistol === "function") {
             var migratedLegacyElitePistol = IAPPackage.migrateLegacyElitePistol(playerInstance);
-            if (migratedLegacyElitePistol && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
-                Record.saveAll();
+            if (migratedLegacyElitePistol) {
+                hasPostRestoreMutation = true;
             }
         }
 
@@ -131,20 +330,47 @@ var PlayerPersistenceService = {
 
         if (IAPPackage.isBigBagUnlocked() && !playerInstance.storage.validateItem(1305024, 1)) {
             playerInstance.storage.increaseItem(1305024, 1);
+            hasPostRestoreMutation = true;
         }
 
         if (IAPPackage.isBootUnlocked() && !playerInstance.storage.validateItem(1304024, 1)) {
             playerInstance.storage.increaseItem(1304024, 1);
+            hasPostRestoreMutation = true;
         }
 
         if (IAPPackage.isDogHouseUnlocked() && !playerInstance.room.isBuildExist(12, 0)) {
             playerInstance.room.createBuild(12, -1);
+            hasPostRestoreMutation = true;
+        }
+
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.ensureRoomBuildStates === "function"
+            && RoleRuntimeService.ensureRoomBuildStates(playerInstance.room, playerInstance.roleType)) {
+            hasPostRestoreMutation = true;
+        }
+
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.ensureInitialUnlocks === "function"
+            && RoleRuntimeService.ensureInitialUnlocks(playerInstance.map, playerInstance.roleType)) {
+            hasPostRestoreMutation = true;
         }
 
         if (typeof RoleRuntimeService !== "undefined"
             && RoleRuntimeService
             && typeof RoleRuntimeService.ensureSpecialItems === "function") {
             RoleRuntimeService.ensureSpecialItems(playerInstance);
+        }
+
+        if (hasPostRestoreMutation
+            && typeof Record !== "undefined"
+            && Record
+            && typeof Record.saveAll === "function") {
+            Record.saveAll();
+        }
+        if (playerInstance) {
+            delete playerInstance._selectionStateNeedsSave;
         }
     }
 };

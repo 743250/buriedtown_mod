@@ -251,6 +251,18 @@ uiUtil.getRolePortraitFrameName = function (roleType, withHash) {
     if (isNaN(roleType)) {
         return uiUtil.getDefaultSpriteName("character", withHash);
     }
+    if (typeof role !== "undefined" && role && typeof role.getAvatarFallbackByRoleType === "function") {
+        var avatarFallback = role.getAvatarFallbackByRoleType(roleType);
+        if (avatarFallback) {
+            if (withHash && avatarFallback.charAt(0) !== "#") {
+                return "#" + avatarFallback;
+            }
+            if (!withHash && avatarFallback.charAt(0) === "#") {
+                return avatarFallback.substring(1);
+            }
+            return avatarFallback;
+        }
+    }
     return (withHash ? "#npc_dig_" : "npc_dig_") + roleType + ".png";
 };
 
@@ -261,6 +273,12 @@ uiUtil.getNpcMapFrameName = function (npcId, withHash) {
     npcId = parseInt(npcId);
     if (isNaN(npcId)) {
         return withHash ? "#npc_1.png" : "npc_1.png";
+    }
+    if (typeof role !== "undefined" && role && typeof role.getMapRoleTypeByRoleType === "function") {
+        var mapRoleType = role.getMapRoleTypeByRoleType(npcId);
+        if (isFinite(mapRoleType)) {
+            npcId = parseInt(mapRoleType);
+        }
     }
     return (withHash ? "#npc_" : "npc_") + npcId + ".png";
 };

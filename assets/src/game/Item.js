@@ -58,3 +58,30 @@ var Item = cc.Class.extend({
 
 
 });
+
+var ItemRuntimeService = {
+    rollCraftProduce: function (produceList) {
+        if (!Array.isArray(produceList)) {
+            return [];
+        }
+
+        return produceList.reduce(function (result, itemInfo) {
+            if (!itemInfo) {
+                return result;
+            }
+
+            var rolledItem = utils.clone(itemInfo);
+            var minNum = parseInt(rolledItem.minNum, 10);
+            var maxNum = parseInt(rolledItem.maxNum, 10);
+            if (!isNaN(minNum) && !isNaN(maxNum) && maxNum >= minNum) {
+                rolledItem.num = utils.getRandomInt(minNum, maxNum);
+            }
+
+            rolledItem.num = parseInt(rolledItem.num, 10) || 0;
+            if (rolledItem.num > 0) {
+                result.push(rolledItem);
+            }
+            return result;
+        }, []);
+    }
+};

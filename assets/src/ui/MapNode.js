@@ -1,8 +1,9 @@
 var isMapWorkSitePowered = function () {
+    if (typeof player === "undefined" || !player || !player.map || typeof player.map.getSite !== "function") {
+        return false;
+    }
     var workSiteId = (typeof WORK_SITE !== "undefined") ? WORK_SITE : 204;
-    var workSite = player && player.map && typeof player.map.getSite === "function"
-        ? player.map.getSite(workSiteId)
-        : null;
+    var workSite = player.map.getSite(workSiteId);
     return !!(workSite && workSite.isActive);
 };
 
@@ -23,29 +24,43 @@ var MapNode = BottomFrameNode.extend({
         this.bg.addChild(mapView, 2);
         mapView.attachZiplineUi(this.bg);
 
-        this.powerStatusLabel = new cc.LabelTTF(stringUtil.getString("worksite_power_active"), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
-        this.powerStatusLabel.setAnchorPoint(1, 1);
-        this.powerStatusLabel.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
-        this.powerStatusLabel.setColor(cc.color(255, 238, 170));
-        this.bg.addChild(this.powerStatusLabel, 3);
-        this.powerStatusLabel.setName("power_status_label");
-        this.updatePowerStatusHint();
+        this.createPowerStatusHint();
 
     },
     createFuncOnWorkSiteChange: function () {
         var self = this;
         return function () {
-            self.updatePowerStatusHint();
+            self.refreshPowerStatusHint();
         };
     },
-    updatePowerStatusHint: function () {
-        if (this.powerStatusLabel) {
-            this.powerStatusLabel.setVisible(isMapWorkSitePowered());
+    createPowerStatusHint: function () {
+        if (!this.bg || this.bg.getChildByName("power_status_hint")) {
+            return;
         }
+        var powerHint = uiUtil.createLabel(
+            stringUtil.getString("worksite_power_active") || "已通电",
+            "caption",
+            {
+                anchorX: 1,
+                anchorY: 1,
+                color: cc.color(255, 238, 170, 255)
+            }
+        );
+        powerHint.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
+        powerHint.setName("power_status_hint");
+        powerHint.setVisible(false);
+        this.bg.addChild(powerHint, 3);
+    },
+    refreshPowerStatusHint: function () {
+        var powerHint = this.bg ? this.bg.getChildByName("power_status_hint") : null;
+        if (!powerHint) {
+            return;
+        }
+        powerHint.setVisible(isMapWorkSitePowered());
     },
     onEnter: function () {
         this._super();
-        this.updatePowerStatusHint();
+        this.refreshPowerStatusHint();
         this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
         utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
     },

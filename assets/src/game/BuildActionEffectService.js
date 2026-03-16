@@ -119,6 +119,12 @@ var BuildActionEffectService = {
         var runtimePlayer = this._getPlayer();
         var produce = utils.clone(options.produce || action.config.produce || []);
 
+        if (options.rollCraftProduce
+            && typeof ItemRuntimeService !== "undefined"
+            && ItemRuntimeService
+            && ItemRuntimeService.rollCraftProduce) {
+            produce = ItemRuntimeService.rollCraftProduce(produce);
+        }
         if (options.applyWeather !== false
             && typeof ItemRuntimeService !== "undefined"
             && ItemRuntimeService
@@ -132,12 +138,6 @@ var BuildActionEffectService = {
         }
         if (options.applyHomeTalent !== false) {
             produce = TalentService.applyHomeProduceEffect(produce);
-        }
-        if (options.rollCraftProduce
-            && typeof ItemRuntimeService !== "undefined"
-            && ItemRuntimeService
-            && ItemRuntimeService.rollCraftProduce) {
-            produce = ItemRuntimeService.rollCraftProduce(produce);
         }
         return produce;
     },
