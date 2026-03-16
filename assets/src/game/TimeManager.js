@@ -438,7 +438,11 @@ var TimerCallback = cc.Class.extend({
     //判断是否可以重置
     reset: function (now) {
         if (this.repeat > 0) {
-            this.setStartTime(now);
+            var nextStartTime = this.endTime;
+            if (this.internalTime > 0 && isFinite(now) && now > this.endTime) {
+                nextStartTime += Math.floor((now - this.endTime) / this.internalTime) * this.internalTime;
+            }
+            this.setStartTime(nextStartTime);
             return true;
         } else {
             return false;
@@ -453,4 +457,3 @@ var TimerCallback = cc.Class.extend({
         };
     }
 });
-
