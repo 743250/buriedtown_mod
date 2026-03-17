@@ -104,7 +104,9 @@ var RoleConfigTable = {
         },
         workSiteRepair: {
             lastTimeMinutes: 96 * 60,
-            brokenProbability: 0.02
+            brokenProbability: 0.02,
+            maintenanceMax: 100,
+            maintenanceDecayPerHour: 1
         },
         unlockSites: [204, 43, 41],
         battleModifiers: {
@@ -178,7 +180,9 @@ var RoleConfigTable = {
         },
         workSiteRepair: {
             lastTimeMinutes: 0,
-            brokenProbability: 0
+            brokenProbability: 0,
+            maintenanceMax: 100,
+            maintenanceDecayPerHour: 0
         },
         siteNpcUnlocksEnabled: false,
         unlockSites: [61, 204, 301],

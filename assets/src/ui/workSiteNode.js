@@ -2,16 +2,22 @@
  * Created by lancelot on 15/4/22.
  */
 var workSiteConfig = {
-    costTime: 120,
-    needItems: [
-        {itemId: 1102063, num: 1}
+    smallMaintenanceTime: 60,
+    smallMaintenanceValue: 20,
+    smallMaintenanceItems: [
+        {itemId: 1101021, num: 2},
+        {itemId: 1101041, num: 2},
+        {itemId: 1101051, num: 1}
     ],
-    lastTime: 0,
-    brokenProbability: 0.02
+    largeMaintenanceTime: 120,
+    largeMaintenanceItems: [
+        {itemId: 1102063, num: 1}
+    ]
 };
 var WorkSiteNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
+        this.currentMaintenanceAction = null;
     },
     _init: function () {
         this.initSiteNodeContext();
@@ -40,74 +46,155 @@ var WorkSiteNode = BottomFrameNode.extend({
         des.setColor(UITheme.colors.WHITE);
 
         var self = this;
-        this.actionView = uiUtil.createCommonListItem(
+        this.statusView = uiUtil.createCommonListItem(
             {
                 target: this, cb: function () {
+                }
             }
+        );
+        this.smallMaintenanceView = uiUtil.createCommonListItem(
+            {
+                target: this, cb: function () {
+                }
             },
             {
-                target: this, cb: self.onClickFix
+                target: this, cb: self.onClickSmallMaintenance
+            }
+        );
+        this.largeMaintenanceView = uiUtil.createCommonListItem(
+            {
+                target: this, cb: function () {
+                }
+            },
+            {
+                target: this, cb: self.onClickLargeMaintenance
             }
         );
 
-        this.actionView.setAnchorPoint(0.5, 0.5);
-        this.actionView.setPosition(this.bgRect.width / 2, 100);
-        this.bg.addChild(this.actionView, 1);
+        var stack = uiUtil.createVStack({
+            parent: this.bg,
+            x: this.bgRect.width / 2,
+            top: des.y - des.height - 24,
+            gap: 14,
+            zOrder: 1
+        });
+        stack.add(this.statusView, {anchorX: 0.5, anchorY: 1});
+        stack.add(this.smallMaintenanceView, {anchorX: 0.5, anchorY: 1});
+        stack.add(this.largeMaintenanceView, {anchorX: 0.5, anchorY: 1});
 
         this.updateView();
     },
-    onClickFix: function () {
-        var pastTime = 0;
-        var self = this;
-        var time = workSiteConfig.costTime * 60;
-        var runtimeRepairConfig = (typeof RoleRuntimeService !== "undefined"
-            && RoleRuntimeService
-            && typeof RoleRuntimeService.getWorkSiteRepairConfig === "function")
-            ? RoleRuntimeService.getWorkSiteRepairConfig(player.roleType)
-            : null;
-        if (runtimeRepairConfig) {
-            workSiteConfig.lastTime = runtimeRepairConfig.lastTimeMinutes;
-            workSiteConfig.brokenProbability = runtimeRepairConfig.brokenProbability;
-        }
-        cc.timer.addTimerCallback(new TimerCallback(time, this, {
-            process: function (dt) {
-                pastTime += dt;
-                self.actionView.updatePercentage(pastTime / (workSiteConfig.costTime * 60 ) * 100);
-            },
-            end: function () {
-                var items = utils.clone(workSiteConfig.needItems);
-                player.costItemsInBag(items);
-                self.site.fix();
-
-                Record.saveAll();
-
-                self.updateView();
-            }
-        }));
-        cc.timer.accelerateWorkTime(time);
+    _getStatusHint: function () {
+        var powerStatus = stringUtil.getString(this.site.isActive ? "worksite_power_active" : "worksite_power_inactive");
+        var maintenance = stringUtil.getString(
+            "worksite_maintenance_value",
+            this.site.getMaintenanceValue(),
+            this.site.getMaintenanceMax()
+        );
+        return powerStatus + "\n" + maintenance;
     },
-    updateView: function () {
-        var hint;
-        var needItems = utils.clone(workSiteConfig.needItems);
-        var res = player.validateItemsInBag(needItems);
-        needItems = needItems.map(function (itemInfo) {
+    _buildCostItems: function (items) {
+        var clonedItems = utils.clone(items);
+        player.validateItemsInBag(clonedItems);
+        return clonedItems.map(function (itemInfo) {
             return {
                 itemId: itemInfo.itemId,
                 num: itemInfo.num,
                 color: itemInfo.haveNum >= itemInfo.num ? UITheme.colors.WHITE : UITheme.colors.TEXT_ERROR
             };
         });
+    },
+    _isMaintenanceFull: function () {
+        return this.site.getMaintenanceValue() >= this.site.getMaintenanceMax();
+    },
+    _runMaintenanceAction: function (actionId, timeMinutes, items, endCb) {
+        if (this.currentMaintenanceAction) {
+            return;
+        }
+        var pastTime = 0;
+        var self = this;
+        var time = timeMinutes * 60;
+        this.currentMaintenanceAction = actionId;
+        this.updateView();
 
-        cc.log('res ' + res + ' isActive ' + this.site.isActive);
-        var actionDisabled = !res || this.site.isActive;
+        cc.timer.addTimerCallback(new TimerCallback(time, this, {
+            process: function (dt) {
+                pastTime += dt;
+                if (actionId === "small") {
+                    self.smallMaintenanceView.updatePercentage(pastTime / time * 100);
+                } else {
+                    self.largeMaintenanceView.updatePercentage(pastTime / time * 100);
+                }
+            },
+            end: function () {
+                player.costItemsInBag(utils.clone(items));
+                endCb.call(self);
+                Record.saveAll();
+                self.currentMaintenanceAction = null;
+                self.updateView();
+            }
+        }));
+        cc.timer.accelerateWorkTime(time);
+    },
+    onClickSmallMaintenance: function () {
+        if (!this.site.isActive || this._isMaintenanceFull()) {
+            return;
+        }
+        if (!player.validateItemsInBag(utils.clone(workSiteConfig.smallMaintenanceItems))) {
+            return;
+        }
+        this._runMaintenanceAction(
+            "small",
+            workSiteConfig.smallMaintenanceTime,
+            workSiteConfig.smallMaintenanceItems,
+            function () {
+                this.site.performSmallMaintenance(workSiteConfig.smallMaintenanceValue);
+            }
+        );
+    },
+    onClickLargeMaintenance: function () {
+        if (this.site.isActive && this._isMaintenanceFull()) {
+            return;
+        }
+        if (!player.validateItemsInBag(utils.clone(workSiteConfig.largeMaintenanceItems))) {
+            return;
+        }
+        this._runMaintenanceAction(
+            "large",
+            workSiteConfig.largeMaintenanceTime,
+            workSiteConfig.largeMaintenanceItems,
+            function () {
+                this.site.performLargeMaintenance();
+            }
+        );
+    },
+    updateView: function () {
+        var isRepairing = !!this.currentMaintenanceAction;
+        var smallCostReady = player.validateItemsInBag(utils.clone(workSiteConfig.smallMaintenanceItems));
+        var largeCostReady = player.validateItemsInBag(utils.clone(workSiteConfig.largeMaintenanceItems));
+        var isMaintenanceFull = this._isMaintenanceFull();
 
-        this.actionView.updateView({
+        this.statusView.updateView({
             iconName: "#build_action_fix.png",
-            hint: hint,
-            hintColor: hint ? UITheme.colors.TEXT_ERROR : null,
-            items: needItems,
-            action1: stringUtil.getString(1323, workSiteConfig.costTime),
-            action1Disabled: actionDisabled,
+            hint: this._getStatusHint(),
+            percentage: this.site.getMaintenancePercentage()
+        });
+
+        this.smallMaintenanceView.updateView({
+            iconName: "#build_action_fix.png",
+            hint: !this.site.isActive ? stringUtil.getString("worksite_small_maintenance_hint") : "",
+            hintColor: !this.site.isActive ? UITheme.colors.TEXT_ERROR : null,
+            items: this._buildCostItems(workSiteConfig.smallMaintenanceItems),
+            action1: stringUtil.getString("worksite_small_maintenance", workSiteConfig.smallMaintenanceTime),
+            action1Disabled: isRepairing || !this.site.isActive || !smallCostReady || isMaintenanceFull,
+            percentage: 0
+        });
+
+        this.largeMaintenanceView.updateView({
+            iconName: "#build_action_fix.png",
+            items: this._buildCostItems(workSiteConfig.largeMaintenanceItems),
+            action1: stringUtil.getString("worksite_large_maintenance", workSiteConfig.largeMaintenanceTime),
+            action1Disabled: isRepairing || !largeCostReady || (this.site.isActive && isMaintenanceFull),
             percentage: 0
         });
     },

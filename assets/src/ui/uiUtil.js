@@ -960,13 +960,14 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
             hint.setColor(UITheme.colors.WHITE);
         }
 
-        if (newData.action1) {
-            action1.setVisible(true);
-            action1.setTitleForState(newData.action1, cc.CONTROL_STATE_NORMAL);
-
-            action1.setEnabled(!newData.action1Disabled);
-        } else {
-            action1.setVisible(false);
+        if (action1) {
+            if (newData.action1) {
+                action1.setVisible(true);
+                action1.setTitleForState(newData.action1, cc.CONTROL_STATE_NORMAL);
+                action1.setEnabled(!newData.action1Disabled);
+            } else {
+                action1.setVisible(false);
+            }
         }
 
         if (action2 && newData.action2) {
@@ -1499,9 +1500,9 @@ uiUtil.createIconWarn = function (parent, pos, name) {
 };
 
 uiUtil.createBuildWarn = function (parent, bid, pos) {
-    var node = new cc.Node();
     uiUtil.removeIconWarn(parent, "buildWarn");
 
+    var node = new cc.Node();
     node.height = 38;
     node.setAnchorPoint(0.5, 0.5);
     var pos = pos || cc.p(parent.width / 2, parent.height / 2);

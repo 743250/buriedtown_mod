@@ -26,7 +26,9 @@ var RoleRuntimeService = {
         },
         workSiteRepair: {
             lastTimeMinutes: 0,
-            brokenProbability: 0.02
+            brokenProbability: 0.02,
+            maintenanceMax: 100,
+            maintenanceDecayPerHour: 1
         },
         attrModifiers: {},
         battleModifiers: {
@@ -190,7 +192,9 @@ var RoleRuntimeService = {
             },
             workSiteRepair: {
                 lastTimeMinutes: Number(workSiteRepairConfig.lastTimeMinutes) || 0,
-                brokenProbability: Math.max(0, Number(workSiteRepairConfig.brokenProbability) || 0)
+                brokenProbability: Math.max(0, Number(workSiteRepairConfig.brokenProbability) || 0),
+                maintenanceMax: Math.max(1, Number(workSiteRepairConfig.maintenanceMax) || 100),
+                maintenanceDecayPerHour: Math.max(0, Number(workSiteRepairConfig.maintenanceDecayPerHour) || 0)
             },
             attrModifiers: {
                 hungerDecay: typeof attrModifiers.hungerDecay === "number" ? attrModifiers.hungerDecay : null

@@ -22,6 +22,12 @@ var AD_SITE = 202;
 var BOSS_SITE = 61;
 var WORK_SITE = 204;
 
+var getSiteRuntimePlayer = function () {
+    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
+        ? GameRuntime.getPlayer()
+        : ((typeof player !== "undefined" && player) ? player : null);
+};
+
 var hasExternalSiteServices = typeof SiteRewardService !== "undefined" && SiteRewardService
     && typeof SiteRoomGenerator !== "undefined" && SiteRoomGenerator;
 
@@ -399,6 +405,7 @@ var WorkSite = Site.extend({
         this.storage = new Storage();
         this.isActive = false;
         this.fixedTime = 0;
+        this.maintenance = 0;
     },
     save: function () {
         return {
@@ -406,7 +413,8 @@ var WorkSite = Site.extend({
             step: this.step,
             storage: this.storage.save(),
             isActive: this.isActive,
-            fixedTime: this.fixedTime
+            fixedTime: this.fixedTime,
+            maintenance: this.maintenance
         };
     },
     restore: function (saveObj) {
@@ -416,6 +424,11 @@ var WorkSite = Site.extend({
             this.storage.restore(saveObj.storage);
             this.isActive = saveObj.isActive;
             this.fixedTime = saveObj.fixedTime;
+            if (saveObj.hasOwnProperty("maintenance")) {
+                this.maintenance = this._normalizeMaintenance(saveObj.maintenance);
+            } else {
+                this.maintenance = this.isActive ? this.getMaintenanceMax() : 0;
+            }
         } else {
             this.init();
         }
@@ -433,23 +446,103 @@ var WorkSite = Site.extend({
     getCurrentProgressStr: function () {
         return "";
     },
+    _getRepairConfig: function () {
+        var runtimePlayer = getSiteRuntimePlayer();
+        var roleType = runtimePlayer ? runtimePlayer.roleType : undefined;
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.getWorkSiteRepairConfig === "function") {
+            return RoleRuntimeService.getWorkSiteRepairConfig(roleType);
+        }
+        return {
+            brokenProbability: 0.02,
+            maintenanceMax: 100,
+            maintenanceDecayPerHour: 1
+        };
+    },
+    _normalizeMaintenance: function (value) {
+        var maxMaintenance = this.getMaintenanceMax();
+        value = Number(value);
+        if (!isFinite(value)) {
+            value = 0;
+        }
+        value = Math.round(value);
+        return Math.max(0, Math.min(maxMaintenance, value));
+    },
+    _notifyWorkSiteChange: function () {
+        utils.emitter.emit("onWorkSiteChange", this.isActive);
+        if (typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
+            Record.saveAll();
+        }
+    },
+    getMaintenanceMax: function () {
+        return Math.max(1, Number(this._getRepairConfig().maintenanceMax) || 100);
+    },
+    getMaintenanceValue: function () {
+        return this._normalizeMaintenance(this.maintenance);
+    },
+    getMaintenancePercentage: function () {
+        return this.getMaintenanceValue() / this.getMaintenanceMax() * 100;
+    },
+    addMaintenance: function (value) {
+        var nextValue = this._normalizeMaintenance(this.getMaintenanceValue() + Number(value || 0));
+        if (nextValue === this.getMaintenanceValue()) {
+            return false;
+        }
+        this.maintenance = nextValue;
+        this.fixedTime = cc.timer.time;
+        this._notifyWorkSiteChange();
+        return true;
+    },
     fix: function () {
         this.isActive = true;
+        this.maintenance = this.getMaintenanceMax();
         this.fixedTime = cc.timer.time;
-        utils.emitter.emit('onWorkSiteChange', this.isActive);
+        this._notifyWorkSiteChange();
+    },
+    performSmallMaintenance: function (value) {
+        if (!this.isActive) {
+            return false;
+        }
+        return this.addMaintenance(value);
+    },
+    performLargeMaintenance: function () {
+        var nextMaintenance = this.getMaintenanceMax();
+        var changed = !this.isActive || this.getMaintenanceValue() !== nextMaintenance;
+        this.isActive = true;
+        this.maintenance = nextMaintenance;
+        this.fixedTime = cc.timer.time;
+        if (changed) {
+            this._notifyWorkSiteChange();
+        }
+        return changed;
     },
     checkActive: function () {
-        cc.log('checkActive ' + this.isActive);
+        cc.log("checkActive " + this.isActive);
         if (this.isActive) {
-            var intervalTime = cc.timer.time - this.fixedTime;
-            cc.log('intervalTime ' + intervalTime);
-            if (intervalTime > workSiteConfig.lastTime * 60) {
+            var repairConfig = this._getRepairConfig();
+            var maintenanceDecayPerHour = Math.max(0, Number(repairConfig.maintenanceDecayPerHour) || 0);
+            var brokenProbability = Math.max(0, Number(repairConfig.brokenProbability) || 0);
+            var maintenanceChanged = false;
+            var maintenanceBefore = this.getMaintenanceValue();
+
+            if (maintenanceDecayPerHour > 0 && maintenanceBefore > 0) {
+                this.maintenance = this._normalizeMaintenance(maintenanceBefore - maintenanceDecayPerHour);
+                maintenanceChanged = this.getMaintenanceValue() !== maintenanceBefore;
+            }
+
+            if (maintenanceBefore <= 0 && this.getMaintenanceValue() <= 0) {
                 var rand = Math.random();
-                if (rand < workSiteConfig.brokenProbability) {
-                    cc.log('workSite broken');
+                if (rand < brokenProbability) {
+                    cc.log("workSite broken");
                     this.isActive = false;
-                    utils.emitter.emit('onWorkSiteChange', this.isActive);
+                    this._notifyWorkSiteChange();
+                    return;
                 }
+            }
+
+            if (maintenanceChanged) {
+                this._notifyWorkSiteChange();
             }
         }
     }
