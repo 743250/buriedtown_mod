@@ -60,35 +60,30 @@
 
 - `Phase 0` / `Phase 1` 基线已经基本稳定，`tools/validate-content.js` 已覆盖主要内容扩展链路
 - `Phase 0.5` 的两层护栏已经落地，`tools/smoke-runtime-boundaries.js` 与 `tools/smoke-startup.js` 已可用于高风险入口冒烟
-- 当前主战场是 `Phase 2`，也就是建筑 / 动作链
-- `Phase 3` 之后暂不应正式展开，因为 `Phase 2` 没收住前，角色 / 天赋 / 购买兼容仍容易重新缠住
+- `Phase 2` 的退出条件已基本达成：`BuildActionTypeRegistry` / `BuildActionFactory` 已落地，`Dog / Bomb / Bonfire` 已迁到通用模式，`runtimeRule` 已有最小 schema 校验
+- 当前下一步应切到 `Phase 3`，但前提是不回灌 `Phase 2` 的旧特例，并继续维持现有 links + smoke 护栏
 
 ### 2.2 主要阻碍
 
-1. **`buildAction.js` 缺少可扩展的动作注册机制**
-   - `Formula` 只覆盖制作模式
-   - `createTimedEffectBuildAction` 只覆盖定时效果模式
-   - `DogBuildAction`、`BombBuildAction`、`BonfireBuildAction` 仍是独立特例
-   - 当前新增一个非制作类动作，仍需要手写 class、手动接入 `save()` / `restore()` 和 `Build.js`
+1. **`role.js` 仍保留 fallback 角色表与旧选择兼容口**
+   - `RoleConfigTable` 已能承接主配置，但 `role.js` 仍保留 `_fallbackRoleConfigTable`
+   - 角色选择、角色文案回退、购买映射仍混在同一层里
+   - 如果不继续收口，新增角色时仍容易把改动拉回旧兼容分支
 
-2. **`Build.js` 仍是内容特例路由中心**
-   - 状态模型、配置读取、内容特例判断仍混在一起
-   - 这部分已证明可以逐项迁出，但还没完全收口
-
-3. **角色 / 天赋边界仍被旧购买兼容链牵制**
+2. **角色 / 天赋边界仍被旧购买兼容链牵制**
    - `role.js` 仍有 fallback
-   - `TalentService.js` 仍承担兼容杂活
+   - `TalentService.js` 仍承担选择存储 fallback 与兼容杂活
    - `IAPPackage.js` / `PurchaseService.js` 仍知道太多角色 / 天赋业务细节
 
-4. **特殊物品 / 武器机制散落在多个运行时文件**
+3. **特殊物品 / 武器机制散落在多个运行时文件**
    - 特殊 `itemId`、武器效果、旅行加成、掉落效果等没有单一注册入口
    - 继续这样下去，新增一个“特殊物品”仍会演化成全仓库追踪
 
-5. **配置层 schema 级校验还不够**
-   - `runtimeRule` 之类的结构仍偏“约定驱动”
-   - key 写错时容易静默失效，而不是尽早报错
+4. **配置层 schema 级校验仍需继续跟进**
+   - `formulaConfig` / `buildActionConfig` 的 `runtimeRule` 已有最小 schema 校验
+   - 但后续新增机制字段时，仍需要同步把约束补进 validator，而不是继续依赖“约定驱动”
 
-6. **UI 仍承担了一部分业务编排**
+5. **UI 仍承担了一部分业务编排**
    - `uiUtil.js`、`dialog.js` 还在直接碰玩家、购买、天赋和建筑逻辑
    - 这会把本应收进服务层的变化再次拖回 UI 分支
 
@@ -236,7 +231,7 @@
   - 战斗展示层瘦身
   - 商店展示与购买弹窗 UI
 
-## 4. 当前主战场：`Phase 2`
+## 4. `Phase 2` 收口记录
 
 ### 4.1 为什么 `Phase 2` 是当前第一优先级
 
@@ -278,24 +273,31 @@
      - 公式动作和休息类动作已走显式动作类型入口
 
 3. **批次 C：迁移轻量特例到通用模式**
-   - 当前批次
+   - 已完成
    - 目标：
      - `DogBuildAction` 迁移到通用模式
      - `BombBuildAction` 迁移到通用模式
+   - 重点成果：
+     - `registerTimedStateBuildActionType("dog", ...)` 已接管狗舍主动作
+     - `registerTimedStateBuildActionType("bomb", ...)` 已接管炸弹主动作
    - 判断原则：
      - 如果模式不够用，就扩展模式
      - 不再保留“收口后依旧独立存在的特例 class”
 
 4. **批次 D：迁移重状态动作到通用模式**
-   - 紧随批次 C
+   - 已完成
    - 目标：
      - `BonfireBuildAction` 迁移到通用模式
-   - 这是注册模式的压力测试；如果篝火能被覆盖，`Phase 2` 的架构目标基本成立
+   - 重点成果：
+     - `registerFuelBuildActionType("bonfire", ...)` 已接管篝火状态机
+     - `tools/smoke-runtime-boundaries.js` 已覆盖 bonfire save/restore 与燃料状态验证
+   - 这是注册模式的压力测试；篝火已被覆盖，`Phase 2` 的架构目标可视为成立
 
 ### 4.5 当前下一步
 
-- 下一步进入 `批次 C`
-- 第一小步是 `Step 2.7`：把 `DogBuildAction` 迁移到通用模式
+- `Phase 2` 可视为已收口完成
+- 下一步进入 `Phase 3`
+- 第一小步建议是 `Step 3.1`：清点 `role.js` fallback 与 `IAPPackage.js` / `PurchaseService.js` 的角色映射边界
 
 ## 5. 统一约束与验证
 
@@ -384,11 +386,11 @@
 
 ### 5.6 额外验证建议
 
-- 对 `BonfireBuildAction` 这类多状态机动作，在批次 D 补一个最小状态验证脚本
-- 至少覆盖：
+- `BonfireBuildAction` 这类多状态机动作的最小状态验证已并入 `tools/smoke-runtime-boundaries.js`
+- 已覆盖：
   - 初始状态 -> 加燃料 -> 燃烧中 -> 燃尽
   - `save()` -> `restore()` 后状态一致
-- 脚本放在 `tools/` 目录，与现有 smoke 工具同级
+- 后续若再新增多状态建筑动作，沿同一 smoke 入口继续扩展，而不是另起平行脚本
 
 ### 5.7 内容扩展专项回归
 
@@ -409,8 +411,8 @@
 - `Phase 0`：可视为已完成
 - `Phase 0.5`：高风险入口 smoke 已落地，后续入口改动默认先过护栏
 - `Phase 1`：可视为已完成，`build` / `build-action` / `role` 运行时配置边界已有基础校验
-- `Phase 2`：进行中，`批次 A`、`批次 B` 已完成，下一步进入 `批次 C`
-- `Phase 3`：暂不展开，等 `Phase 2` 收住后再进
+- `Phase 2`：可视为已完成，退出标准已达成
+- `Phase 3`：下一主战场，建议先从角色 fallback 与购买兼容边界清点开始
 
 ### 6.2 `Phase 2` 已完成内容
 
@@ -418,15 +420,18 @@
 - `Build.js` 当前角色读取口已清空
 - 公式动作和休息类动作已切到显式动作类型入口
 - `BuildActionTypeRegistry` 已建立
+- `DogBuildAction`、`BombBuildAction`、`BonfireBuildAction` 已分别迁到通用 timed-state / fuel 注册模式
+- `buildActionConfig.runtimeRule` 已接入内容校验，`runtimeRule` 在 `formula` / `build-action` 上都有最小 schema 护栏
+- `tools/smoke-runtime-boundaries.js` 已覆盖 build action registry 复用与 bonfire 状态机验证
 
 ### 6.3 当前剩余工作
 
-- 在 `批次 C` / `批次 D` 中把 `DogBuildAction`、`BombBuildAction`、`BonfireBuildAction` 迁到通用模式
-- 为 `runtimeRule` 补最小 schema 校验
-- 完成 `Phase 2` 后，再正式进入角色 / 天赋边界定型
+- 进入 `Phase 3`，把 `role.js` 的 fallback 角色表与旧选择兼容口继续收窄
+- 梳理 `TalentService.js`、`IAPPackage.js`、`PurchaseService.js` 的角色 / 天赋 / 解锁职责边界
+- 在不破坏现有 smoke 的前提下，逐步把购买链缩回“解锁 / 兑换 / 兼容适配”职责
 
 ### 6.4 当前下一步
 
-- 从 `Step 2.7` 开始：`DogBuildAction` 迁移到通用模式
-- 该步通过后，再处理 `BombBuildAction`
-- `BonfireBuildAction` 作为最后的模式压力测试收尾
+- 从 `Step 3.1` 开始：盘点 `role.js` 中仍在使用的 `_fallbackRoleConfigTable` 与旧存储回退口
+- 在此基础上，确认 `IAPPackage.js` / `PurchaseService.js` 里哪些角色映射仍依赖旧语义
+- 等角色边界梳理清楚后，再推进 `TalentService.js` 的兼容收口

@@ -56,7 +56,12 @@ var MapNode = BottomFrameNode.extend({
         if (!powerHint) {
             return;
         }
-        powerHint.setVisible(isMapWorkSitePowered());
+        var isPowered = isMapWorkSitePowered();
+        powerHint.setString(
+            stringUtil.getString(isPowered ? "worksite_power_active" : "worksite_power_inactive")
+            || (isPowered ? "宸查€氱數" : "已停电")
+        );
+        powerHint.setVisible(true);
     },
     onEnter: function () {
         this._super();

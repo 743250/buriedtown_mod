@@ -236,7 +236,7 @@ var EquipNode = cc.Node.extend({
             name.setAnchorPoint(0, 1);
             node.addChild(name);
 
-            var weight = new cc.LabelTTF(stringUtil.getString(1025) + itemInfo.weight, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
+            var weight = new cc.LabelTTF(stringUtil.getString(1025) + utils.formatWeight(itemInfo.weight), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
             weight.setPosition(name.x, name.y - name.height - 10);
             weight.setAnchorPoint(0, 1);
             node.addChild(weight);

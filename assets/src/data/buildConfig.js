@@ -511,6 +511,7 @@ var buildConfig = {
     }],
     "15": [{
         "id": 15,
+        "concurrentActionLimit": 2,
         "cost": [{
             "itemId": 1101021,
             "num": 5

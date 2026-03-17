@@ -205,15 +205,16 @@ var Bag = Storage.extend({
         this._super(name);
     },
     validateItemWeight: function (itemId, num) {
-        var weight = itemConfig[itemId].weight * num;
-        return weight + this.getCurrentWeight() <= this.getTotalWeight();
+        var unitWeight = utils.truncateWeight(itemConfig[itemId].weight);
+        var weight = utils.truncateWeight(unitWeight * num);
+        return utils.truncateWeight(weight + this.getCurrentWeight()) <= this.getTotalWeight();
     },
     getCurrentWeight: function () {
         var weight = 0;
         this.forEach(function (item, num) {
-            weight += item.getWeight() * num;
+            weight += utils.truncateWeight(item.getWeight()) * num;
         });
-        return weight;
+        return utils.truncateWeight(weight);
     },
     getTotalWeight: function () {
         var weight = 35;
@@ -245,7 +246,7 @@ var Bag = Storage.extend({
         if (typeof TalentService !== "undefined" && TalentService && TalentService.getBagWeightBonus)  {
             weight += TalentService.getBagWeightBonus();
         }
-        return weight;
+        return utils.truncateWeight(weight);
     },
     decreaseItem: function (itemId, num) {
         this._super(itemId, num);

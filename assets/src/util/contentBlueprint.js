@@ -890,6 +890,20 @@ var ContentBlueprint = {
                         return true;
                     });
                 }
+            },
+            {
+                name: "建筑动作 runtimeRule schema",
+                file: "data/buildActionConfig.js",
+                required: false,
+                validator: function (id) {
+                    var configs = ContentBlueprint._getBuildActionConfig(id);
+                    return ContentBlueprint._walkBuildActionEntries(configs, function (entry) {
+                        if (entry.runtimeRule === undefined) {
+                            return true;
+                        }
+                        return ContentBlueprint._hasValidRuntimeRule(entry.runtimeRule);
+                    });
+                }
             }
         ]
     },

@@ -74,7 +74,7 @@ var string = {
     "trap_auto_set_disabled_hint": "自动设置陷阱已关闭。开启后，收取猎物后会自动消耗%s重新布置陷阱。",
     "trap_auto_set_log": "你收起猎物后，陷阱自动消耗%s重新布置好了。",
     "worksite_power_active": "已通电",
-    "worksite_power_inactive": "已断电",
+    "worksite_power_inactive": "已停电",
     "worksite_maintenance_value": "维护值：%s/%s",
     "worksite_small_maintenance": "小型检修(%s分)",
     "worksite_large_maintenance": "大型检修(%s分)",

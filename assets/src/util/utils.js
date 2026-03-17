@@ -63,6 +63,33 @@ utils.getRandomInt = function (min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+utils.truncateDecimal = function (value, digits) {
+    var num = Number(value);
+    var precision = parseInt(digits, 10);
+    if (!isFinite(num)) {
+        num = 0;
+    }
+    if (!isFinite(precision) || precision < 0) {
+        precision = 0;
+    }
+    var factor = Math.pow(10, precision);
+    if (!isFinite(factor) || factor <= 0) {
+        return num;
+    }
+    if (num >= 0) {
+        return Math.floor(num * factor) / factor;
+    }
+    return Math.ceil(num * factor) / factor;
+};
+
+utils.truncateWeight = function (value) {
+    return utils.truncateDecimal(value, 1);
+};
+
+utils.formatWeight = function (value) {
+    return utils.truncateWeight(value).toFixed(1);
+};
+
 utils.convertStrToArray = function (str) {
     var array = [];
     if (str && str.length > 0) {

@@ -1180,8 +1180,9 @@ uiUtil.showItemSliderDialog = function (itemId, storage, cb) {
     config.content.dig_des = uiUtil.getItemDetailFrameName(itemId, true);
     config.content.dig_des_fallback = uiUtil.getDefaultSpriteName("itemDetail", true);
     var totalNum = storage.getNumByItemId(itemId);
+    var unitWeight = utils.truncateWeight(itemConfig[itemId].weight);
     config.title.title = stringUtil.getString(itemId).title;
-    config.title.txt_1 = stringUtil.getString(1028, itemConfig[itemId].weight);
+    config.title.txt_1 = stringUtil.getString(1028, utils.formatWeight(unitWeight));
     config.title.txt_2 = stringUtil.getString(1029, "1/" + totalNum);
     config.action.btn_1.txt = stringUtil.getString(1030);
     var dialog = new DialogBig(config);
@@ -1210,7 +1211,9 @@ uiUtil.showItemSliderDialog = function (itemId, storage, cb) {
         } else {
             valueStr += value;
         }
-        dialog.titleNode.getChildByName("txt_1").setString(stringUtil.getString(1028, value * itemConfig[itemId].weight));
+        dialog.titleNode.getChildByName("txt_1").setString(
+            stringUtil.getString(1028, utils.formatWeight(unitWeight * value))
+        );
         dialog.titleNode.getChildByName("txt_2").setString(stringUtil.getString(1029, valueStr + "/" + totalNum));
     }, cc.CONTROL_EVENT_VALUECHANGED);
     slider.setName("slider");

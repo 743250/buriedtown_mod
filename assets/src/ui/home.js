@@ -163,7 +163,12 @@ var HomeNode = BottomFrameNode.extend({
         if (!powerHint) {
             return;
         }
-        powerHint.setVisible(isHomeWorkSitePowered());
+        var isPowered = isHomeWorkSitePowered();
+        powerHint.setString(
+            stringUtil.getString(isPowered ? "worksite_power_active" : "worksite_power_inactive")
+            || (isPowered ? "宸查€氱數" : "已停电")
+        );
+        powerHint.setVisible(true);
     },
     updateBtn: function (bid) {
         var btn = this.btnList[bid];

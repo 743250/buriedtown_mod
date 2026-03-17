@@ -209,6 +209,8 @@ var createTimedEffectBuildAction = function (options) {
             this.configs = utils.clone(buildActionConfig[this.id]);
             this.needBuild = {bid: this.id, level: 0};
             this.index = options.useCtorActionIndex ? actionIndex : options.index;
+            this.config = this.configs[this.level] && this.configs[this.level][this.index];
+            cc.assert(this.config, options.className + " buildActionConfig entry doesn't exist!");
         },
         updateConfig: function () {
             return BuildActionEffectService.updateConfig(this);

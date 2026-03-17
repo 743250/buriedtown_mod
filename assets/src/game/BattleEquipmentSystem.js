@@ -324,16 +324,18 @@ var BattleEquipmentSystem = (function () {
         _action: function () {
             var monster = this.getTarget();
             var attackTriggered = false;
+            var hasRecordedUse = false;
             if (monster && this.isInRange(monster)) {
-                if (this.isEnough()) {
-                    this.battlePlayer.battle.recordWeaponUse(1);
-                    var soundKey = weaponSoundConfig.gun[this.id] || "ATTACK_4";
-                    this.playEffect(audioManager.sound[soundKey]);
-                    attackTriggered = true;
-                }
                 this.atkTimes = 0;
                 for (var i = 0; i < this.attr.bulletMax; i++) {
                     if (this.isEnough() && !monster.isDie()) {
+                        if (!hasRecordedUse) {
+                            this.battlePlayer.battle.recordWeaponUse(1);
+                            var soundKey = weaponSoundConfig.gun[this.id] || "ATTACK_4";
+                            this.playEffect(audioManager.sound[soundKey]);
+                            hasRecordedUse = true;
+                            attackTriggered = true;
+                        }
                         this.atkTimes++;
                         this.cost();
                         monster.underAtk(this);
@@ -393,22 +395,24 @@ var BattleEquipmentSystem = (function () {
         _action: function () {
             var monster = this.getTarget();
             var attackTriggered = false;
+            var hasRecordedUse = false;
             if (monster && this.isInRange(monster)) {
-                if (this.isEnough()) {
-                    this.battlePlayer.battle.recordWeaponUse(1);
-
-                    var soundName;
-                    if (this.id == 1301071) {
-                        soundName = audioManager.sound.ATTACK_7;
-                    } else if (this.id == 1301082) {
-                        soundName = audioManager.sound.ATTACK_8;
-                    }
-                    this.playEffect(soundName);
-                    attackTriggered = true;
-                }
                 this.atkTimes = 0;
                 for (var i = 0; i < this.attr.bulletMax; i++) {
                     if (this.isEnough() && !monster.isDie()) {
+                        if (!hasRecordedUse) {
+                            this.battlePlayer.battle.recordWeaponUse(1);
+
+                            var soundName;
+                            if (this.id == 1301071) {
+                                soundName = audioManager.sound.ATTACK_7;
+                            } else if (this.id == 1301082) {
+                                soundName = audioManager.sound.ATTACK_8;
+                            }
+                            this.playEffect(soundName);
+                            hasRecordedUse = true;
+                            attackTriggered = true;
+                        }
                         this.atkTimes++;
                         monster.underAtk(this);
                         this.cost();

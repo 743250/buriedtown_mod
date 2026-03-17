@@ -237,7 +237,7 @@ var itemConfig = {
     },
     "1105011": {
         "id": "1105011",
-        "weight": 0,
+        "weight": 0.1,
         "price": 2,
         "value": 2
     },
@@ -273,14 +273,14 @@ var itemConfig = {
     },
     "1105061": {
         "id": "1105061",
-        "weight": 0,
+        "weight": 0.1,
         "price": 1,
         "value": 1
     },
     "1105072": {
         "id": "1105072",
         "displayItemId": "1105051",
-        "weight": 1,
+        "weight": 0.1,
         "price": 3,
         "value": 3
     },
@@ -741,7 +741,7 @@ var itemConfig = {
     },
     "1305011": {
         "id": "1305011",
-        "weight": 0,
+        "weight": 0.1,
         "price": 1,
         "value": 1,
         "effect_weapon": {
