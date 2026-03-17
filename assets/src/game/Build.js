@@ -334,25 +334,30 @@ var Build = cc.Class.extend({
         var res = this.canUpgrade();
         var canUpgrade = res.buildUpgradeType === BuildUpgradeType.UPGRADABLE;
         var replacedSuccess = this.actions.some(function (action) {
-            return action.step === 2 && !action.isActioning;
+            if (!action || action.isActioning) {
+                return false;
+            }
+            var actionStep = Number(action.step);
+            if (typeof action.maxStep === "number" && action.maxStep > 1) {
+                return actionStep >= action.maxStep;
+            }
+            return actionStep === 2;
         });
         var canMake = this.actions.some(function (action) {
-            return self.canUseAction(self._getActionStateKey(action)) && action.step === 0 && !action.isActioning && action.canMake();
+            return self.canUseAction(self._getActionStateKey(action))
+                && Number(action.step) === 0
+                && !action.isActioning
+                && action.canMake();
         });
         var isActioning = this.actions.some(function (action) {
             return action.isActioning;
         });
 
         var obj = {
-            upgrade: canUpgrade,
+            upgrade: canUpgrade && !isActioning,
             make: canMake,
             take: replacedSuccess
         };
-        if (isActioning) {
-            obj.upgrade = false;
-            obj.make = false;
-            obj.take = false;
-        }
         return obj;
     }
 });

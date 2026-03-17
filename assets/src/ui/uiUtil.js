@@ -1500,6 +1500,8 @@ uiUtil.createIconWarn = function (parent, pos, name) {
 
 uiUtil.createBuildWarn = function (parent, bid, pos) {
     var node = new cc.Node();
+    uiUtil.removeIconWarn(parent, "buildWarn");
+
     node.height = 38;
     node.setAnchorPoint(0.5, 0.5);
     var pos = pos || cc.p(parent.width / 2, parent.height / 2);
