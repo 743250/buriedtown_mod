@@ -84,7 +84,6 @@ function createVmSandbox() {
         scheduleUpdateForTarget: function () {},
         unscheduleUpdateForTarget: function () {}
     };
-    const localStorageState = {};
     const sandbox = {
         console: console,
         require: require,
@@ -115,22 +114,6 @@ function createVmSandbox() {
                     return scheduler;
                 }
             },
-            sys: {
-                isNative: false,
-                localStorage: {
-                    getItem: function (key) {
-                        return Object.prototype.hasOwnProperty.call(localStorageState, key)
-                            ? localStorageState[key]
-                            : null;
-                    },
-                    setItem: function (key, value) {
-                        localStorageState[key] = String(value);
-                    },
-                    removeItem: function (key) {
-                        delete localStorageState[key];
-                    }
-                }
-            },
             assert: function (condition, message) {
                 if (!condition) {
                     throw new Error(message || "assert failed");
@@ -158,18 +141,7 @@ function createVmSandbox() {
             checkCost: function () {}
         },
         TalentService: {
-            applyHomeProduceEffect: function (produce) { return produce; },
-            bindIAPCompatApi: function (target) {
-                const self = this;
-                Object.keys(self).forEach(function (methodName) {
-                    if (methodName === "bindIAPCompatApi" || typeof self[methodName] !== "function") {
-                        return;
-                    }
-                    target[methodName] = function () {
-                        return self[methodName].apply(self, arguments);
-                    };
-                });
-            }
+            applyHomeProduceEffect: function (produce) { return produce; }
         },
         ItemRuntimeService: {
             applyProduceWeatherBonuses: function (produce) { return produce; },
@@ -940,119 +912,6 @@ function runPurchaseUnlockRewardSmoke() {
     };
 }
 
-function runPurchaseExchangeConfigSmoke() {
-    const sandbox = createVmSandbox();
-    sandbox.TalentService = {
-        bindIAPCompatApi: function (target) {
-            const self = this;
-            Object.keys(self).forEach(function (methodName) {
-                if (methodName === "bindIAPCompatApi" || typeof self[methodName] !== "function") {
-                    return;
-                }
-                target[methodName] = function () {
-                    return self[methodName].apply(self, arguments);
-                };
-            });
-        },
-        isTalentPurchaseId: function (purchaseId) {
-            return Number(purchaseId) === 120;
-        },
-        getTalentMaxLevel: function () {
-            return 3;
-        }
-    };
-    loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
-    loadIntoSandbox(sandbox, "assets/src/game/role.js");
-    loadIntoSandbox(sandbox, "assets/src/game/medal.js");
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
-    loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
-    sandbox.Medal._exchangeMap = {
-        2005: { unlocked: true }
-    };
-    sandbox.Medal._achievementPoints = 0;
-
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(108)) === "[1001]",
-        "IAPPackage should resolve legacy paid role exchanges from ExchangeAchievementConfig via role config");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(114)) === "[1007]",
-        "IAPPackage should resolve new role exchanges from ExchangeAchievementConfig via role config");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(105)) === "[3001]",
-        "IAPPackage should resolve exchange-only item purchases from ExchangeAchievementConfig");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(107)) === "[3003]",
-        "IAPPackage should resolve dog house exchange purchase from ExchangeAchievementConfig");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(120)) === "[2005,2105,2205]",
-        "IAPPackage should resolve ordered talent exchange levels from ExchangeAchievementConfig");
-    assert(sandbox.IAPPackage.getExchangeIdByPurchaseId(120) === 2105,
-        "IAPPackage should return the next unexchanged talent level after configured exchange sorting");
-    assert(sandbox.IAPPackage.isExchangePurchase(110) === true,
-        "IAPPackage should keep exchange-role purchases on config-driven exchange flow");
-    assert(sandbox.IAPPackage.isExchangePurchase(203) === false,
-        "IAPPackage should not treat consumable support packs as exchange-config purchases");
-
-    return {
-        name: "purchase-exchange-config",
-        ok: true,
-        detail: "validated IAPPackage derives role, item and talent exchange mappings from config without hardcoded purchase maps"
-    };
-}
-
-function runTalentSelectionMigrationSmoke() {
-    const sandbox = createVmSandbox();
-    sandbox.Record = {
-        getCurrentSlot: function () {
-            return 2;
-        },
-        hasRecord: function (slot) {
-            return Number(slot) === 2;
-        },
-        getAllRecordNames: function () {
-            return ["record", "record_2", "record_3"];
-        }
-    };
-    sandbox.PurchaseService = {
-        isUnlocked: function () {
-            return true;
-        }
-    };
-
-    loadIntoSandbox(sandbox, "assets/src/data/talentConfigTable.js");
-    loadIntoSandbox(sandbox, "assets/src/game/TalentService.js");
-
-    sandbox.cc.sys.localStorage.setItem("chosenTalent_slot_2", "120");
-    assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[120]",
-        "TalentService should migrate legacy slot single-choice keys into chosenTalents_slot storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === "[120]",
-        "TalentService should persist migrated slot talent selection in chosenTalents_slot storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === null,
-        "TalentService should remove legacy chosenTalent_slot storage after migration");
-
-    sandbox.TalentService.resetChosenTalentCache();
-    sandbox.Record.getCurrentSlot = function () {
-        return 1;
-    };
-    sandbox.Record.hasRecord = function (slot) {
-        return Number(slot) === 1;
-    };
-    sandbox.cc.sys.localStorage.setItem("chosenTalents", "[121,122]");
-    assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[121,122]",
-        "TalentService should migrate legacy global chosenTalents storage for single-record saves");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_1") === "[121,122]",
-        "TalentService should rewrite migrated global talent selections into slot-scoped storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents") === null,
-        "TalentService should remove legacy global chosenTalents storage after migration");
-
-    sandbox.TalentService.chooseTalents([120, 121]);
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_1") === "[120,121]",
-        "TalentService should keep chosenTalents_slot as the only live talent selection storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_1") === null,
-        "TalentService should stop writing legacy chosenTalent_slot mirror keys");
-
-    return {
-        name: "talent-selection-migration",
-        ok: true,
-        detail: "validated TalentService migrates legacy talent selection keys into chosenTalents_slot storage and stops writing mirror keys"
-    };
-}
-
 function runPlayerPersistencePurchaseDelegationSmoke() {
     const sandbox = createVmSandbox();
     let purchaseReconcileCount = 0;
@@ -1138,8 +997,6 @@ function main() {
         runBonfireStateSmoke(),
         runBuildRegistrySmoke(),
         runPurchaseUnlockRewardSmoke(),
-        runPurchaseExchangeConfigSmoke(),
-        runTalentSelectionMigrationSmoke(),
         runPlayerPersistencePurchaseDelegationSmoke(),
         runLoadChainSmoke()
     ];

@@ -137,7 +137,28 @@ var IAPPackage = {
         if (isNaN(purchaseId)) {
             return [];
         }
-        return this._getConfiguredExchangeIdsByPurchaseId(purchaseId);
+
+        var configuredExchangeIds = this._getConfiguredExchangeIdsByPurchaseId(purchaseId);
+        if (configuredExchangeIds.length > 0) {
+            return configuredExchangeIds;
+        }
+
+        var mapping = {
+            108: 1001,
+            109: 1002,
+            110: 1003,
+            111: 1004,
+            112: 1005,
+            113: 1006,
+            114: 1007,
+            105: 3001,
+            106: 3002,
+            107: 3003
+        };
+        if (mapping[purchaseId]) {
+            return [mapping[purchaseId]];
+        }
+        return [];
     },
     isExchangePurchase: function (purchaseId) {
         return this.getExchangeIdsByPurchaseId(purchaseId).length > 0;

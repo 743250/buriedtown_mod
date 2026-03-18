@@ -15,6 +15,17 @@ var RoleType = {
 
 };
 
+var _fallbackRoleConfigTable = {
+    1: {roleType: 1, exchangeId: 1001, purchaseId: 108, nameStringId: 1313, selectionDescriptionStringId: 1314, infoDescriptionSource: {type: "purchase", purchaseId: 108, field: "des"}, infoEffectSource: {type: "purchase", purchaseId: 108, field: "effect"}, avatarFallback: "npc_dig_1.png", selectionOrder: 1, npcId: 1},
+    2: {roleType: 2, exchangeId: 1003, purchaseId: 110, nameStringId: 1319, selectionDescriptionStringId: 1315, infoDescriptionStringId: 1324, infoEffectStringId: 1325, avatarFallback: "npc_dig_2.png", selectionOrder: 3, npcId: 2},
+    3: {roleType: 3, exchangeId: 1005, purchaseId: 112, nameStringId: 1331, selectionDescriptionStringId: 1332, infoDescriptionStringId: 1333, infoEffectStringId: 1334, avatarFallback: "npc_dig_3.png", selectionOrder: 5, npcId: 3},
+    4: {roleType: 4, exchangeId: 1002, purchaseId: 109, nameStringId: 1321, selectionDescriptionStringId: 1322, infoDescriptionSource: {type: "purchase", purchaseId: 109, field: "des"}, infoEffectSource: {type: "purchase", purchaseId: 109, field: "effect"}, avatarFallback: "npc_dig_4.png", selectionOrder: 2, npcId: 4},
+    5: {roleType: 5, exchangeId: 1004, purchaseId: 111, nameStringId: 1327, selectionDescriptionStringId: 1328, infoDescriptionStringId: 1329, infoEffectStringId: 1330, avatarFallback: "npc_dig_5.png", selectionOrder: 4, npcId: 5},
+    6: {roleType: 6, exchangeId: null, purchaseId: null, nameStringId: 1311, selectionDescriptionStringId: 1312, infoDescriptionStringId: 1317, infoEffectStringId: 1318, avatarFallback: "npc_dig_6.png", selectionOrder: 0, npcId: 6},
+    7: {roleType: 7, exchangeId: 1006, purchaseId: 113, nameStringId: 1342, selectionDescriptionStringId: 1343, infoDescriptionStringId: 1343, infoEffectStringId: 1344, avatarFallback: "npc_dig_7.png", selectionOrder: 7, npcId: 7},
+    8: {roleType: 8, exchangeId: 1007, purchaseId: 114, nameStringId: 1345, selectionDescriptionStringId: 1346, infoDescriptionSource: {type: "purchase", purchaseId: 114, field: "des"}, infoEffectSource: {type: "purchase", purchaseId: 114, field: "effect"}, avatarFallback: "npc_dig_8.png", mapRoleType: 8, selectionOrder: 6, npcId: 8}
+};
+
 var _defaultRoleInfo = {
     nameStringId: 1340,
     infoDescriptionStringId: 1320,
@@ -29,7 +40,7 @@ var role = {
         if (typeof RoleConfigTable !== "undefined" && RoleConfigTable) {
             return RoleConfigTable;
         }
-        return {};
+        return _fallbackRoleConfigTable;
     },
     _getCurrentSlot: function () {
         if (typeof Record !== "undefined" && Record && typeof Record.getCurrentSlot === "function") {
@@ -51,12 +62,6 @@ var role = {
             return;
         }
         cc.sys.localStorage.setItem(key, value);
-    },
-    _removeStorageValue: function (key) {
-        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
-            return;
-        }
-        cc.sys.localStorage.removeItem(key);
     },
     _currentSlotHasRecord: function () {
         if (typeof Record !== "undefined"
@@ -96,17 +101,6 @@ var role = {
             return null;
         }
         return this._readStorageValue(this.LEGACY_STORAGE_KEY);
-    },
-    _migrateLegacyStoredRoleType: function () {
-        var legacyRoleType = this._getLegacyStoredRoleType();
-        if (SafetyHelper.isEmpty(legacyRoleType)) {
-            return null;
-        }
-
-        var normalizedRoleType = this._normalizeStoredRoleType(legacyRoleType);
-        this._writeStorageValue(this._getScopedStorageKey(), normalizedRoleType);
-        this._removeStorageValue(this.LEGACY_STORAGE_KEY);
-        return normalizedRoleType;
     },
     _getRoleStringValue: function (stringId) {
         if (stringId === undefined || stringId === null || typeof stringUtil === "undefined" || !stringUtil) {
@@ -237,7 +231,10 @@ var role = {
     getChoosenRoleType: function () {
         var roleType = this._readStorageValue(this._getScopedStorageKey());
         if (SafetyHelper.isEmpty(roleType)) {
-            roleType = this._migrateLegacyStoredRoleType();
+            roleType = this._getLegacyStoredRoleType();
+            if (!SafetyHelper.isEmpty(roleType)) {
+                this._writeStorageValue(this._getScopedStorageKey(), roleType);
+            }
         }
         return this._normalizeStoredRoleType(roleType);
     },

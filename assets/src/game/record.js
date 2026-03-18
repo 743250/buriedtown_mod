@@ -217,14 +217,8 @@ var Record = {
                 cc.sys.localStorage.removeItem('uuid');
                 cc.sys.localStorage.removeItem('IAPRecord');
                 cc.sys.localStorage.removeItem('medal');
-                cc.sys.localStorage.removeItem('roleType');
                 cc.sys.localStorage.removeItem('chosenTalent');
                 cc.sys.localStorage.removeItem('chosenTalents');
-                for (var slot = 1; slot <= this.SLOT_COUNT; slot++) {
-                    cc.sys.localStorage.removeItem('roleType_slot_' + slot);
-                    cc.sys.localStorage.removeItem('chosenTalents_slot_' + slot);
-                    cc.sys.localStorage.removeItem('chosenTalent_slot_' + slot);
-                }
 
                 cc.sys.localStorage.setItem(flagName, deviceId);
             }
