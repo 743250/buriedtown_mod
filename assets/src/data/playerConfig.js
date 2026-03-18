@@ -19,5 +19,5 @@ var playerConfig = {
         "severeThreshold": -10,
         "mildInfect": 1,
         "severeInfect": 2
-    ]
+    }
 };

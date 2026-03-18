@@ -29,10 +29,6 @@ var game = {
             && TalentService
             && typeof TalentService.applyActiveTalentStartGifts === "function") {
             gifted = TalentService.applyActiveTalentStartGifts(player);
-        } else if (typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage.applyActiveTalentStartGifts === "function") {
-            gifted = IAPPackage.applyActiveTalentStartGifts(player);
         }
         if (gifted && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
             Record.saveAll();
@@ -46,7 +42,11 @@ var game = {
     newGame: function () {
         Record.deleteRecord(Record.getCurrentRecordName());
         Record.setType(-1);
-        IAPPackage.resetConsumeIAP();
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.resetConsumablePurchases === "function") {
+            PurchaseService.resetConsumablePurchases();
+        }
         Medal.newGameReset();
         Medal.initCompletedForOneGame(true);
     },

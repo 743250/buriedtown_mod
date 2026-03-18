@@ -45,6 +45,13 @@ var PurchaseService = {
         IAPPackage.initPackage();
         return true;
     },
+    resetConsumablePurchases: function () {
+        if (!this._hasIAPMethod("resetConsumeIAP")) {
+            return false;
+        }
+        IAPPackage.resetConsumeIAP();
+        return true;
+    },
     isPaySdkBypassedForTest: function () {
         if (!this._hasIAPMethod("isPaySdkBypassedForTest")) {
             return false;
@@ -97,15 +104,10 @@ var PurchaseService = {
         if (purchaseId === null) {
             return false;
         }
-        if (typeof TalentService !== "undefined"
+        return !!(typeof TalentService !== "undefined"
             && TalentService
-            && typeof TalentService.isTalentPurchaseId === "function") {
-            return !!TalentService.isTalentPurchaseId(purchaseId);
-        }
-        if (!this._hasIAPMethod("isTalentPurchaseId")) {
-            return false;
-        }
-        return !!IAPPackage.isTalentPurchaseId(purchaseId);
+            && typeof TalentService.isTalentPurchaseId === "function"
+            && TalentService.isTalentPurchaseId(purchaseId));
     },
     isUnlocked: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);

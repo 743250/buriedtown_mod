@@ -70,11 +70,6 @@ var PlayerAttrService = {
                     return TalentService.getInfectIncreaseEffect(infectValue);
                 }, value, value);
             }
-            if (typeof IAPPackage !== "undefined"
-                && IAPPackage
-                && typeof IAPPackage.getInfectIncreaseEffect === "function") {
-                return SafetyHelper.safeCall(IAPPackage.getInfectIncreaseEffect, value, value);
-            }
         }
         return value;
     },

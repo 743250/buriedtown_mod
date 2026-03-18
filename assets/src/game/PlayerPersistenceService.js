@@ -296,10 +296,6 @@ var PlayerPersistenceService = {
             && TalentService
             && typeof TalentService.init === "function") {
             TalentService.init(playerInstance);
-        } else if (typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage.init === "function") {
-            IAPPackage.init(playerInstance);
         }
         Medal.improve(playerInstance);
         if (Record.getShareFlag() === ShareType.SHARED_CAN_REWARD) {
@@ -326,10 +322,6 @@ var PlayerPersistenceService = {
             && TalentService
             && typeof TalentService.migrateLegacyElitePistol === "function") {
             migratedLegacyElitePistol = TalentService.migrateLegacyElitePistol(playerInstance);
-        } else if (typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage.migrateLegacyElitePistol === "function") {
-            migratedLegacyElitePistol = IAPPackage.migrateLegacyElitePistol(playerInstance);
         }
         if (migratedLegacyElitePistol) {
             hasPostRestoreMutation = true;
@@ -339,31 +331,12 @@ var PlayerPersistenceService = {
             && TalentService
             && typeof TalentService.reconcilePlayerHpByTalentSelection === "function") {
             TalentService.reconcilePlayerHpByTalentSelection(playerInstance);
-        } else if (typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage.reconcilePlayerHpByTalentSelection === "function") {
-            IAPPackage.reconcilePlayerHpByTalentSelection(playerInstance);
         }
 
         if (typeof PurchaseService !== "undefined"
             && PurchaseService
             && typeof PurchaseService.reconcileUnlockRewardsForPlayer === "function") {
             if (PurchaseService.reconcileUnlockRewardsForPlayer(playerInstance, [105, 106, 107])) {
-                hasPostRestoreMutation = true;
-            }
-        } else {
-            if (IAPPackage.isBigBagUnlocked() && !playerInstance.storage.validateItem(1305024, 1)) {
-                playerInstance.storage.increaseItem(1305024, 1);
-                hasPostRestoreMutation = true;
-            }
-
-            if (IAPPackage.isBootUnlocked() && !playerInstance.storage.validateItem(1304024, 1)) {
-                playerInstance.storage.increaseItem(1304024, 1);
-                hasPostRestoreMutation = true;
-            }
-
-            if (IAPPackage.isDogHouseUnlocked() && !playerInstance.room.isBuildExist(12, 0)) {
-                playerInstance.room.createBuild(12, 0);
                 hasPostRestoreMutation = true;
             }
         }

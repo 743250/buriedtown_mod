@@ -573,53 +573,5 @@ var TalentService = {
         player.setting = player.setting || {};
         player.setting.activeTalentStartGiftsApplied = true;
         return changed;
-    },
-    bindIAPCompatApi: function (target) {
-        var methodNames = [
-            "reconcilePlayerHpByTalentSelection",
-            "init",
-            "getPreciseEffect",
-            "getHeadshotEffect",
-            "getGunDamageEffect",
-            "rollScavengerDoubleDrop",
-            "getDropEffect",
-            "applyHomeProduceEffect",
-            "getBagWeightBonus",
-            "getMeleeDamageEffect",
-            "getInfectIncreaseEffect",
-            "isElitePistolUnlocked",
-            "isElitePistolItem",
-            "migrateLegacyElitePistol",
-            "getElitePistolDisplayInfo",
-            "getElitePistolAtkCdMultiplier",
-            "applyElitePistolWeaponEffect",
-            "getElitePistolPreciseBonus",
-            "getElitePistolHeadshotBonus",
-            "isSocialEffectUnlocked",
-            "getSocialExtraGiftChance",
-            "getSocialTradeQuantityMultiplier",
-            "getTalentConfig",
-            "getTalentPurchaseIdList",
-            "getTalentMaxLevel",
-            "getTalentTierEffectTextList",
-            "getMaxChosenTalentCount",
-            "getNegotiationDiscount",
-            "getBattleWinRecoverHp",
-            "getBattleDefenseBonus",
-            "canZeroBattleDamage",
-            "getWeaponBrokenProbability",
-            "isTalentPurchaseId",
-            "chooseTalents",
-            "chooseTalent",
-            "getChosenTalentPurchaseIds",
-            "getChosenTalentPurchaseId",
-            "hasChosenTalent",
-            "applyActiveTalentStartGifts"
-        ];
-        methodNames.forEach(function (methodName) {
-            target[methodName] = function () {
-                return TalentService[methodName].apply(TalentService, arguments);
-            };
-        });
     }
 };

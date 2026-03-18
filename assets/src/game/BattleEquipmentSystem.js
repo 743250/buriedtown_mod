@@ -34,7 +34,7 @@ var BattleEquipmentSystem = (function () {
         }
     };
 
-    var callTalentCompat = function (methodName, defaultValue) {
+    var callTalentRuntime = function (methodName, defaultValue) {
         var args = Array.prototype.slice.call(arguments, 2);
         try {
             if (typeof TalentService !== "undefined"
@@ -42,19 +42,14 @@ var BattleEquipmentSystem = (function () {
                 && typeof TalentService[methodName] === "function") {
                 return TalentService[methodName].apply(TalentService, args);
             }
-            if (typeof IAPPackage !== "undefined"
-                && IAPPackage
-                && typeof IAPPackage[methodName] === "function") {
-                return IAPPackage[methodName].apply(IAPPackage, args);
-            }
         } catch (e) {
-            cc.error("BattleEquipmentSystem talent compat call failed: " + methodName + ", " + e);
+            cc.error("BattleEquipmentSystem talent runtime call failed: " + methodName + ", " + e);
         }
         return defaultValue;
     };
 
     var applyTalentPreciseBonus = function (precise) {
-        return callTalentCompat("getPreciseEffect", precise, precise);
+        return callTalentRuntime("getPreciseEffect", precise, precise);
     };
 
     var applyStatusPreciseAdjustments = function (precise, options) {
@@ -151,10 +146,10 @@ var BattleEquipmentSystem = (function () {
             }
 
             this.attr = this.itemConfig.effect_weapon;
-            this.attr = callTalentCompat("applyElitePistolWeaponEffect", this.attr, this.id, this.attr);
+            this.attr = callTalentRuntime("applyElitePistolWeaponEffect", this.attr, this.id, this.attr);
             this.itemConfig.effect_weapon = this.attr;
 
-            var elitePistolDisplay = callTalentCompat("getElitePistolDisplayInfo", null, this.id, {title: this.itemConfig.name, des: ""});
+            var elitePistolDisplay = callTalentRuntime("getElitePistolDisplayInfo", null, this.id, {title: this.itemConfig.name, des: ""});
             if (elitePistolDisplay && elitePistolDisplay.title) {
                 this.itemConfig.name = elitePistolDisplay.title;
             }
@@ -322,7 +317,7 @@ var BattleEquipmentSystem = (function () {
             if (monster && !this.resolveMeleeHitResult().success) {
                 return 0;
             }
-            return callTalentCompat("getMeleeDamageEffect", this.attr.atk, this.attr.atk);
+            return callTalentRuntime("getMeleeDamageEffect", this.attr.atk, this.attr.atk);
         },
         isInRange: function (monster) {
             return !!(monster.line && this.attr.range >= monster.line.index);
@@ -365,10 +360,10 @@ var BattleEquipmentSystem = (function () {
             var deathHit = this.attr.deathHit + this.attr.dtDeathHit * dtLineIndex;
 
             precise = applyTalentPreciseBonus(precise);
-            deathHit = callTalentCompat("getHeadshotEffect", deathHit, deathHit);
-            if (callTalentCompat("isElitePistolItem", false, this.id)) {
-                precise += callTalentCompat("getElitePistolPreciseBonus", 0);
-                deathHit += callTalentCompat("getElitePistolHeadshotBonus", 0);
+            deathHit = callTalentRuntime("getHeadshotEffect", deathHit, deathHit);
+            if (callTalentRuntime("isElitePistolItem", false, this.id)) {
+                precise += callTalentRuntime("getElitePistolPreciseBonus", 0);
+                deathHit += callTalentRuntime("getElitePistolHeadshotBonus", 0);
             }
             precise = applyStatusPreciseAdjustments(precise, {logPenalty: true});
 
@@ -400,7 +395,7 @@ var BattleEquipmentSystem = (function () {
             return this.battlePlayer.bulletNum > 0;
         },
         getBulletHarm: function () {
-            return callTalentCompat("getGunDamageEffect", this.bulletConfig.atk, this.bulletConfig.atk);
+            return callTalentRuntime("getGunDamageEffect", this.bulletConfig.atk, this.bulletConfig.atk);
         }
     });
 

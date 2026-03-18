@@ -567,10 +567,6 @@ var Medal = {
                         && TalentService
                         && typeof TalentService.hasChosenTalent === "function") {
                         isActiveTalent = TalentService.hasChosenTalent(talentPurchaseId);
-                    } else if (typeof IAPPackage !== "undefined"
-                        && IAPPackage
-                        && typeof IAPPackage.hasChosenTalent === "function") {
-                        isActiveTalent = IAPPackage.hasChosenTalent(talentPurchaseId);
                     }
                     if (!isActiveTalent) {
                         continue;

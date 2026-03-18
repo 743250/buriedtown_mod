@@ -37,11 +37,6 @@ var rollScavengerDoubleDropFallback = function () {
         && typeof TalentService.rollScavengerDoubleDrop === "function") {
         return !!TalentService.rollScavengerDoubleDrop();
     }
-    if (typeof IAPPackage !== "undefined"
-        && IAPPackage
-        && typeof IAPPackage.rollScavengerDoubleDrop === "function") {
-        return !!IAPPackage.rollScavengerDoubleDrop();
-    }
     return false;
 };
 
