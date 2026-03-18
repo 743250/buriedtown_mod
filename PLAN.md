@@ -432,6 +432,157 @@
 
 ### 6.4 当前下一步
 
-- 从 `Step 3.1` 开始：盘点 `role.js` 中仍在使用的 `_fallbackRoleConfigTable` 与旧存储回退口
-- 在此基础上，确认 `IAPPackage.js` / `PurchaseService.js` 里哪些角色映射仍依赖旧语义
-- 等角色边界梳理清楚后，再推进 `TalentService.js` 的兼容收口
+- `Step 3.1` 的盘点已完成，结论见第 `7` 节
+- `Batch 3A` 已完成：`role.js` 的并行 fallback 角色表已删除，旧 `roleType` 键只保留到分槽键的单向迁移
+- `Batch 3B` 已完成：`IAPPackage.js` 的角色 / 道具兑换硬编码 fallback 映射已删除，purchase->exchange 关系已由配置驱动并补了 smoke
+- `Batch 3C` 已完成：`TalentService.js` 的运行时读写已收敛到 `chosenTalents_slot_<slot>`，旧全局键与 `chosenTalent_slot_<slot>` 只保留迁移职责
+- 当前下一步切到 `Batch 3D`：继续收窄 `PurchaseService.js` / `IAPPackage.js` 的职责边界，能回服务层的 gameplay API 不再继续留在购买链
+
+## 7. `Phase 3` 启动记录
+
+### 7.1 `Step 3.1` 盘点结论
+
+1. **`role.js`**
+   - `_fallbackRoleConfigTable` 仍在文件内保留，但 `assets/src/jsList.js` 已保证 `src/data/roleConfigTable.js` 先于 `src/game/role.js` 加载
+   - 这张 fallback 表现在更像“启动期兜底遗留”，不再是正常内容扩展入口；而且它只覆盖基础展示字段，不覆盖 `RoleConfigTable` 里已经在使用的 `roomBuilds / unlockSites / unlockNpcs / battleModifiers / zipline` 等字段
+   - 仍然真正有兼容价值的不是这张表，而是角色选择存储迁移：当前主键是 `roleType_slot_<slot>`，旧键 `roleType` 只是单存档时代的回退口
+
+2. **`TalentService.js`**
+   - 已没有平行天赋主表 fallback，主数据实际上已经完全来自 `TalentConfigTable`
+   - 当前保留的兼容主要有两类：
+     - 旧全局键 `chosenTalents` / `chosenTalent`
+     - 当前分槽键之外的单选镜像键 `chosenTalent_slot_<slot>`
+   - `bindIAPCompatApi(IAPPackage)` 说明购买层仍在对外暴露大量天赋规则 API，这条边界还没有真正收回“兼容层”
+
+3. **`IAPPackage.js`**
+   - `_getConfiguredExchangeIdsByPurchaseId()` 已经能通过 `ExchangeAchievementConfig + role + TalentService` 推导角色 / 天赋 / 道具兑换关系
+   - `getExchangeIdsByPurchaseId()` 仍保留 `108~114`、`105~107` 的硬编码 fallback 映射；这是 `Phase 3` 最适合继续删除的一段 legacy
+   - `resetIAPPaid()` 仍直接处理角色选择回退、单次解锁奖励回收、部分存档修正，说明购买兼容层还握着一部分内容副作用
+
+4. **`PurchaseService.js`**
+   - 当前已经接近薄服务：角色购买列表来自 `role.getAllRoleTypes()`，天赋购买列表来自 `TalentService.getTalentPurchaseIdList()`
+   - 这说明它已经具备承接统一入口的形状；现阶段不该优先重写 `PurchaseService.js`，而应先清掉 `IAPPackage.js` 里仍然硬编码的角色 / 天赋语义
+
+### 7.2 `Phase 3` 分批建议
+
+1. **`Batch 3A`: `role.js` 主表唯一化**
+   - 状态：
+     - 已完成
+   - 主行为文件：
+     - `assets/src/game/role.js`
+   - 配套文件：
+     - `assets/src/data/roleConfigTable.js`
+   - 目标：
+     - 删除 `_fallbackRoleConfigTable`
+     - 保留旧键 `roleType` -> 分槽键 `roleType_slot_<slot>` 的单向迁移
+     - `role.js` 不再维护平行角色数据，只负责读取配置、选择状态和少量兼容
+   - 同批不做：
+     - 不改 `assets/src/jsList.js` 顺序
+     - 不在同一批里同时改角色购买逻辑和 `ChooseScene` 展示逻辑
+   - 退出标准：
+     - `RoleConfigTable` 成为角色唯一主源
+     - 新增角色时不再需要同步维护 `role.js` 内部表
+
+2. **`Batch 3B`: 角色 / 道具兑换映射去硬编码**
+   - 状态：
+     - 已完成
+   - 主行为文件：
+     - `assets/src/game/IAPPackage.js`
+   - 配套文件：
+     - `assets/src/game/PurchaseService.js`
+     - 必要时补 `tools/validate-content.js` / `tools/lib/content-validator.js` 的最小 purchase-exchange 断链校验
+   - 目标：
+     - 让 `getExchangeIdsByPurchaseId()` 只依赖 `ExchangeAchievementConfig`、`role`、`TalentService`
+     - 删除 `108~114`、`105~107` 的硬编码映射 fallback
+     - 继续保留取消兑换、奖励回收等兼容行为，不在同一批里重写
+   - 同批不做：
+     - 不同时重写 `resetIAPPaid()` 的副作用分支
+     - 不同时改支付 SDK 结果解释
+   - 退出标准：
+     - 角色 / 天赋 / 道具兑换关系可以从配置和服务侧反查
+     - `IAPPackage.js` 不再维护平行 purchase->exchange 表
+
+3. **`Batch 3C`: 天赋选择兼容收口**
+   - 状态：
+     - 已完成
+   - 主行为文件：
+     - `assets/src/game/TalentService.js`
+   - 配套文件：
+     - `assets/src/game/IAPPackage.js`
+   - 目标：
+     - 让分槽键成为唯一运行时读写入口
+     - 旧键 `chosenTalents` / `chosenTalent` 只保留单向迁移职责
+     - 评估 `chosenTalent_slot_<slot>` 单选镜像是否仍有旧 UI 依赖，确认后再删除或继续薄兼容
+     - 禁止继续向 `bindIAPCompatApi()` 增加新的 gameplay API
+   - 同批不做：
+     - 不在同一批里混改天赋数值效果和选择存储
+     - 不在同一批里重写三级奖励逻辑
+   - 退出标准：
+     - `TalentConfigTable + TalentService` 成为天赋主入口
+     - 旧键只承担迁移，不再参与长期状态读取
+
+4. **`Batch 3D`: 购买链职责收边**
+   - 状态：
+     - 当前下一步
+   - 主行为文件：
+     - `assets/src/game/PurchaseService.js`
+     - `assets/src/game/IAPPackage.js`
+   - 目标：
+     - 把 `PurchaseService` 固定成商店 / 购买统一入口
+     - 把 `IAPPackage` 缩回 SDK 记录、兑换适配、最小 UI 状态查询职责
+     - 角色 / 天赋规则 API 不再继续扩散到购买层
+   - 收口原则：
+     - 如果某段逻辑本质上是“规则解释”，优先回服务层
+     - 如果某段逻辑本质上是“已购买 / 可兑换 / 可取消”的兼容判断，才留在购买链
+   - 备注：
+     - 如果这一批开始触碰过多奖励回收、旧存档修复或菜单商店刷新细节，可主动止步，把剩余兼容清理推迟到 `Phase 5`
+
+### 7.3 `Phase 3` 默认验证
+
+- `Batch 3A` 默认执行：
+  - `node tools/validate-content.js links role --lang zh`
+  - `node tools/validate-content.js links role --lang en`
+  - `node tools/validate-content.js checklist role 1 --lang zh`
+  - `node tools/smoke-startup.js`
+
+- `Batch 3B` 默认执行：
+  - `node tools/validate-content.js links role --lang zh`
+  - `node tools/validate-content.js links talent --lang zh`
+  - `node tools/smoke-runtime-boundaries.js`
+  - `node tools/smoke-startup.js`
+
+- `Batch 3C` 默认执行：
+  - `node tools/validate-content.js links talent --lang zh`
+  - `node tools/validate-content.js links talent --lang en`
+  - `node tools/validate-content.js checklist talent 120 --lang zh`
+  - `node tools/smoke-startup.js`
+
+- `Batch 3D` 默认执行：
+  - `node tools/validate-content.js all --lang zh`
+  - `node tools/validate-content.js all --lang en`
+  - `node tools/smoke-runtime-boundaries.js`
+  - `node tools/smoke-startup.js`
+
+### 7.4 `Phase 3` 人工回归重点
+
+- `MenuScene -> ChooseScene`
+  - 角色列表顺序、已解锁 / 未解锁状态、当前选择角色显示正常
+- `shopScene`
+  - 角色、天赋、道具的购买按钮、价格展示、取消购买按钮状态正常
+- 旧存档迁移
+  - 仅有旧键 `roleType` / `chosenTalent` / `chosenTalents` 的存档仍能被读取，并完成一次性迁移
+- `MainScene`
+  - 角色特性、天赋选择、天赋等级效果在新开局与读档后都正常生效
+
+### 7.5 当前批次进度
+
+- 已完成：
+  - `Batch 3A`
+  - `Batch 3B`
+  - `Batch 3C`
+- 当前下一批：
+  - `Batch 3D`
+- 原因：
+  - 角色主表、兑换映射、天赋选择存储这三条最直接的 legacy 主入口已经收住
+  - 下一步该继续判断哪些 gameplay API 仍然只是因为兼容历史而挂在 `IAPPackage`
+  - 如果某些接口已经只剩转发职责，应考虑回收到 `TalentService`、`PlayerAttrService` 或其他现有服务

@@ -23,7 +23,7 @@ var TalentService = {
     _getChosenTalentsStorageKey: function () {
         return "chosenTalents_slot_" + this._getCurrentSlotKey();
     },
-    _getChosenTalentStorageKey: function () {
+    _getLegacyChosenTalentStorageKey: function () {
         return "chosenTalent_slot_" + this._getCurrentSlotKey();
     },
     _readStorageValue: function (key) {
@@ -37,6 +37,12 @@ var TalentService = {
             return;
         }
         cc.sys.localStorage.setItem(key, value);
+    },
+    _removeStorageValue: function (key) {
+        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
+            return;
+        }
+        cc.sys.localStorage.removeItem(key);
     },
     _currentSlotHasRecord: function () {
         if (typeof Record !== "undefined"
@@ -66,34 +72,46 @@ var TalentService = {
         });
         return recordCount <= 1;
     },
+    _parseChosenTalentStorageValue: function (rawValue) {
+        if (rawValue === undefined || rawValue === null || rawValue === "") {
+            return [];
+        }
+        try {
+            var parsed = JSON.parse(rawValue);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+            return [parsed];
+        } catch (e) {
+            return typeof rawValue === "string" ? rawValue.split(",") : [rawValue];
+        }
+    },
+    _readChosenTalentPurchaseIdsFromStorageKey: function (key) {
+        return this._parseChosenTalentStorageValue(this._readStorageValue(key));
+    },
     _getLegacyChosenTalentPurchaseIds: function () {
         if (!this._canUseLegacySelectionFallback()) {
             return [];
         }
 
-        var purchaseIdList = [];
-        var chosenTalents = this._readStorageValue("chosenTalents");
-
-        if (chosenTalents !== undefined && chosenTalents !== null && chosenTalents !== "") {
-            try {
-                var parsed = JSON.parse(chosenTalents);
-                if (Array.isArray(parsed)) {
-                    purchaseIdList = parsed;
-                } else {
-                    purchaseIdList = [parsed];
-                }
-            } catch (e) {
-                purchaseIdList = chosenTalents.split(",");
-            }
+        var purchaseIdList = this._readChosenTalentPurchaseIdsFromStorageKey("chosenTalents");
+        if (purchaseIdList.length > 0) {
+            return purchaseIdList;
+        }
+        return this._readChosenTalentPurchaseIdsFromStorageKey("chosenTalent");
+    },
+    _migrateLegacyChosenTalentPurchaseIds: function () {
+        var purchaseIdList = this._readChosenTalentPurchaseIdsFromStorageKey(this._getLegacyChosenTalentStorageKey());
+        if (purchaseIdList.length > 0) {
+            this._removeStorageValue(this._getLegacyChosenTalentStorageKey());
+            return purchaseIdList;
         }
 
-        if (purchaseIdList.length === 0) {
-            var purchaseId = this._readStorageValue("chosenTalent");
-            if (purchaseId !== undefined && purchaseId !== null && purchaseId !== "") {
-                purchaseIdList = [purchaseId];
-            }
+        purchaseIdList = this._getLegacyChosenTalentPurchaseIds();
+        if (purchaseIdList.length > 0) {
+            this._removeStorageValue("chosenTalents");
+            this._removeStorageValue("chosenTalent");
         }
-
         return purchaseIdList;
     },
     _isCurrentSlotCacheValid: function () {
@@ -484,7 +502,7 @@ var TalentService = {
         this._chosenTalentIds = chosenTalents.slice();
         this._chosenTalentSlotKey = this._getCurrentSlotKey();
         this._writeStorageValue(this._getChosenTalentsStorageKey(), JSON.stringify(chosenTalents));
-        this._writeStorageValue(this._getChosenTalentStorageKey(), chosenTalents[0]);
+        this._removeStorageValue(this._getLegacyChosenTalentStorageKey());
     },
     chooseTalent: function (purchaseId) {
         this.chooseTalents([purchaseId]);
@@ -495,36 +513,15 @@ var TalentService = {
         }
 
         var purchaseIdList = [];
-        var chosenTalents = this._readStorageValue(this._getChosenTalentsStorageKey());
-
-        if (chosenTalents !== undefined && chosenTalents !== null && chosenTalents !== "") {
-            try {
-                var parsed = JSON.parse(chosenTalents);
-                if (Array.isArray(parsed)) {
-                    purchaseIdList = parsed;
-                } else {
-                    purchaseIdList = [parsed];
-                }
-            } catch (e) {
-                purchaseIdList = chosenTalents.split(",");
-            }
-        }
+        purchaseIdList = this._readChosenTalentPurchaseIdsFromStorageKey(this._getChosenTalentsStorageKey());
 
         if (purchaseIdList.length === 0) {
-            var purchaseId = this._readStorageValue(this._getChosenTalentStorageKey());
-            if (purchaseId !== undefined && purchaseId !== null && purchaseId !== "") {
-                purchaseIdList = [purchaseId];
-            }
-        }
-
-        if (purchaseIdList.length === 0) {
-            purchaseIdList = this._getLegacyChosenTalentPurchaseIds();
+            purchaseIdList = this._migrateLegacyChosenTalentPurchaseIds();
         }
 
         this._chosenTalentIds = this._normalizeChosenTalentPurchaseIds(purchaseIdList);
         this._chosenTalentSlotKey = this._getCurrentSlotKey();
         this._writeStorageValue(this._getChosenTalentsStorageKey(), JSON.stringify(this._chosenTalentIds));
-        this._writeStorageValue(this._getChosenTalentStorageKey(), this._chosenTalentIds[0]);
         return this._chosenTalentIds.slice();
     },
     getChosenTalentPurchaseId: function () {
