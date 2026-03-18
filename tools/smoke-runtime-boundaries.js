@@ -55,7 +55,6 @@ function runSyntaxSmoke() {
         "assets/src/game/GameRuntime.js",
         "assets/src/game/game.js",
         "assets/src/game/player.js",
-        "assets/src/game/PlayerAttrService.js",
         "assets/src/game/TravelService.js",
         "assets/src/game/Build.js",
         "assets/src/game/PlayerPersistenceService.js",
@@ -66,7 +65,6 @@ function runSyntaxSmoke() {
         "assets/src/ui/MapActor.js",
         "assets/src/ui/MapInteractionController.js",
         "assets/src/ui/dialog.js",
-        "assets/src/ui/topFrame.js",
         "assets/src/ui/battleAndWorkNode.js"
     ];
 
@@ -311,9 +309,6 @@ function runRoleRuntimeRuleSmoke() {
             if (Number(roleType) === 92) {
                 return { actionTags: ["powered"] };
             }
-            if (Number(roleType) === 91) {
-                return { attrModifiers: { lowTemperatureResistance: 4 } };
-            }
             return { actionTags: [] };
         },
         getChoosenRoleType: function () {
@@ -448,10 +443,6 @@ function runRoleRuntimeRuleSmoke() {
     };
     assert(sandbox.RoleRuntimeService.getBuildActionLockState(purchaseLockedAction).isLocked === false,
         "RoleRuntimeService should delegate purchaseLock checks through PurchaseService when available");
-    assert(sandbox.RoleRuntimeService.getLowTemperatureResistance(6) === 0,
-        "RoleRuntimeService should default lowTemperatureResistance to 0");
-    assert(sandbox.RoleRuntimeService.getLowTemperatureResistance(91) === 4,
-        "RoleRuntimeService should read lowTemperatureResistance from role attr modifiers");
     assert(sandbox.RoleRuntimeService._buildActionVisibilityGroups.length === 0, "RoleRuntimeService legacy visibility groups should now be empty");
 
     return {
@@ -762,162 +753,6 @@ function runBonfireStateSmoke() {
         name: "bonfire-state",
         ok: true,
         detail: "validated bonfire registry action save/restore and fuel timer state transitions"
-    };
-}
-
-function runTemperatureSystemSmoke() {
-    const sandbox = createVmSandbox();
-    let currentTimeObj = { d: 0, h: 6, m: 0, s: 0 };
-    sandbox.memoryUtil = {
-        encode: function (value) { return value; },
-        decode: function (value) { return value; },
-        changeEncode: function (value) { return value; }
-    };
-    sandbox.RoleRuntimeService = {
-        getTemperatureBonus: function (playerObj, buildBonus) {
-            return playerObj.isHeatingActive ? buildBonus : 0;
-        },
-        getLowTemperatureResistance: function (playerObj) {
-            return playerObj.lowTemperatureResistance || 0;
-        }
-    };
-    sandbox.EquipmentPos = {
-        EQUIP: 2
-    };
-    sandbox.cc.timer = {
-        formatTime: function () { return currentTimeObj; },
-        getSeason: function () {
-            return Math.floor((currentTimeObj.d % 120) / 30);
-        },
-        getStage: function () {
-            return currentTimeObj.h >= 6 && currentTimeObj.h < 20 ? "day" : "night";
-        }
-    };
-
-    loadIntoSandbox(sandbox, "assets/src/data/weatherConfig.js");
-    loadIntoSandbox(sandbox, "assets/src/game/PlayerAttrService.js");
-
-    assert(sandbox.weatherConfig["0"].temperature === undefined, "cloudy weather should keep a neutral temperature modifier");
-    assert(sandbox.weatherConfig["1"].temperature === 2, "sunny weather should warm the world temperature by 2");
-    assert(sandbox.weatherConfig["2"].temperature === -4, "rain should reduce world temperature by 4");
-    assert(sandbox.weatherConfig["3"].temperature === -7, "snow should reduce world temperature by 7");
-    assert(sandbox.weatherConfig["4"].temperature === -2, "fog should reduce world temperature by 2");
-
-    const player = {
-        config: {
-            temperature: [
-                [13, 2, -2],
-                [-2, 2, -2],
-                [13, 2, -2],
-                [28, 5, 0],
-                [6, 7]
-            ],
-            temperatureEffect: {
-                mildThreshold: 10,
-                severeThreshold: -10,
-                mildInfect: 1,
-                severeInfect: 2
-            }
-        },
-        weather: {
-            weatherId: "0",
-            getValue: function (key) {
-                return sandbox.weatherConfig[this.weatherId][key] || 0;
-            }
-        },
-        temperature: 0,
-        lowTemperatureResistance: 0,
-        isHeatingActive: false,
-        atHome: false,
-        equip: {
-            equipId: 0,
-            getEquip: function (pos) {
-                return pos === sandbox.EquipmentPos.EQUIP ? this.equipId : 0;
-            }
-        },
-        infectDelta: 0,
-        isAtHome: function () {
-            return this.atHome;
-        },
-        changeTemperature: function (delta) {
-            this.temperature += delta;
-        },
-        changeInfect: function (delta) {
-            this.infectDelta += delta;
-        }
-    };
-
-    currentTimeObj = { d: 0, h: 6, m: 0, s: 0 };
-    assert(sandbox.PlayerAttrService.getWorldTemperature(player) === 23,
-        "autumn should start warmer than its midpoint because the curve now descends from summer toward autumn");
-
-    currentTimeObj = { d: 14, h: 6, m: 0, s: 0 };
-    assert(sandbox.PlayerAttrService.getInterpolatedTemperatureConfig(player).average === 13,
-        "the seasonal average temperature should now land on day 15 of the season");
-    assert(sandbox.PlayerAttrService.getWorldTemperature(player) === 15,
-        "mid-autumn daytime should still combine the autumn average with the autumn daytime adjustment");
-
-    currentTimeObj = { d: 104, h: 6, m: 0, s: 0 };
-    assert(sandbox.PlayerAttrService.getInterpolatedTemperatureConfig(player).average === 28,
-        "summer should also hit its configured average at the seasonal midpoint");
-    assert(sandbox.PlayerAttrService.getWorldTemperature(player) === 33,
-        "mid-summer daytime should match the configured summer midpoint temperature");
-
-    currentTimeObj = { d: 44, h: 6, m: 0, s: 0 };
-    player.weather.weatherId = "3";
-    assert(sandbox.PlayerAttrService.getWorldTemperature(player) === -7,
-        "winter midpoint daytime snow should produce a world temperature of -7");
-
-    currentTimeObj = { d: 31, h: 23, m: 0, s: 0 };
-    assert(sandbox.PlayerAttrService.getWorldTemperature(player) === -4,
-        "negative fractional temperatures should ignore the decimal part instead of rounding down");
-    sandbox.PlayerAttrService.updateTemperature(player);
-    assert(player.temperature === -4, "character temperature should match the truncated world temperature when no heating is active");
-    sandbox.PlayerAttrService.updateTemperatureEffect(player);
-    assert(player.infectDelta === 1, "temperature below 10 should increase infection by 1 per hour");
-
-    player.atHome = true;
-    player.isHeatingActive = true;
-    player.infectDelta = 0;
-    sandbox.PlayerAttrService.updateTemperature(player);
-    assert(player.temperature === 9, "home warmth plus active heating should add 13 total temperature");
-    sandbox.PlayerAttrService.updateTemperatureEffect(player);
-    assert(player.infectDelta === 1, "home warmth plus active heating should still keep this snowy night below the mild threshold");
-
-    player.atHome = false;
-    player.isHeatingActive = true;
-    sandbox.PlayerAttrService.updateTemperature(player);
-    assert(player.temperature === 3, "active heating alone should only contribute its dedicated +7 bonus");
-    player.lowTemperatureResistance = 8;
-    player.infectDelta = 0;
-    sandbox.PlayerAttrService.updateTemperatureEffect(player);
-    assert(player.infectDelta === 0, "cold resistance should lower the infection threshold before cold starts to apply");
-
-    player.isHeatingActive = false;
-    player.lowTemperatureResistance = 0;
-    player.equip.equipId = 1304012;
-    assert(sandbox.PlayerAttrService.getTemperatureEquipmentBonus(player) === 3,
-        "thick coat should provide a +3 character temperature bonus");
-    sandbox.PlayerAttrService.updateTemperature(player);
-    assert(player.temperature === -1, "thick coat should raise the current character temperature by 3");
-
-    player.equip.equipId = 1304023;
-    assert(sandbox.PlayerAttrService.getTemperatureEquipmentBonus(player) === 5,
-        "riot suit should provide a +5 character temperature bonus");
-    sandbox.PlayerAttrService.updateTemperature(player);
-    assert(player.temperature === 1, "riot suit should raise the current character temperature by 5");
-
-    player.equip.equipId = 0;
-    player.lowTemperatureResistance = 0;
-    player.temperature = -11;
-    player.infectDelta = 0;
-    sandbox.PlayerAttrService.updateTemperatureEffect(player);
-    assert(player.infectDelta === 2, "temperature below -10 should increase infection by 2 per hour");
-
-    return {
-        name: "temperature-system",
-        ok: true,
-        detail: "validated weather modifiers, world-vs-character temperature, heating and armor bonuses, and cold-resistance thresholds"
     };
 }
 
@@ -1301,7 +1136,6 @@ function main() {
         runTimerRepeatAlignmentSmoke(),
         runCraftBuildActionReuseSmoke(),
         runBonfireStateSmoke(),
-        runTemperatureSystemSmoke(),
         runBuildRegistrySmoke(),
         runPurchaseUnlockRewardSmoke(),
         runPurchaseExchangeConfigSmoke(),

@@ -91,21 +91,13 @@ var Build = cc.Class.extend({
             if (key === null || seen[key]) {
                 return;
             }
-            if (key === -1) {
-                normalized = [-1];
-                seen[key] = true;
-                return;
-            }
-            if (!this._canUseConcurrentSlot(normalized, key)) {
-                return;
-            }
             seen[key] = true;
             normalized.push(key);
         }, this);
         if (normalized.indexOf(-1) !== -1) {
             return [-1];
         }
-        return normalized;
+        return normalized.slice(0, this.getConcurrentActionLimit());
     },
     _applyActiveBtnKeys: function (keys) {
         this.activeBtnKeys = this._normalizeActiveBtnKeys(keys);
@@ -155,82 +147,9 @@ var Build = cc.Class.extend({
             this._restoreActiveBtnKeys(opt);
         }
     },
-    _findActionByKey: function (actionId) {
-        actionId = this._normalizeActionKey(actionId);
-        if (actionId === null) {
-            return null;
-        }
-        for (var i = 0; i < this.actions.length; i++) {
-            var action = this.actions[i];
-            if (this._getActionStateKey(action) === actionId) {
-                return action;
-            }
-        }
-        return null;
-    },
-    _getConcurrentActionType: function (actionId) {
-        var action = this._findActionByKey(actionId);
-        if (action && typeof action.getConcurrentActionType === "function") {
-            var actionType = action.getConcurrentActionType();
-            if (actionType === "placed") {
-                return "placed";
-            }
-        }
-        return "non_placed";
-    },
-    _getConcurrentActionLimitMap: function () {
-        var config = this.currentConfig || {};
-        var limitMap = {
-            placed: 1,
-            non_placed: 1
-        };
-        var hasPlacedLimit = Object.prototype.hasOwnProperty.call(config, "placedConcurrentActionLimit");
-        var hasNonPlacedLimit = Object.prototype.hasOwnProperty.call(config, "nonPlacedConcurrentActionLimit");
-        var placedLimit = parseInt(config.placedConcurrentActionLimit, 10);
-        var nonPlacedLimit = parseInt(config.nonPlacedConcurrentActionLimit, 10);
-        var legacyLimit = parseInt(config.concurrentActionLimit, 10);
-
-        if (placedLimit > 0) {
-            limitMap.placed = placedLimit;
-        }
-        if (nonPlacedLimit > 0) {
-            limitMap.non_placed = nonPlacedLimit;
-        }
-        if (legacyLimit > 0 && !hasPlacedLimit && !hasNonPlacedLimit) {
-            limitMap.placed = legacyLimit;
-            limitMap.non_placed = legacyLimit;
-        }
-        return limitMap;
-    },
-    getConcurrentActionLimit: function (actionId) {
-        var limitMap = this._getConcurrentActionLimitMap();
-        if (arguments.length === 0) {
-            return limitMap.non_placed;
-        }
-        return limitMap[this._getConcurrentActionType(actionId)] || 1;
-    },
-    _countConcurrentActions: function (keys) {
-        var counts = {
-            placed: 0,
-            non_placed: 0
-        };
-        if (!Array.isArray(keys)) {
-            return counts;
-        }
-        keys.forEach(function (key) {
-            var normalizedKey = this._normalizeActionKey(key);
-            if (normalizedKey === null || normalizedKey === -1) {
-                return;
-            }
-            counts[this._getConcurrentActionType(normalizedKey)]++;
-        }, this);
-        return counts;
-    },
-    _canUseConcurrentSlot: function (keys, actionId) {
-        var actionType = this._getConcurrentActionType(actionId);
-        var limitMap = this._getConcurrentActionLimitMap();
-        var counts = this._countConcurrentActions(keys);
-        return counts[actionType] < (limitMap[actionType] || 1);
+    getConcurrentActionLimit: function () {
+        var configuredLimit = this.currentConfig && parseInt(this.currentConfig.concurrentActionLimit, 10);
+        return configuredLimit > 0 ? configuredLimit : 1;
     },
     needBuild: function () {
         return this.level < 0;
@@ -378,7 +297,7 @@ var Build = cc.Class.extend({
         if (this.isActionActive(actionId)) {
             return true;
         }
-        return this._canUseConcurrentSlot(this.activeBtnKeys, actionId);
+        return this.activeBtnKeys.length < this.getConcurrentActionLimit();
     },
     setActiveBtnIndex: function (index) {
         index = this._normalizeActionKey(index);

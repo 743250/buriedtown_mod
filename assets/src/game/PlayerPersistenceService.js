@@ -292,15 +292,7 @@ var PlayerPersistenceService = {
         });
     },
     _restoreNewGame: function (playerInstance) {
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.init === "function") {
-            TalentService.init(playerInstance);
-        } else if (typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage.init === "function") {
-            IAPPackage.init(playerInstance);
-        }
+        IAPPackage.init(playerInstance);
         Medal.improve(playerInstance);
         if (Record.getShareFlag() === ShareType.SHARED_CAN_REWARD) {
             Record.setShareFlag(ShareType.SHARED_AND_REWARD);
@@ -321,25 +313,16 @@ var PlayerPersistenceService = {
     },
     _applyPostRestoreFixups: function (playerInstance) {
         var hasPostRestoreMutation = !!(playerInstance && playerInstance._selectionStateNeedsSave);
-        var migratedLegacyElitePistol = false;
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.migrateLegacyElitePistol === "function") {
-            migratedLegacyElitePistol = TalentService.migrateLegacyElitePistol(playerInstance);
-        } else if (typeof IAPPackage !== "undefined"
+        if (typeof IAPPackage !== "undefined"
             && IAPPackage
             && typeof IAPPackage.migrateLegacyElitePistol === "function") {
-            migratedLegacyElitePistol = IAPPackage.migrateLegacyElitePistol(playerInstance);
-        }
-        if (migratedLegacyElitePistol) {
-            hasPostRestoreMutation = true;
+            var migratedLegacyElitePistol = IAPPackage.migrateLegacyElitePistol(playerInstance);
+            if (migratedLegacyElitePistol) {
+                hasPostRestoreMutation = true;
+            }
         }
 
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.reconcilePlayerHpByTalentSelection === "function") {
-            TalentService.reconcilePlayerHpByTalentSelection(playerInstance);
-        } else if (typeof IAPPackage !== "undefined"
+        if (typeof IAPPackage !== "undefined"
             && IAPPackage
             && typeof IAPPackage.reconcilePlayerHpByTalentSelection === "function") {
             IAPPackage.reconcilePlayerHpByTalentSelection(playerInstance);

@@ -343,38 +343,6 @@ var Player = cc.Class.extend({
         return PlayerAttrService.updateTemperatureEffect(this);
     },
 
-    getWorldTemperature: function () {
-        return PlayerAttrService.getWorldTemperature(this);
-    },
-
-    getTemperatureHomeBonus: function () {
-        return PlayerAttrService.getTemperatureHomeBonus(this);
-    },
-
-    getTemperatureBuildBonus: function () {
-        return PlayerAttrService.getTemperatureBuildBonus(this);
-    },
-
-    getTemperatureEquipmentBonus: function () {
-        return PlayerAttrService.getTemperatureEquipmentBonus(this);
-    },
-
-    getTemperatureRoleBonus: function () {
-        return PlayerAttrService.getTemperatureRoleBonus(this);
-    },
-
-    getLowTemperatureResistance: function () {
-        return PlayerAttrService.getLowTemperatureResistance(this);
-    },
-
-    getLowTemperatureThresholdInfo: function () {
-        return PlayerAttrService.getLowTemperatureThresholdInfo(this);
-    },
-
-    getTemperatureInfectIncrease: function () {
-        return PlayerAttrService.getTemperatureInfectIncrease(this);
-    },
-
     initTemperature: function () {
         return PlayerAttrService.initTemperature(this);
     },

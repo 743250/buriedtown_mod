@@ -151,14 +151,16 @@ var playerAttrEffect = {
             "range": "[-,-10)"
         },
         "2": {
-            "effect": {},
+            "effect": {
+                "infect": 1
+            },
             "id": 2,
-            "range": "[-10,10)"
+            "range": "[-10,10]"
         },
         "3": {
             "effect": {},
             "id": 3,
-            "range": "[10,-]"
+            "range": "(10,-]"
         }
     }
 };
