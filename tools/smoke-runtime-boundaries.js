@@ -52,6 +52,9 @@ function createExtendableBaseClass() {
 
 function runSyntaxSmoke() {
     const files = [
+        "assets/src/data/playerConfig.js",
+        "assets/src/data/playerAttrEffect.js",
+        "assets/src/data/weatherConfig.js",
         "assets/src/game/GameRuntime.js",
         "assets/src/game/game.js",
         "assets/src/game/player.js",

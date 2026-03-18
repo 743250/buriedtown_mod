@@ -296,11 +296,8 @@ var NPC = BaseSite.extend({
         if (player.bag.validateItem(itemInfo.itemId, itemInfo.num)) {
             player.bag.decreaseItem(itemInfo.itemId, itemInfo.num);
             this.changeReputation(1);
-            var didSendGift = this.addGiftProgressByItems([itemInfo]);
+            this.addGiftProgressByItems([itemInfo]);
             Record.saveAll();
-            if (didSendGift && this.needSendGift()) {
-                this.sendGift();
-            }
         }
     },
     getDialog: function () {
@@ -444,12 +441,9 @@ var NPC = BaseSite.extend({
                 var itemInfo = this.needHelpItems[0];
                 player.log.addMsg(1101, self.getName(), itemInfo.num, stringUtil.getString(itemInfo.itemId).title, player.storage.getNumByItemId(itemInfo.itemId));
                 this.changeReputation(1);
-                var didSendGift = this.addGiftProgressByItems(this.needHelpItems);
+                this.addGiftProgressByItems(this.needHelpItems);
                 cc.timer.resume();
                 Record.saveAll();
-                if (didSendGift && this.needSendGift()) {
-                    this.sendGift();
-                }
             }
         );
     },

@@ -3,6 +3,12 @@
  * Date: 15/1/5
  * Time: 下午4:07
  */
+var formatTemperatureValue = function (value) {
+    value = Number(value) || 0;
+    value = value < 0 ? Math.ceil(value) : Math.floor(value);
+    return "" + value;
+};
+
 var TopFrameNode = cc.Node.extend({
     ctor: function () {
         this._super();
@@ -79,17 +85,17 @@ var TopFrameNode = cc.Node.extend({
 
         this.updateByTime();
 
-        var temperature = new StatusButton(btnSize, "#icon_temperature_0.png", memoryUtil.decode(player.temperature), {scale: 0.5});
+        var temperature = new StatusButton(btnSize, "#icon_temperature_0.png", formatTemperatureValue(memoryUtil.decode(player.temperature)), {scale: 0.5});
         temperature.setClickListener(this, function (sender) {
             var label = sender.getChildByName("label");
-            showStatusDialog(3, label.getString(), sender.spriteFrameName);
+            showStatusDialog(3, label.getString() + "℃", sender.spriteFrameName);
         });
         temperature.setPosition(this.firstLine.width / 12 * 11, this.firstLine.height / 2);
         //temperature.setPosition(btnSize.width*4.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         temperature.setName("temperature");
         this.firstLine.addChild(temperature);
         utils.emitter.on("temperature_change", function (value) {
-            temperature.updateView(null, memoryUtil.decode(player.temperature));
+            temperature.updateView(null, formatTemperatureValue(memoryUtil.decode(player.temperature)));
         });
 
         //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域

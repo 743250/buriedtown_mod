@@ -144,11 +144,8 @@ var ItemExchangeNode = ItemChangeNode.extend({
 
             self.npc.tradingCount = self.npc.tradingCount || 0
             self.npc.tradingCount++;
-            var didSendGift = self.npc.addGiftProgressByTradeDelta(npcBenefitValue);
+            self.npc.addGiftProgressByTradeDelta(npcBenefitValue);
             Record.saveAll();
-            if (didSendGift && self.npc.needSendGift()) {
-                self.npc.sendGift();
-            }
         });
         this.exchangeBtn.setAnchorPoint(0.5, 0.5);
         this.exchangeBtn.setPosition(sectionBar.getContentSize().width - this.exchangeBtn.width / 2 - 20, sectionBar.getContentSize().height / 2);

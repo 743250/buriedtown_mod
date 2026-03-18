@@ -60,6 +60,8 @@ var AttrHelperRuntime = (typeof AttrHelper !== "undefined" && AttrHelper) ? Attr
 var Player = cc.Class.extend({
     ctor: function () {
         this.config = utils.clone(playerConfig);
+        this.navigationState = new PlayerNavigationState();
+        this.runtime = GameRuntime;
 
         this.hp = memoryUtil.encode(PlayerAttrRuntime.HP_INIT);
         this.hpMaxOrigin = memoryUtil.encode(PlayerAttrRuntime.HP_MAX);
@@ -103,8 +105,6 @@ var Player = cc.Class.extend({
         this.log = new Log();
         this.weather = new WeatherSystem();
         this.buffManager = new BuffManager();
-        this.navigationState = new PlayerNavigationState();
-        this.runtime = GameRuntime;
 
         this.setting = {};
         this._attrRangeCache = {};

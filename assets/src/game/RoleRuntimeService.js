@@ -30,7 +30,10 @@ var RoleRuntimeService = {
             maintenanceMax: 100,
             maintenanceDecayPerHour: 1
         },
-        attrModifiers: {},
+        attrModifiers: {
+            hungerDecay: null,
+            lowTemperatureResistance: 0
+        },
         battleModifiers: {
             precisePenalty: false,
             homeDefenseMode: "fence_and_dog"
@@ -197,7 +200,15 @@ var RoleRuntimeService = {
                 maintenanceDecayPerHour: Math.max(0, Number(workSiteRepairConfig.maintenanceDecayPerHour) || 0)
             },
             attrModifiers: {
-                hungerDecay: typeof attrModifiers.hungerDecay === "number" ? attrModifiers.hungerDecay : null
+                hungerDecay: typeof attrModifiers.hungerDecay === "number"
+                    ? attrModifiers.hungerDecay
+                    : defaultConfig.attrModifiers.hungerDecay,
+                lowTemperatureResistance: Math.max(
+                    0,
+                    !isNaN(Number(attrModifiers.lowTemperatureResistance))
+                        ? Number(attrModifiers.lowTemperatureResistance)
+                        : defaultConfig.attrModifiers.lowTemperatureResistance
+                )
             },
             battleModifiers: {
                 precisePenalty: !!battleModifiers.precisePenalty,
@@ -480,6 +491,13 @@ var RoleRuntimeService = {
             return changeConfig[0][1];
         }
         return Math.round(defaultValue * hungerDecay);
+    },
+    getLowTemperatureResistance: function (playerOrRoleType) {
+        var roleType = playerOrRoleType;
+        if (playerOrRoleType && typeof playerOrRoleType === "object" && playerOrRoleType.roleType !== undefined) {
+            roleType = playerOrRoleType.roleType;
+        }
+        return Math.max(0, Number(this.getRuntimeConfig(roleType).attrModifiers.lowTemperatureResistance) || 0);
     },
 
     isTemperatureBuildActive: function (playerObj) {
