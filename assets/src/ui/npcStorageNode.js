@@ -136,6 +136,7 @@ var ItemExchangeNode = ItemChangeNode.extend({
         this.exchangeBtn = uiUtil.createCommonBtnBlack(stringUtil.getString(1040), this, function () {
             if (!self.exchangeBtn.isEnabled())
                 return;
+            var npcBenefitValue = Math.max(0, self.getTradeDelta());
             self.topSrcData.map = self.topData.map;
             self.bottomSrcData.map = self.bottomData.map;
             utils.emitter.emit("exchange_end");
@@ -143,6 +144,11 @@ var ItemExchangeNode = ItemChangeNode.extend({
 
             self.npc.tradingCount = self.npc.tradingCount || 0
             self.npc.tradingCount++;
+            var didSendGift = self.npc.addGiftProgressByTradeDelta(npcBenefitValue);
+            Record.saveAll();
+            if (didSendGift && self.npc.needSendGift()) {
+                self.npc.sendGift();
+            }
         });
         this.exchangeBtn.setAnchorPoint(0.5, 0.5);
         this.exchangeBtn.setPosition(sectionBar.getContentSize().width - this.exchangeBtn.width / 2 - 20, sectionBar.getContentSize().height / 2);

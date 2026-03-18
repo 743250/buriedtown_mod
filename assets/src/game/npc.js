@@ -28,6 +28,7 @@ var NPC = BaseSite.extend({
         this.tradingCount = 0;
 
         this.storage = new Storage();
+        this.giftProgress = 0;
 
         var npcString = stringUtil.getString("npc_" + this.id) || {};
         this.dialogs = Array.isArray(npcString.dialogs) && npcString.dialogs.length
@@ -55,7 +56,8 @@ var NPC = BaseSite.extend({
             storage: this.storage.save(),
             needSendGiftList: this.needSendGiftList,
             isUnlocked: this.isUnlocked,
-            tradingCount: this.tradingCount
+            tradingCount: this.tradingCount,
+            giftProgress: this.giftProgress
         };
     },
     restore: function (saveObj) {
@@ -64,9 +66,10 @@ var NPC = BaseSite.extend({
             this.reputation = memoryUtil.encode(saveObj.reputation);
             this.maxRep = memoryUtil.encode(saveObj.maxRep);
             this.storage.restore(saveObj.storage);
-            this.needSendGiftList = saveObj.needSendGiftList;
+            this.needSendGiftList = saveObj.needSendGiftList || {};
             this.isUnlocked = saveObj.isUnlocked;
-            this.tradingCount = saveObj.tradingCount;
+            this.tradingCount = Number(saveObj.tradingCount) || 0;
+            this.giftProgress = Number(saveObj.giftProgress) || 0;
         } else {
             this.init();
         }
@@ -151,6 +154,110 @@ var NPC = BaseSite.extend({
             }
         }
     },
+    _getGiftProgressThreshold: function () {
+        var threshold = typeof npcGiftConfig !== "undefined" && npcGiftConfig
+            ? Number(npcGiftConfig.favorGiftThreshold)
+            : NaN;
+        return threshold > 0 ? threshold : 10;
+    },
+    _getFavorGiftValue: function () {
+        var value = typeof npcGiftConfig !== "undefined" && npcGiftConfig
+            ? Number(npcGiftConfig.favorGiftValue)
+            : NaN;
+        if (value > 0) {
+            return value;
+        }
+        value = typeof npcGiftConfig !== "undefined" && npcGiftConfig
+            ? Number(npcGiftConfig.produceValue)
+            : NaN;
+        return value > 0 ? value : 4;
+    },
+    _getFavorGiftProduceList: function () {
+        if (typeof npcGiftConfig === "undefined" || !npcGiftConfig) {
+            return [];
+        }
+        if (Array.isArray(npcGiftConfig.favorGiftList) && npcGiftConfig.favorGiftList.length) {
+            return npcGiftConfig.favorGiftList;
+        }
+        if (Array.isArray(npcGiftConfig.produceList) && npcGiftConfig.produceList.length) {
+            return npcGiftConfig.produceList;
+        }
+        return [];
+    },
+    _queueFavorGift: function () {
+        var produceValue = this._getFavorGiftValue();
+        var produceList = this._getFavorGiftProduceList();
+        if (!(produceValue > 0) || !Array.isArray(produceList) || produceList.length === 0) {
+            return false;
+        }
+
+        var giftItemIds = utils.getFixedValueItemIds(produceValue, produceList);
+        var giftItems = utils.convertItemIds2Item(giftItemIds);
+        if (!giftItems.length) {
+            return false;
+        }
+
+        this.needSendGiftList["item"] = this.needSendGiftList["item"] || [];
+        giftItems.forEach(function (gift) {
+            this.needSendGiftList["item"].push(gift);
+        }, this);
+        return true;
+    },
+    _getItemListTotalPrice: function (itemList) {
+        if (!Array.isArray(itemList) || itemList.length === 0) {
+            return 0;
+        }
+
+        var totalPrice = 0;
+        itemList.forEach(function (itemInfo) {
+            if (!itemInfo) {
+                return;
+            }
+            var itemId = parseInt(itemInfo.itemId, 10);
+            var num = Number(itemInfo.num) || 0;
+            if (isNaN(itemId) || num <= 0) {
+                return;
+            }
+            try {
+                totalPrice += new Item(itemId).getPrice() * num;
+            } catch (e) {
+                cc.e("npc gift progress item missing. itemId=" + itemId);
+            }
+        });
+        return Number(totalPrice.toFixed(3));
+    },
+    addGiftProgress: function (value) {
+        value = Number(value);
+        if (!isFinite(value) || value <= 0) {
+            return false;
+        }
+
+        var threshold = this._getGiftProgressThreshold();
+        if (!(threshold > 0)) {
+            return false;
+        }
+
+        this.giftProgress = Number((this.giftProgress + value).toFixed(3));
+        var didQueueGift = false;
+        while (this.giftProgress >= threshold) {
+            this.giftProgress = Number((this.giftProgress - threshold).toFixed(3));
+            if (!this._queueFavorGift()) {
+                this.giftProgress = 0;
+                break;
+            }
+            didQueueGift = true;
+        }
+        if (Math.abs(this.giftProgress) < 0.001) {
+            this.giftProgress = 0;
+        }
+        return didQueueGift;
+    },
+    addGiftProgressByItems: function (itemList) {
+        return this.addGiftProgress(this._getItemListTotalPrice(itemList));
+    },
+    addGiftProgressByTradeDelta: function (tradeDelta) {
+        return this.addGiftProgress(tradeDelta);
+    },
 
     unlockTrading: function (index, isUnlock) {
         var tradingList = this.tradingInfo[index];
@@ -189,6 +296,11 @@ var NPC = BaseSite.extend({
         if (player.bag.validateItem(itemInfo.itemId, itemInfo.num)) {
             player.bag.decreaseItem(itemInfo.itemId, itemInfo.num);
             this.changeReputation(1);
+            var didSendGift = this.addGiftProgressByItems([itemInfo]);
+            Record.saveAll();
+            if (didSendGift && this.needSendGift()) {
+                this.sendGift();
+            }
         }
     },
     getDialog: function () {
@@ -317,12 +429,6 @@ var NPC = BaseSite.extend({
         cc.i("needHelp");
         var self = this;
         cc.timer.pause();
-
-        var needRestore = false;
-        if (!TalentService.isSocialEffectUnlocked()) {
-            //如果扣减成功,需要在yes的时候回复
-            needRestore = this.changeReputation(-1);
-        }
         Record.saveAll();
 
         uiUtil.showNpcNeedHelpDialog(this,
@@ -337,13 +443,14 @@ var NPC = BaseSite.extend({
                 player.cost(this.needHelpItems);
                 var itemInfo = this.needHelpItems[0];
                 player.log.addMsg(1101, self.getName(), itemInfo.num, stringUtil.getString(itemInfo.itemId).title, player.storage.getNumByItemId(itemInfo.itemId));
-                if (needRestore) {
-                    this.changeReputation(1);
-                }
                 this.changeReputation(1);
+                var didSendGift = this.addGiftProgressByItems(this.needHelpItems);
                 cc.timer.resume();
                 Record.saveAll();
-            }, needRestore
+                if (didSendGift && this.needSendGift()) {
+                    this.sendGift();
+                }
+            }
         );
     },
     getNeedHelpItems: function () {
