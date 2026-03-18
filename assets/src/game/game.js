@@ -41,7 +41,11 @@ var game = {
     newGame: function () {
         Record.deleteRecord(Record.getCurrentRecordName());
         Record.setType(-1);
-        IAPPackage.resetConsumeIAP();
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.resetConsumablePurchases === "function") {
+            PurchaseService.resetConsumablePurchases();
+        }
         Medal.newGameReset();
         Medal.initCompletedForOneGame(true);
     },

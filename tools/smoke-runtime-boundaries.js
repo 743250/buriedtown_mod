@@ -946,17 +946,6 @@ function runPurchaseUnlockRewardSmoke() {
 function runPurchaseExchangeConfigSmoke() {
     const sandbox = createVmSandbox();
     sandbox.TalentService = {
-        bindIAPCompatApi: function (target) {
-            const self = this;
-            Object.keys(self).forEach(function (methodName) {
-                if (methodName === "bindIAPCompatApi" || typeof self[methodName] !== "function") {
-                    return;
-                }
-                target[methodName] = function () {
-                    return self[methodName].apply(self, arguments);
-                };
-            });
-        },
         isTalentPurchaseId: function (purchaseId) {
             return Number(purchaseId) === 120;
         },
@@ -969,6 +958,7 @@ function runPurchaseExchangeConfigSmoke() {
     loadIntoSandbox(sandbox, "assets/src/game/medal.js");
     loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
     sandbox.Medal._exchangeMap = {
         2005: { unlocked: true }
     };
@@ -990,11 +980,17 @@ function runPurchaseExchangeConfigSmoke() {
         "IAPPackage should keep exchange-role purchases on config-driven exchange flow");
     assert(sandbox.IAPPackage.isExchangePurchase(203) === false,
         "IAPPackage should not treat consumable support packs as exchange-config purchases");
+    assert(sandbox.PurchaseService.isTalentPurchase(120) === true,
+        "PurchaseService should source talent purchase detection from TalentService");
+    assert(typeof sandbox.IAPPackage.getPreciseEffect === "undefined",
+        "IAPPackage should no longer mirror talent gameplay effect APIs");
+    assert(typeof sandbox.IAPPackage.hasChosenTalent === "undefined",
+        "IAPPackage should no longer mirror talent selection APIs");
 
     return {
         name: "purchase-exchange-config",
         ok: true,
-        detail: "validated IAPPackage derives role, item and talent exchange mappings from config without hardcoded purchase maps"
+        detail: "validated IAPPackage derives exchange mappings from config while talent gameplay ownership stays outside the purchase chain"
     };
 }
 

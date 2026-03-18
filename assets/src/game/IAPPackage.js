@@ -78,6 +78,12 @@ var IAPPackage = {
         }
         return 3;
     },
+    _isTalentPurchaseId: function (purchaseId) {
+        return !!(typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.isTalentPurchaseId === "function"
+            && TalentService.isTalentPurchaseId(purchaseId));
+    },
     _getConfiguredExchangeIdsByPurchaseId: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
         if (isNaN(purchaseId)
@@ -89,7 +95,7 @@ var IAPPackage = {
         var exchangeType = null;
         var targetId = purchaseId;
 
-        if (this.isTalentPurchaseId(purchaseId)) {
+        if (this._isTalentPurchaseId(purchaseId)) {
             exchangeType = "talent";
         } else if (typeof role !== "undefined" && role && typeof role.getRoleTypeByPurchaseId === "function") {
             var roleType = role.getRoleTypeByPurchaseId(purchaseId);
@@ -180,7 +186,7 @@ var IAPPackage = {
             return this.isIAPUnlocked(purchaseId);
         }
         purchaseId = parseInt(purchaseId);
-        if (this.isTalentPurchaseId(purchaseId)) {
+        if (this._isTalentPurchaseId(purchaseId)) {
             return Medal.getTalentLevel(purchaseId) >= this._getTalentMaxLevel(purchaseId);
         }
         return this.hasExchangeUnlock(purchaseId);
@@ -216,7 +222,7 @@ var IAPPackage = {
     getShopUiState: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
         var isExchangePurchase = this.isExchangePurchase(purchaseId);
-        var isTalentPurchase = this.isTalentPurchaseId(purchaseId);
+        var isTalentPurchase = this._isTalentPurchaseId(purchaseId);
         var isUnlocked = this.isIAPUnlocked(purchaseId);
         var nextAchievementPrice = null;
         var achievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
@@ -627,7 +633,7 @@ var IAPPackage = {
             this.saveIAPForceLockedRecord();
         }
 
-        var isSingleExchangeUnlock = exchangeIds.length === 1 && !this.isTalentPurchaseId(purchaseId);
+        var isSingleExchangeUnlock = exchangeIds.length === 1 && !this._isTalentPurchaseId(purchaseId);
         if (resetCount > 0 && isSingleExchangeUnlock && !this.isIAPUnlocked(purchaseId)) {
             this._removeSingleUnlockReward(purchaseId);
             this._syncChosenRoleAfterReset();
@@ -690,7 +696,7 @@ var IAPPackage = {
         }
 
         // 天赋通过成就点解锁
-        if (this.isTalentPurchaseId(purchaseId)) {
+        if (this._isTalentPurchaseId(purchaseId)) {
             return Medal.getTalentLevel(purchaseId) >= 1;
         }
 
@@ -747,5 +753,3 @@ var IAPPackage = {
         }
     }
 };
-
-TalentService.bindIAPCompatApi(IAPPackage);
