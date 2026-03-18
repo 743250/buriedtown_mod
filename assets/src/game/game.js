@@ -24,13 +24,18 @@ var game = {
     },
     start: function () {
         player.start();
-        if (typeof IAPPackage !== "undefined"
+        var gifted = false;
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.applyActiveTalentStartGifts === "function") {
+            gifted = TalentService.applyActiveTalentStartGifts(player);
+        } else if (typeof IAPPackage !== "undefined"
             && IAPPackage
             && typeof IAPPackage.applyActiveTalentStartGifts === "function") {
-            var gifted = IAPPackage.applyActiveTalentStartGifts(player);
-            if (gifted && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
-                Record.saveAll();
-            }
+            gifted = IAPPackage.applyActiveTalentStartGifts(player);
+        }
+        if (gifted && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
+            Record.saveAll();
         }
     },
     stop: function () {

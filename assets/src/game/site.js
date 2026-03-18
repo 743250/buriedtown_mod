@@ -31,12 +31,24 @@ var getSiteRuntimePlayer = function () {
 var hasExternalSiteServices = typeof SiteRewardService !== "undefined" && SiteRewardService
     && typeof SiteRoomGenerator !== "undefined" && SiteRoomGenerator;
 
+var rollScavengerDoubleDropFallback = function () {
+    if (typeof TalentService !== "undefined"
+        && TalentService
+        && typeof TalentService.rollScavengerDoubleDrop === "function") {
+        return !!TalentService.rollScavengerDoubleDrop();
+    }
+    if (typeof IAPPackage !== "undefined"
+        && IAPPackage
+        && typeof IAPPackage.rollScavengerDoubleDrop === "function") {
+        return !!IAPPackage.rollScavengerDoubleDrop();
+    }
+    return false;
+};
+
 var siteRewardServiceRef = hasExternalSiteServices ? SiteRewardService : {
     buildWorkRoomLoot: function (itemIds) {
         var roomItemIds = itemIds ? itemIds.slice() : [];
-        var scavengerDoubleTriggered = roomItemIds.length > 0
-            && IAPPackage.rollScavengerDoubleDrop
-            && IAPPackage.rollScavengerDoubleDrop();
+        var scavengerDoubleTriggered = roomItemIds.length > 0 && rollScavengerDoubleDropFallback();
         if (scavengerDoubleTriggered) {
             roomItemIds = roomItemIds.concat(roomItemIds);
         }

@@ -5,11 +5,11 @@ var string = {
     },
     "2": {
         "title": "Season",
-        "des": "Autumn average temperature: 10°C. Winter average temperature: 0°C. Low temperature makes it easier to catch a cold. Zombies become crazier in cold weather."
+        "des": "Seasons rotate every 30 days in the order Autumn, Winter, Spring, Summer. World temperature no longer jumps at season changes and instead shifts linearly from the current season toward the next."
     },
     "3": {
-        "title": "Temperature",
-        "des": "In these harsh times, the respiratory problems from a cold can be deadly! If the temperature is too low, light a fire for warmth."
+        "title": "Character Temperature",
+        "des": "This shows your current character temperature. If it gets too low, infection will build faster; staying at home provides a basic warmth bonus, and active heating raises it further."
     },
     "4": {
         "title": "Time",
@@ -41,7 +41,7 @@ var string = {
     },
     "11": {
         "title": "Weather",
-        "des": "The impact of the weather should not be underestimated. Even if you already have shelter, you should adjust your plans according to the weather."
+        "des": "Weather directly modifies world temperature and also affects travel, combat, and some building outputs. Try to plan each day around it."
     },
     "1000": "Day %s",
     "1001": "UP (%s m) ",

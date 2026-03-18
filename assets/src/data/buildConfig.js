@@ -73,7 +73,7 @@ var buildConfig = {
         "produceList": [1203011, 1203012, 1205042]
     }, {
         "id": 2,
-        "concurrentActionLimit": 2,
+        "placedConcurrentActionLimit": 2,
         "cost": [{
             "itemId": 1101011,
             "num": 6
@@ -511,7 +511,6 @@ var buildConfig = {
     }],
     "15": [{
         "id": 15,
-        "concurrentActionLimit": 2,
         "cost": [{
             "itemId": 1101021,
             "num": 5

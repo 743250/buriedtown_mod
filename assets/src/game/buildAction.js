@@ -55,6 +55,9 @@ var BuildAction = cc.Class.extend({
         if (saveObj) {
         }
     },
+    getConcurrentActionType: function () {
+        return "non_placed";
+    },
     clickIcon: function () {
     },
     clickAction1: function () {
@@ -515,6 +518,9 @@ var Formula = BuildAction.extend({
     },
     clickIcon: function () {
         uiUtil.showItemDialog(this.config.produce[0].itemId, true);
+    },
+    getConcurrentActionType: function () {
+        return this.config && this.config["placedTime"] ? "placed" : "non_placed";
     },
     getBatchCount: function () {
         var configuredBatchCount = this.config && parseInt(this.config.batchCount, 10);
