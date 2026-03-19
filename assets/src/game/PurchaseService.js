@@ -84,6 +84,16 @@ var PurchaseService = {
         }
         return "shop_state_change";
     },
+    getPurchaseInfo: function (purchaseId) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId === null
+            || typeof PurchaseList === "undefined"
+            || !PurchaseList
+            || !PurchaseList[purchaseId]) {
+            return null;
+        }
+        return PurchaseList[purchaseId];
+    },
     getPurchaseConfig: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
         if (purchaseId === null || !this._hasIAPMethod("getPurchaseConfig")) {
@@ -107,11 +117,10 @@ var PurchaseService = {
     },
     _getConsumableAchievementPrice: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
+        var purchaseInfo = this.getPurchaseInfo(purchaseId);
         if (purchaseId === null
             || purchaseId < 200
-            || typeof PurchaseList === "undefined"
-            || !PurchaseList
-            || !PurchaseList[purchaseId]) {
+            || !purchaseInfo) {
             return null;
         }
 
@@ -123,6 +132,46 @@ var PurchaseService = {
         var price = Number(purchaseConfig.price);
         return isFinite(price) ? price : null;
     },
+    getAchievementPoints: function () {
+        if (typeof Medal === "undefined"
+            || !Medal
+            || typeof Medal.getAchievementPoints !== "function") {
+            return 0;
+        }
+
+        var achievementPoints = Number(Medal.getAchievementPoints());
+        if (!isFinite(achievementPoints) || achievementPoints < 0) {
+            return 0;
+        }
+        return Math.max(0, parseInt(achievementPoints));
+    },
+    getTalentLevel: function (purchaseId) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId === null || !this.isTalentPurchase(purchaseId)) {
+            return 0;
+        }
+
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.getTalentLevel === "function") {
+            var serviceLevel = Number(TalentService.getTalentLevel(purchaseId));
+            if (isFinite(serviceLevel) && serviceLevel > 0) {
+                return parseInt(serviceLevel);
+            }
+            return 0;
+        }
+
+        if (typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.getTalentLevel === "function") {
+            var medalLevel = Number(Medal.getTalentLevel(purchaseId));
+            if (isFinite(medalLevel) && medalLevel > 0) {
+                return parseInt(medalLevel);
+            }
+        }
+
+        return 0;
+    },
     getShopUiState: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
         if (purchaseId === null) {
@@ -133,7 +182,7 @@ var PurchaseService = {
         var isTalentPurchase = this.isTalentPurchase(purchaseId);
         var isUnlocked = this.isUnlocked(purchaseId);
         var nextAchievementPrice = null;
-        var achievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
+        var achievementPoints = this.getAchievementPoints();
         var priceText = "";
         var canBuy = false;
         var canCancel = false;
@@ -228,7 +277,7 @@ var PurchaseService = {
             isExchangePurchase: isExchangePurchase,
             isTalentPurchase: isTalentPurchase,
             isUnlocked: isUnlocked,
-            currentTalentLevel: isTalentPurchase ? Medal.getTalentLevel(purchaseId) : 0,
+            currentTalentLevel: isTalentPurchase ? this.getTalentLevel(purchaseId) : 0,
             nextAchievementPrice: nextAchievementPrice,
             achievementPoints: achievementPoints,
             priceText: priceText,
@@ -276,13 +325,10 @@ var PurchaseService = {
     },
     getPriceOff: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null
-            || typeof PurchaseList === "undefined"
-            || !PurchaseList
-            || !PurchaseList[purchaseId]) {
+        var purchaseInfo = this.getPurchaseInfo(purchaseId);
+        if (purchaseId === null || !purchaseInfo) {
             return 0;
         }
-        var purchaseInfo = PurchaseList[purchaseId];
         if (purchaseInfo.multiPrice) {
             var priceList = purchaseInfo.priceList || [];
             if (!priceList.length) {
@@ -299,7 +345,11 @@ var PurchaseService = {
             }
             return Math.floor((originalPrice - currentPrice) / originalPrice * 100);
         }
-        return (purchaseId === 206 || purchaseId === 207) ? 50 : 0;
+        var configuredDiscountPercent = Number(purchaseInfo.discountPercent);
+        if (!isFinite(configuredDiscountPercent) || configuredDiscountPercent <= 0) {
+            return 0;
+        }
+        return Math.max(0, parseInt(configuredDiscountPercent));
     },
     isPurchaseLockUnlocked: function (purchaseLock) {
         if (!purchaseLock || typeof purchaseLock !== "object") {
@@ -438,17 +488,52 @@ var PurchaseService = {
             return purchaseId >= 200;
         });
     },
-    _singleUnlockRewardMap: {
-        105: { type: "item", itemId: 1305024, num: 1 },
-        106: { type: "item", itemId: 1304024, num: 1 },
-        107: { type: "build", bid: 12, level: 0 }
+    getUnlockRewardPurchaseIds: function () {
+        var self = this;
+        return this._getSortedPurchaseIds(function (purchaseId) {
+            var purchaseInfo = self.getPurchaseInfo(purchaseId);
+            return !!(purchaseInfo && purchaseInfo.unlockReward);
+        });
     },
-    _getSingleUnlockReward: function (purchaseId) {
+    getUnlockReward: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
         if (purchaseId === null) {
             return null;
         }
-        return this._singleUnlockRewardMap[purchaseId] || null;
+
+        var purchaseInfo = this.getPurchaseInfo(purchaseId);
+        var reward = purchaseInfo && purchaseInfo.unlockReward;
+        if (!reward || typeof reward !== "object") {
+            return null;
+        }
+
+        if (reward.type === "item") {
+            var itemId = Number(reward.itemId);
+            var num = Number(reward.num);
+            if (!isFinite(itemId) || !isFinite(num) || num <= 0) {
+                return null;
+            }
+            return {
+                type: "item",
+                itemId: parseInt(itemId),
+                num: parseInt(num)
+            };
+        }
+
+        if (reward.type === "build") {
+            var bid = Number(reward.bid);
+            var level = reward.level === undefined ? 0 : Number(reward.level);
+            if (!isFinite(bid) || !isFinite(level)) {
+                return null;
+            }
+            return {
+                type: "build",
+                bid: parseInt(bid),
+                level: parseInt(level)
+            };
+        }
+
+        return null;
     },
     _getPlayerOwnedItemCount: function (playerObj, itemId) {
         if (!playerObj) {
@@ -469,7 +554,7 @@ var PurchaseService = {
         return total;
     },
     grantUnlockRewardToPlayer: function (playerObj, purchaseId) {
-        var reward = this._getSingleUnlockReward(purchaseId);
+        var reward = this.getUnlockReward(purchaseId);
         if (!reward || !playerObj) {
             return false;
         }
@@ -505,7 +590,7 @@ var PurchaseService = {
         var changed = false;
         var targetPurchaseIds = Array.isArray(purchaseIds)
             ? purchaseIds.slice()
-            : Object.keys(this._singleUnlockRewardMap);
+            : this.getUnlockRewardPurchaseIds();
 
         targetPurchaseIds.forEach(function (purchaseId) {
             purchaseId = this._normalizePurchaseId(purchaseId);
@@ -754,9 +839,9 @@ var PurchaseService = {
             };
         }
 
-        var beforePoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
+        var beforePoints = this.getAchievementPoints();
         var resetResult = IAPPackage.resetIAPPaid(purchaseId) || {};
-        var afterPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : beforePoints;
+        var afterPoints = this.getAchievementPoints();
 
         var refundedPoints = 0;
         if (resetResult.refundedPoints) {

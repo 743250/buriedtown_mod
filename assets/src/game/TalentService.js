@@ -191,15 +191,40 @@ var TalentService = {
         }
         return config.tierEffectTextList.slice();
     },
-    _getActiveTalentLevel: function (purchaseId) {
+    getTalentLevel: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
-        if (isNaN(purchaseId) || typeof Medal === "undefined" || !Medal || typeof Medal.getTalentLevel !== "function") {
+        if (isNaN(purchaseId)
+            || typeof Medal === "undefined"
+            || !Medal
+            || typeof Medal.getTalentLevel !== "function") {
             return 0;
         }
-        if (!this.hasChosenTalent(purchaseId)) {
+
+        var level = Number(Medal.getTalentLevel(purchaseId));
+        if (!isFinite(level) || level < 0) {
             return 0;
         }
-        return Medal.getTalentLevel(purchaseId);
+        return Math.max(0, parseInt(level));
+    },
+    getActiveTalentLevel: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId) || !this.hasChosenTalent(purchaseId)) {
+            return 0;
+        }
+        return this.getTalentLevel(purchaseId);
+    },
+    isTalentUnlocked: function (purchaseId) {
+        return this.getTalentLevel(purchaseId) >= 1;
+    },
+    isTalentFullyUnlocked: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)) {
+            return false;
+        }
+        return this.getTalentLevel(purchaseId) >= this.getTalentMaxLevel(purchaseId);
+    },
+    _getActiveTalentLevel: function (purchaseId) {
+        return this.getActiveTalentLevel(purchaseId);
     },
     _getCompletedMedalHpBonus: function () {
         if (typeof Medal === "undefined" || !Medal) {
@@ -450,12 +475,10 @@ var TalentService = {
         if (purchaseId === 0) {
             return true;
         }
-        if (typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isUnlocked === "function") {
-            return !!PurchaseService.isUnlocked(purchaseId);
+        if (!this.isTalentPurchaseId(purchaseId)) {
+            return false;
         }
-        return true;
+        return this.isTalentUnlocked(purchaseId);
     },
     isTalentPurchaseId: function (purchaseId) {
         purchaseId = parseInt(purchaseId);

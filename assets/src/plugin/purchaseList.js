@@ -55,6 +55,11 @@ var PurchaseList = {
                 productPriceStr: "￥ 6.00"
             }
         ],
+        unlockReward: {
+            type: "item",
+            itemId: 1305024,
+            num: 1
+        },
         multiPrice: false
     },
     106: {
@@ -67,6 +72,11 @@ var PurchaseList = {
                 productPriceStr: "￥ 1.00"
             }
         ],
+        unlockReward: {
+            type: "item",
+            itemId: 1304024,
+            num: 1
+        },
         multiPrice: false
     },
     107: {
@@ -81,6 +91,11 @@ var PurchaseList = {
         effect: [
             {itemId: 1106013, num: 1}
         ],
+        unlockReward: {
+            type: "build",
+            bid: 12,
+            level: 0
+        },
         multiPrice: false
     },
     108: {
@@ -330,6 +345,7 @@ var PurchaseList = {
             {itemId: 1302011, num: 2},
             {itemId: 1301011, num: 2}
         ],
+        discountPercent: 50,
         multiPrice: false
     },
     207: {
@@ -348,6 +364,7 @@ var PurchaseList = {
             {itemId: 1103011, num: 20},
             {itemId: 1101011, num: 30}
         ],
+        discountPercent: 50,
         multiPrice: false
     },
     208: {

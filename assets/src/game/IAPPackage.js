@@ -30,23 +30,6 @@ var IAPPackage = {
     initPackage: function () {
         this._applyEnvironmentFlags();
         this.initIAPRecord();
-        if (!this._unlockAllRoleAndTalentForTest) {
-            this.onIAPPaied(0);
-            this.onIAPPaied(101);
-            this.onIAPPaied(102);
-            this.onIAPPaied(103);
-            this.onIAPPaied(104);
-            this.onIAPPaied(105);
-            this.onIAPPaied(106);
-            this.onIAPPaied(107);
-            this.onIAPPaied(108);
-            this.onIAPPaied(109);
-            this.onIAPPaied(120);
-            this.onIAPPaied(121);
-            this.onIAPPaied(122);
-            this.onIAPPaied(123);
-            this.onIAPPaied(124);
-        }
     },
     _emitShopStateChanged: function (purchaseId, reason, payload) {
         if (typeof utils === "undefined" || !utils || !utils.emitter || typeof utils.emitter.emit !== "function") {
@@ -78,11 +61,104 @@ var IAPPackage = {
         }
         return 3;
     },
+    _getTalentLevel: function (purchaseId) {
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.getTalentLevel === "function") {
+            return TalentService.getTalentLevel(purchaseId);
+        }
+        if (typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.getTalentLevel === "function") {
+            return Medal.getTalentLevel(purchaseId);
+        }
+        return 0;
+    },
+    _isTalentUnlocked: function (purchaseId) {
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.isTalentUnlocked === "function") {
+            return !!TalentService.isTalentUnlocked(purchaseId);
+        }
+        return this._getTalentLevel(purchaseId) >= 1;
+    },
+    _isTalentFullyUnlocked: function (purchaseId) {
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.isTalentFullyUnlocked === "function") {
+            return !!TalentService.isTalentFullyUnlocked(purchaseId);
+        }
+        return this._getTalentLevel(purchaseId) >= this._getTalentMaxLevel(purchaseId);
+    },
     _isTalentPurchaseId: function (purchaseId) {
         return !!(typeof TalentService !== "undefined"
             && TalentService
             && typeof TalentService.isTalentPurchaseId === "function"
             && TalentService.isTalentPurchaseId(purchaseId));
+    },
+    _getPurchaseInfo: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)
+            || typeof PurchaseList === "undefined"
+            || !PurchaseList
+            || !PurchaseList[purchaseId]) {
+            return null;
+        }
+        return PurchaseList[purchaseId];
+    },
+    _getConsumablePurchaseIds: function () {
+        if (typeof PurchaseList === "undefined" || !PurchaseList) {
+            return [];
+        }
+
+        return Object.keys(PurchaseList).map(function (purchaseId) {
+            return parseInt(purchaseId);
+        }).filter(function (purchaseId) {
+            return !isNaN(purchaseId) && purchaseId >= 200;
+        }).sort(function (a, b) {
+            return a - b;
+        });
+    },
+    _getUnlockReward: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getUnlockReward === "function") {
+            return PurchaseService.getUnlockReward(purchaseId);
+        }
+
+        var purchaseInfo = this._getPurchaseInfo(purchaseId);
+        var reward = purchaseInfo && purchaseInfo.unlockReward;
+        if (!reward || typeof reward !== "object") {
+            return null;
+        }
+
+        if (reward.type === "item") {
+            var itemId = Number(reward.itemId);
+            var num = Number(reward.num);
+            if (!isFinite(itemId) || !isFinite(num) || num <= 0) {
+                return null;
+            }
+            return {
+                type: "item",
+                itemId: parseInt(itemId),
+                num: parseInt(num)
+            };
+        }
+
+        if (reward.type === "build") {
+            var bid = Number(reward.bid);
+            var level = reward.level === undefined ? 0 : Number(reward.level);
+            if (!isFinite(bid) || !isFinite(level)) {
+                return null;
+            }
+            return {
+                type: "build",
+                bid: parseInt(bid),
+                level: parseInt(level)
+            };
+        }
+
+        return null;
     },
     _getConfiguredExchangeIdsByPurchaseId: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
@@ -187,7 +263,7 @@ var IAPPackage = {
         }
         purchaseId = parseInt(purchaseId);
         if (this._isTalentPurchaseId(purchaseId)) {
-            return Medal.getTalentLevel(purchaseId) >= this._getTalentMaxLevel(purchaseId);
+            return this._isTalentFullyUnlocked(purchaseId);
         }
         return this.hasExchangeUnlock(purchaseId);
     },
@@ -289,15 +365,10 @@ var IAPPackage = {
     },
 
     resetConsumeIAP: function () {
-        this._record[201] = 0;
-        this._record[202] = 0;
-        this._record[203] = 0;
-        this._record[204] = 0;
-        this._record[205] = 0;
-        this._record[206] = 0;
-        this._record[207] = 0;
-        this._record[208] = 0;
-        this._record[209] = 0;
+        var self = this;
+        this._getConsumablePurchaseIds().forEach(function (purchaseId) {
+            self._record[purchaseId] = 0;
+        });
         this.saveIAPRecord();
         this._emitShopStateChanged(null, "consume_reset", null);
     },
@@ -338,7 +409,31 @@ var IAPPackage = {
             recordCount: this._record[purchaseId]
         });
     },
+    _decreaseSavedItemCount: function (storageSaveObj, itemId, num) {
+        num = Number(num);
+        if (!storageSaveObj || !isFinite(num) || num <= 0) {
+            return num;
+        }
+
+        var currentNum = Number(storageSaveObj[itemId] || 0);
+        if (!isFinite(currentNum) || currentNum <= 0) {
+            return num;
+        }
+
+        var nextNum = currentNum - num;
+        if (nextNum > 0) {
+            storageSaveObj[itemId] = nextNum;
+            return 0;
+        }
+
+        delete storageSaveObj[itemId];
+        return Math.abs(nextNum);
+    },
     _removeSingleUnlockRewardFromSavedRecord: function (purchaseId, recordName) {
+        var reward = this._getUnlockReward(purchaseId);
+        if (!reward) {
+            return false;
+        }
         if (!recordName) {
             recordName = "record";
             if (typeof Record !== "undefined" && Record && Record.recordName) {
@@ -371,26 +466,14 @@ var IAPPackage = {
 
         var playerSave = recordObj.player;
         var changed = false;
-        var removeItemFromSaveStorage = function (storageSaveObj, itemId) {
-            if (!storageSaveObj) {
-                return false;
-            }
-            if (storageSaveObj[itemId] === undefined || storageSaveObj[itemId] === null) {
-                return false;
-            }
-            delete storageSaveObj[itemId];
-            return true;
-        };
-
-        if (purchaseId === 105) {
-            changed = removeItemFromSaveStorage(playerSave.storage, "1305024") || changed;
-            changed = removeItemFromSaveStorage(playerSave.bag, "1305024") || changed;
-        } else if (purchaseId === 106) {
-            changed = removeItemFromSaveStorage(playerSave.storage, "1304024") || changed;
-            changed = removeItemFromSaveStorage(playerSave.bag, "1304024") || changed;
-        } else if (purchaseId === 107) {
-            if (playerSave.room && playerSave.room["12"]) {
-                playerSave.room["12"].level = -1;
+        if (reward.type === "item") {
+            var remainingNum = reward.num;
+            remainingNum = this._decreaseSavedItemCount(playerSave.storage, reward.itemId, remainingNum);
+            remainingNum = this._decreaseSavedItemCount(playerSave.bag, reward.itemId, remainingNum);
+            changed = remainingNum !== reward.num;
+        } else if (reward.type === "build") {
+            if (playerSave.room && playerSave.room["" + reward.bid]) {
+                playerSave.room["" + reward.bid].level = -1;
                 changed = true;
             }
         }
@@ -436,41 +519,47 @@ var IAPPackage = {
             role.chooseRoleType(RoleType.STRANGER);
         }
     },
+    _decreaseItemCountFromStorageLike: function (storageObj, itemId, num) {
+        num = Number(num);
+        if (!storageObj
+            || !isFinite(num)
+            || num <= 0
+            || typeof storageObj.getNumByItemId !== "function"
+            || typeof storageObj.decreaseItem !== "function") {
+            return num;
+        }
+
+        var currentNum = Number(storageObj.getNumByItemId(itemId) || 0);
+        if (!isFinite(currentNum) || currentNum <= 0) {
+            return num;
+        }
+
+        var removedNum = Math.min(currentNum, num);
+        if (removedNum > 0) {
+            storageObj.decreaseItem(itemId, removedNum);
+        }
+        return num - removedNum;
+    },
     _removeSingleUnlockReward: function (purchaseId) {
+        var reward = this._getUnlockReward(purchaseId);
+        if (!reward) {
+            return;
+        }
         if (typeof player === "undefined" || !player) {
             this._removeSingleUnlockRewardFromAllSavedRecords(purchaseId);
             return;
         }
 
-        var removeOneItemFromStorageLike = function (storageObj, itemId) {
-            if (!storageObj || typeof storageObj.validateItem !== "function" || typeof storageObj.decreaseItem !== "function") {
-                return false;
-            }
-            if (!storageObj.validateItem(itemId, 1)) {
-                return false;
-            }
-            storageObj.decreaseItem(itemId, 1);
-            return true;
-        };
-
-        if (purchaseId === 105) {
-            if (!removeOneItemFromStorageLike(player.storage, 1305024)) {
-                removeOneItemFromStorageLike(player.bag, 1305024);
-            }
+        if (reward.type === "item") {
+            var remainingNum = reward.num;
+            remainingNum = this._decreaseItemCountFromStorageLike(player.storage, reward.itemId, remainingNum);
+            this._decreaseItemCountFromStorageLike(player.bag, reward.itemId, remainingNum);
             return;
         }
 
-        if (purchaseId === 106) {
-            if (!removeOneItemFromStorageLike(player.storage, 1304024)) {
-                removeOneItemFromStorageLike(player.bag, 1304024);
-            }
-            return;
-        }
-
-        if (purchaseId === 107) {
+        if (reward.type === "build") {
             if (player.room && typeof player.room.createBuild === "function") {
-                // 恢复到未解锁状态，避免保留狗舍购买收益。
-                player.room.createBuild(12, -1);
+                player.room.createBuild(reward.bid, -1);
             }
             return;
         }
@@ -571,7 +660,7 @@ var IAPPackage = {
 
         // 天赋通过成就点解锁
         if (this._isTalentPurchaseId(purchaseId)) {
-            return Medal.getTalentLevel(purchaseId) >= 1;
+            return this._isTalentUnlocked(purchaseId);
         }
 
         if (this.isExchangePurchase(purchaseId)) {

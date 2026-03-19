@@ -528,25 +528,44 @@ var WorkSite = Site.extend({
             var repairConfig = this._getRepairConfig();
             var maintenanceDecayPerHour = Math.max(0, Number(repairConfig.maintenanceDecayPerHour) || 0);
             var brokenProbability = Math.max(0, Number(repairConfig.brokenProbability) || 0);
-            var maintenanceChanged = false;
             var maintenanceBefore = this.getMaintenanceValue();
+            var currentTime = (typeof cc !== "undefined" && cc && cc.timer && isFinite(Number(cc.timer.time)))
+                ? Number(cc.timer.time)
+                : 0;
+            var baselineTime = Number(this.fixedTime);
+            var elapsedHours = 0;
 
-            if (maintenanceDecayPerHour > 0 && maintenanceBefore > 0) {
-                this.maintenance = this._normalizeMaintenance(maintenanceBefore - maintenanceDecayPerHour);
-                maintenanceChanged = this.getMaintenanceValue() !== maintenanceBefore;
+            if (!isFinite(baselineTime)) {
+                baselineTime = currentTime;
+            }
+            if (isFinite(currentTime) && currentTime > baselineTime) {
+                elapsedHours = Math.floor((currentTime - baselineTime) / (60 * 60));
             }
 
-            if (maintenanceBefore <= 0 && this.getMaintenanceValue() <= 0) {
-                var rand = Math.random();
-                if (rand < brokenProbability) {
+            if (elapsedHours <= 0) {
+                return;
+            }
+
+            var nextMaintenance = maintenanceBefore;
+            for (var hour = 0; hour < elapsedHours; hour++) {
+                if (maintenanceDecayPerHour > 0 && nextMaintenance > 0) {
+                    nextMaintenance = this._normalizeMaintenance(nextMaintenance - maintenanceDecayPerHour);
+                }
+
+                if (nextMaintenance <= 0 && brokenProbability > 0 && Math.random() < brokenProbability) {
                     cc.log("workSite broken");
+                    this.maintenance = nextMaintenance;
+                    this.fixedTime = baselineTime + (hour + 1) * 60 * 60;
                     this.isActive = false;
                     this._notifyWorkSiteChange();
                     return;
                 }
             }
 
-            if (maintenanceChanged) {
+            this.fixedTime = baselineTime + elapsedHours * 60 * 60;
+            this.maintenance = nextMaintenance;
+
+            if (nextMaintenance !== maintenanceBefore) {
                 this._notifyWorkSiteChange();
             }
         }

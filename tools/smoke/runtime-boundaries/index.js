@@ -54,10 +54,13 @@ function runSyntaxSmoke() {
         "assets/src/game/TravelService.js",
         "assets/src/game/Build.js",
         "assets/src/game/PlayerPersistenceService.js",
+        "assets/src/game/IAPPackage.js",
+        "assets/src/game/PurchaseService.js",
         "assets/src/game/BuildActionEffectService.js",
         "assets/src/game/buildAction.js",
         "assets/src/game/Battle.js",
         "assets/src/game/site.js",
+        "assets/src/plugin/purchaseList.js",
         "assets/src/ui/MapActor.js",
         "assets/src/ui/MapInteractionController.js",
         "assets/src/ui/dialog.js",
@@ -501,6 +504,58 @@ function runTimerRepeatAlignmentSmoke() {
         name: "timer-repeat-alignment",
         ok: true,
         detail: "validated recurring timer callbacks stay aligned after long time jumps"
+    };
+}
+
+function runWorkSiteMaintenanceCatchupSmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.cc.log = function () {};
+    sandbox.cc.timer = { time: 0 };
+    sandbox.Storage = function () {};
+    sandbox.Storage.prototype.save = function () {
+        return {};
+    };
+    sandbox.Storage.prototype.restore = function () {};
+    sandbox.SiteConfigService = {
+        getSiteConfig: function () {
+            return {
+                coordinate: { x: 0, y: 0 }
+            };
+        }
+    };
+    sandbox.GameRuntime = {
+        getPlayer: function () {
+            return { roleType: 4 };
+        }
+    };
+    sandbox.RoleRuntimeService = {
+        getWorkSiteRepairConfig: function () {
+            return {
+                brokenProbability: 1,
+                maintenanceMax: 2,
+                maintenanceDecayPerHour: 1
+            };
+        }
+    };
+
+    const siteModule = loadIntoSandbox(sandbox, "assets/src/game/site.js");
+    const workSite = new siteModule.WorkSite(204);
+    workSite.isActive = true;
+    workSite.maintenance = 2;
+    workSite.fixedTime = 0;
+
+    sandbox.cc.timer.time = 2 * 60 * 60;
+    workSite.checkActive();
+
+    assert(workSite.getMaintenanceValue() === 0,
+        "WorkSite should catch up maintenance decay across long time jumps");
+    assert(workSite.isActive === false,
+        "WorkSite should roll break checks for each elapsed hour once maintenance reaches zero");
+
+    return {
+        name: "worksite-maintenance-catchup",
+        ok: true,
+        detail: "validated WorkSite maintenance and break checks catch up after long time jumps"
     };
 }
 
@@ -1040,6 +1095,7 @@ function runPurchaseUnlockRewardSmoke() {
     };
     sandbox.player = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
 
+    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
 
     assert(sandbox.PurchaseService._grantUnlockReward(105) === false,
@@ -1068,14 +1124,64 @@ function runPurchaseUnlockRewardSmoke() {
     };
 }
 
+function runPurchaseRecordBoundarySmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.SafetyHelper = {
+        isEmpty: function (value) {
+            return value === undefined || value === null || value === "";
+        },
+        safeJSONParse: function (value) {
+            return JSON.parse(value);
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
+    loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
+
+    sandbox.IAPPackage.initPackage();
+    assert(sandbox.IAPPackage._record[101] === 0,
+        "IAPPackage initPackage should no longer pre-mark exchange purchases as purchased");
+    assert(sandbox.IAPPackage._record[108] === 0,
+        "IAPPackage initPackage should leave role exchange purchase records untouched");
+    assert(sandbox.IAPPackage._record[120] === 0,
+        "IAPPackage initPackage should leave talent exchange purchase records untouched");
+
+    sandbox.IAPPackage._record[201] = 1;
+    sandbox.IAPPackage._record[207] = 2;
+    sandbox.IAPPackage._record[105] = 3;
+    sandbox.IAPPackage.resetConsumeIAP();
+
+    assert(sandbox.IAPPackage._record[201] === 0,
+        "IAPPackage resetConsumeIAP should reset configured consumable purchase records");
+    assert(sandbox.IAPPackage._record[207] === 0,
+        "IAPPackage resetConsumeIAP should reset high-tier consumable purchase records");
+    assert(sandbox.IAPPackage._record[105] === 3,
+        "IAPPackage resetConsumeIAP should not reset non-consumable exchange purchase records");
+
+    return {
+        name: "purchase-record-boundaries",
+        ok: true,
+        detail: "validated purchase record init/reset only touches configured consumable records and stops pre-marking exchange purchases"
+    };
+}
+
 function runPurchaseExchangeConfigSmoke() {
     const sandbox = createVmSandbox();
     sandbox.TalentService = {
         isTalentPurchaseId: function (purchaseId) {
             return Number(purchaseId) === 120;
         },
+        getTalentLevel: function () {
+            return 2;
+        },
         getTalentMaxLevel: function () {
             return 3;
+        },
+        isTalentUnlocked: function (purchaseId) {
+            return Number(purchaseId) === 120;
+        },
+        isTalentFullyUnlocked: function () {
+            return false;
         }
     };
     loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
@@ -1107,6 +1213,17 @@ function runPurchaseExchangeConfigSmoke() {
         "IAPPackage should not treat consumable support packs as exchange-config purchases");
     assert(sandbox.PurchaseService.isTalentPurchase(120) === true,
         "PurchaseService should source talent purchase detection from TalentService");
+    sandbox.Medal.getTalentLevel = function () {
+        throw new Error("purchase chain should source talent level state from TalentService");
+    };
+    assert(sandbox.IAPPackage.isIAPUnlocked(120) === true,
+        "IAPPackage should delegate talent unlock checks to TalentService");
+    assert(sandbox.IAPPackage.isPurchaseFullyUnlocked(120) === false,
+        "IAPPackage should delegate talent max-level checks to TalentService");
+    assert(sandbox.PurchaseService.getShopUiState(120).currentTalentLevel === 2,
+        "PurchaseService should source current talent level from TalentService when building shop state");
+    assert(sandbox.PurchaseService.getPriceOff(206) === 50,
+        "PurchaseService should source fixed support-pack discounts from purchase config");
     const paidRoleType = sandbox.role.getRoleTypeByPurchaseId(108);
     sandbox.PurchaseService.isUnlocked = function (purchaseId) {
         return Number(purchaseId) === 108;
@@ -1143,9 +1260,10 @@ function runTalentSelectionMigrationSmoke() {
             return ["record", "record_2", "record_3"];
         }
     };
-    sandbox.PurchaseService = {
-        isUnlocked: function () {
-            return true;
+    sandbox.Medal = {
+        getTalentLevel: function (purchaseId) {
+            purchaseId = Number(purchaseId);
+            return (purchaseId === 120 || purchaseId === 121 || purchaseId === 122) ? 1 : 0;
         }
     };
 
@@ -1288,11 +1406,13 @@ const CHECKS = [
     runRuntimeContextSmoke,
     runRoleRuntimeRuleSmoke,
     runTimerRepeatAlignmentSmoke,
+    runWorkSiteMaintenanceCatchupSmoke,
     runBattleCadenceSmoke,
     runCraftBuildActionReuseSmoke,
     runBonfireStateSmoke,
     runBuildRegistrySmoke,
     runPurchaseUnlockRewardSmoke,
+    runPurchaseRecordBoundarySmoke,
     runPurchaseExchangeConfigSmoke,
     runTalentSelectionMigrationSmoke,
     runPlayerPersistencePurchaseDelegationSmoke,
