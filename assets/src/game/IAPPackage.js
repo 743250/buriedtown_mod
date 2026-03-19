@@ -191,17 +191,6 @@ var IAPPackage = {
         }
         return this.hasExchangeUnlock(purchaseId);
     },
-    getAchievementPriceByPurchaseId: function (purchaseId) {
-        var exchangeId = this.getExchangeIdByPurchaseId(purchaseId);
-        if (!exchangeId) {
-            return null;
-        }
-        var config = ExchangeAchievementConfig[exchangeId];
-        if (!config) {
-            return null;
-        }
-        return config.cost;
-    },
     getConsumableAchievementPrice: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
         if (isNaN(purchaseId) || purchaseId < 200 || !PurchaseList[purchaseId]) {
@@ -218,121 +207,6 @@ var IAPPackage = {
             return null;
         }
         return price;
-    },
-    getShopUiState: function (purchaseId) {
-        purchaseId = parseInt(purchaseId);
-        var isExchangePurchase = this.isExchangePurchase(purchaseId);
-        var isTalentPurchase = this._isTalentPurchaseId(purchaseId);
-        var isUnlocked = this.isIAPUnlocked(purchaseId);
-        var nextAchievementPrice = null;
-        var achievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
-        var priceText = "";
-        var canBuy = false;
-        var canCancel = false;
-        var shouldHideBuyButton = false;
-        var badgeText = "";
-        var hideBadge = false;
-        var disabledReason = "";
-
-        if (isExchangePurchase) {
-            nextAchievementPrice = this.getAchievementPriceByPurchaseId(purchaseId);
-            shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
-
-            if (shouldHideBuyButton) {
-                canBuy = false;
-                if (isTalentPurchase) {
-                    priceText = "已满级";
-                    disabledReason = "MAX_LEVEL";
-                } else {
-                    priceText = "已购";
-                    disabledReason = "ALREADY_UNLOCKED";
-                }
-            } else {
-                priceText = nextAchievementPrice + " 成就点";
-                canBuy = achievementPoints >= nextAchievementPrice;
-                if (!canBuy) {
-                    disabledReason = "INSUFFICIENT_POINTS";
-                }
-            }
-
-            canCancel = purchaseId < 200 && purchaseId !== 0 && this.hasExchangeUnlock(purchaseId);
-            if (isTalentPurchase) {
-                if (shouldHideBuyButton) {
-                    badgeText = "已满级";
-                    hideBadge = false;
-                } else {
-                    hideBadge = true;
-                }
-            } else if (isUnlocked) {
-                badgeText = "已购";
-            }
-        } else if (purchaseId >= 200) {
-            nextAchievementPrice = this.getConsumableAchievementPrice(purchaseId);
-            shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
-
-            if (shouldHideBuyButton) {
-                canBuy = false;
-                disabledReason = "NO_PRICE";
-            } else {
-                priceText = nextAchievementPrice + " 成就点";
-                if (isUnlocked) {
-                    canBuy = false;
-                    disabledReason = "ALREADY_UNLOCKED";
-                } else {
-                    canBuy = achievementPoints >= nextAchievementPrice;
-                    if (!canBuy) {
-                        disabledReason = "INSUFFICIENT_POINTS";
-                    }
-                }
-            }
-
-            canCancel = false;
-            if (isUnlocked) {
-                badgeText = "已购";
-            }
-        } else {
-            var purchaseConfig = this.getPurchaseConfig(purchaseId);
-            if (purchaseConfig) {
-                priceText = purchaseConfig.productPriceStr;
-                if (!priceText) {
-                    if (typeof stringUtil !== "undefined" && stringUtil && typeof stringUtil.getString === "function") {
-                        priceText = stringUtil.getString(1191, purchaseConfig.price);
-                    } else {
-                        priceText = "" + purchaseConfig.price;
-                    }
-                }
-            }
-
-            canBuy = !isUnlocked;
-            if (!canBuy) {
-                disabledReason = "ALREADY_UNLOCKED";
-            }
-            canCancel = this.isPaySdkBypassedForTest
-                && this.isPaySdkBypassedForTest()
-                && purchaseId < 200
-                && purchaseId !== 0
-                && isUnlocked;
-            if (isUnlocked) {
-                badgeText = "已购";
-            }
-        }
-
-        return {
-            purchaseId: purchaseId,
-            isExchangePurchase: isExchangePurchase,
-            isTalentPurchase: isTalentPurchase,
-            isUnlocked: isUnlocked,
-            currentTalentLevel: isTalentPurchase ? Medal.getTalentLevel(purchaseId) : 0,
-            nextAchievementPrice: nextAchievementPrice,
-            achievementPoints: achievementPoints,
-            priceText: priceText,
-            canBuy: !!canBuy,
-            canCancel: !!canCancel,
-            shouldHideBuyButton: !!shouldHideBuyButton,
-            badgeText: badgeText,
-            hideBadge: !!hideBadge,
-            disabledReason: disabledReason
-        };
     },
     tryExchangePurchase: function (purchaseId) {
         if (!this.isExchangePurchase(purchaseId)) {
@@ -735,21 +609,5 @@ var IAPPackage = {
         }
         config.priceIndex = priceInfoIndex;
         return config;
-    },
-    getPriceOff: function (purchaseId) {
-        var purchaseInfo = PurchaseList[purchaseId];
-        if (purchaseInfo.multiPrice) {
-            var priceList = purchaseInfo.priceList;
-            var priceInfoIndex = this._record[purchaseId];
-            priceInfoIndex = Math.min(priceInfoIndex, priceList.length - 1);
-            var off = Math.floor((priceList[priceList.length - 1].price - priceList[priceInfoIndex].price) / priceList[priceList.length - 1].price * 100);
-            return off;
-        } else {
-            if (purchaseId == 206 || purchaseId == 207) {
-                return 50;
-            } else {
-                return 0;
-            }
-        }
     }
 };

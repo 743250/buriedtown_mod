@@ -562,10 +562,10 @@ var Medal = {
             if (config && config.effect && config.effect.items) {
                 if (config.type === "talent") {
                     var talentPurchaseId = parseInt(config.targetId);
-                    var isActiveTalent = (typeof IAPPackage !== "undefined"
-                        && IAPPackage
-                        && typeof IAPPackage.hasChosenTalent === "function"
-                        && IAPPackage.hasChosenTalent(talentPurchaseId));
+                    var isActiveTalent = (typeof TalentService !== "undefined"
+                        && TalentService
+                        && typeof TalentService.hasChosenTalent === "function"
+                        && TalentService.hasChosenTalent(talentPurchaseId));
                     if (!isActiveTalent) {
                         continue;
                     }

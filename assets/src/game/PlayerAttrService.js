@@ -63,7 +63,13 @@ var PlayerAttrService = {
     },
     normalizeAttrChangeValue: function (key, value) {
         if (key === "infect" && value > 0) {
-            return SafetyHelper.safeCall(IAPPackage.getInfectIncreaseEffect, value, value);
+            if (typeof TalentService !== "undefined"
+                && TalentService
+                && typeof TalentService.getInfectIncreaseEffect === "function") {
+                return SafetyHelper.safeCall(function (infectValue) {
+                    return TalentService.getInfectIncreaseEffect(infectValue);
+                }, value, value);
+            }
         }
         return value;
     },

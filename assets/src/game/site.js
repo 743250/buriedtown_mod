@@ -35,8 +35,10 @@ var siteRewardServiceRef = hasExternalSiteServices ? SiteRewardService : {
     buildWorkRoomLoot: function (itemIds) {
         var roomItemIds = itemIds ? itemIds.slice() : [];
         var scavengerDoubleTriggered = roomItemIds.length > 0
-            && IAPPackage.rollScavengerDoubleDrop
-            && IAPPackage.rollScavengerDoubleDrop();
+            && typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.rollScavengerDoubleDrop === "function"
+            && TalentService.rollScavengerDoubleDrop();
         if (scavengerDoubleTriggered) {
             roomItemIds = roomItemIds.concat(roomItemIds);
         }

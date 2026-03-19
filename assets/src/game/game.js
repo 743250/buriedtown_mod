@@ -24,10 +24,10 @@ var game = {
     },
     start: function () {
         player.start();
-        if (typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage.applyActiveTalentStartGifts === "function") {
-            var gifted = IAPPackage.applyActiveTalentStartGifts(player);
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.applyActiveTalentStartGifts === "function") {
+            var gifted = TalentService.applyActiveTalentStartGifts(player);
             if (gifted && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
                 Record.saveAll();
             }

@@ -58,11 +58,13 @@ function runSyntaxSmoke() {
         "assets/src/game/GameRuntime.js",
         "assets/src/game/game.js",
         "assets/src/game/player.js",
+        "assets/src/game/PlayerAttrService.js",
         "assets/src/game/TravelService.js",
         "assets/src/game/Build.js",
         "assets/src/game/PlayerPersistenceService.js",
         "assets/src/game/BuildActionEffectService.js",
         "assets/src/game/buildAction.js",
+        "assets/src/game/BattleEquipmentSystem.js",
         "assets/src/game/Battle.js",
         "assets/src/game/site.js",
         "assets/src/ui/MapActor.js",
@@ -980,17 +982,70 @@ function runPurchaseExchangeConfigSmoke() {
         "IAPPackage should keep exchange-role purchases on config-driven exchange flow");
     assert(sandbox.IAPPackage.isExchangePurchase(203) === false,
         "IAPPackage should not treat consumable support packs as exchange-config purchases");
+    assert(sandbox.PurchaseService.getAchievementPriceByPurchaseId(120) === sandbox.ExchangeAchievementConfig[2105].cost,
+        "PurchaseService should own exchange achievement price queries");
+    const talentShopState = sandbox.PurchaseService.getShopUiState(120);
+    assert(talentShopState && talentShopState.isTalentPurchase === true && talentShopState.nextAchievementPrice === sandbox.ExchangeAchievementConfig[2105].cost,
+        "PurchaseService should build talent shop state without relying on IAPPackage shop query helpers");
     assert(sandbox.PurchaseService.isTalentPurchase(120) === true,
         "PurchaseService should source talent purchase detection from TalentService");
     assert(typeof sandbox.IAPPackage.getPreciseEffect === "undefined",
         "IAPPackage should no longer mirror talent gameplay effect APIs");
     assert(typeof sandbox.IAPPackage.hasChosenTalent === "undefined",
         "IAPPackage should no longer mirror talent selection APIs");
+    assert(typeof sandbox.IAPPackage.getAchievementPriceByPurchaseId === "undefined",
+        "IAPPackage should no longer expose shop achievement price query helpers");
+    assert(typeof sandbox.IAPPackage.getShopUiState === "undefined",
+        "IAPPackage should no longer expose aggregated shop state query helpers");
+    assert(typeof sandbox.IAPPackage.getPriceOff === "undefined",
+        "IAPPackage should no longer expose shop discount query helpers");
 
     return {
         name: "purchase-exchange-config",
         ok: true,
-        detail: "validated IAPPackage derives exchange mappings from config while talent gameplay ownership stays outside the purchase chain"
+        detail: "validated PurchaseService owns shop query semantics while IAPPackage keeps exchange mapping and purchase execution responsibilities"
+    };
+}
+
+function runTalentRuntimeOwnershipSmoke() {
+    const battleSource = readFile("assets/src/game/BattleEquipmentSystem.js");
+    const playerAttrSource = readFile("assets/src/game/PlayerAttrService.js");
+    const gameSource = readFile("assets/src/game/game.js");
+    const persistenceSource = readFile("assets/src/game/PlayerPersistenceService.js");
+    const siteSource = readFile("assets/src/game/site.js");
+    const medalSource = readFile("assets/src/game/medal.js");
+
+    assert(battleSource.indexOf("IAPPackage.getPreciseEffect") === -1,
+        "BattleEquipmentSystem should no longer read talent precision effects from IAPPackage");
+    assert(battleSource.indexOf("IAPPackage.applyElitePistolWeaponEffect") === -1,
+        "BattleEquipmentSystem should no longer read elite pistol effects from IAPPackage");
+    assert(battleSource.indexOf("IAPPackage.getMeleeDamageEffect") === -1,
+        "BattleEquipmentSystem should no longer read melee effects from IAPPackage");
+    assert(battleSource.indexOf("IAPPackage.getHeadshotEffect") === -1,
+        "BattleEquipmentSystem should no longer read headshot effects from IAPPackage");
+    assert(battleSource.indexOf("IAPPackage.getGunDamageEffect") === -1,
+        "BattleEquipmentSystem should no longer read gun effects from IAPPackage");
+    assert(playerAttrSource.indexOf("IAPPackage.getInfectIncreaseEffect") === -1,
+        "PlayerAttrService should no longer read infection modifiers from IAPPackage");
+    assert(gameSource.indexOf("IAPPackage.applyActiveTalentStartGifts") === -1,
+        "game.start should no longer read active talent gifts from IAPPackage");
+    assert(gameSource.indexOf("PurchaseService.resetConsumablePurchases") !== -1,
+        "game.newGame should delegate consumable purchase reset through PurchaseService");
+    assert(persistenceSource.indexOf("IAPPackage.init(") === -1,
+        "PlayerPersistenceService should no longer initialize talent effects through IAPPackage");
+    assert(persistenceSource.indexOf("IAPPackage.migrateLegacyElitePistol") === -1,
+        "PlayerPersistenceService should no longer migrate elite pistol state through IAPPackage");
+    assert(persistenceSource.indexOf("IAPPackage.reconcilePlayerHpByTalentSelection") === -1,
+        "PlayerPersistenceService should no longer reconcile talent HP through IAPPackage");
+    assert(siteSource.indexOf("IAPPackage.rollScavengerDoubleDrop") === -1,
+        "site runtime fallback should no longer read scavenger drop effects from IAPPackage");
+    assert(medalSource.indexOf("IAPPackage.hasChosenTalent") === -1,
+        "medal talent reward reconciliation should no longer read chosen talents from IAPPackage");
+
+    return {
+        name: "talent-runtime-ownership",
+        ok: true,
+        detail: "validated runtime systems read talent gameplay effects from TalentService instead of the purchase chain"
     };
 }
 
@@ -1138,6 +1193,7 @@ function main() {
         runBuildRegistrySmoke(),
         runPurchaseUnlockRewardSmoke(),
         runPurchaseExchangeConfigSmoke(),
+        runTalentRuntimeOwnershipSmoke(),
         runTalentSelectionMigrationSmoke(),
         runPlayerPersistencePurchaseDelegationSmoke(),
         runLoadChainSmoke()

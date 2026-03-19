@@ -25,13 +25,10 @@ var PurchaseService = {
     },
     isExchangePurchase: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null || typeof IAPPackage === "undefined" || !IAPPackage) {
+        if (purchaseId === null) {
             return false;
         }
-        if (typeof IAPPackage.isExchangePurchase !== "function") {
-            return false;
-        }
-        return !!IAPPackage.isExchangePurchase(purchaseId);
+        return this.getExchangeIdsByPurchaseId(purchaseId).length > 0;
     },
     _hasIAPMethod: function (methodName) {
         return typeof IAPPackage !== "undefined"
@@ -85,19 +82,157 @@ var PurchaseService = {
         }
         return IAPPackage.getExchangeIdByPurchaseId(purchaseId);
     },
-    getShopUiState: function (purchaseId) {
+    _getConsumableAchievementPrice: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null || !this._hasIAPMethod("getShopUiState")) {
+        if (purchaseId === null
+            || purchaseId < 200
+            || typeof PurchaseList === "undefined"
+            || !PurchaseList
+            || !PurchaseList[purchaseId]) {
             return null;
         }
-        return IAPPackage.getShopUiState(purchaseId);
+
+        var purchaseConfig = this.getPurchaseConfig(purchaseId);
+        if (!purchaseConfig || purchaseConfig.price === undefined || purchaseConfig.price === null) {
+            return null;
+        }
+
+        var price = Number(purchaseConfig.price);
+        return isFinite(price) ? price : null;
+    },
+    getShopUiState: function (purchaseId) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId === null) {
+            return null;
+        }
+
+        var isExchangePurchase = this.isExchangePurchase(purchaseId);
+        var isTalentPurchase = this.isTalentPurchase(purchaseId);
+        var isUnlocked = this.isUnlocked(purchaseId);
+        var nextAchievementPrice = null;
+        var achievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
+        var priceText = "";
+        var canBuy = false;
+        var canCancel = false;
+        var shouldHideBuyButton = false;
+        var badgeText = "";
+        var hideBadge = false;
+        var disabledReason = "";
+
+        if (isExchangePurchase) {
+            nextAchievementPrice = this.getAchievementPriceByPurchaseId(purchaseId);
+            shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
+
+            if (shouldHideBuyButton) {
+                canBuy = false;
+                if (isTalentPurchase) {
+                    priceText = "已满级";
+                    disabledReason = "MAX_LEVEL";
+                } else {
+                    priceText = "已购";
+                    disabledReason = "ALREADY_UNLOCKED";
+                }
+            } else {
+                priceText = nextAchievementPrice + " 成就点";
+                canBuy = achievementPoints >= nextAchievementPrice;
+                if (!canBuy) {
+                    disabledReason = "INSUFFICIENT_POINTS";
+                }
+            }
+
+            canCancel = purchaseId < 200 && purchaseId !== 0 && isUnlocked;
+            if (isTalentPurchase) {
+                if (shouldHideBuyButton) {
+                    badgeText = "已满级";
+                    hideBadge = false;
+                } else {
+                    hideBadge = true;
+                }
+            } else if (isUnlocked) {
+                badgeText = "已购";
+            }
+        } else if (purchaseId >= 200) {
+            nextAchievementPrice = this._getConsumableAchievementPrice(purchaseId);
+            shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
+
+            if (shouldHideBuyButton) {
+                canBuy = false;
+                disabledReason = "NO_PRICE";
+            } else {
+                priceText = nextAchievementPrice + " 成就点";
+                if (isUnlocked) {
+                    canBuy = false;
+                    disabledReason = "ALREADY_UNLOCKED";
+                } else {
+                    canBuy = achievementPoints >= nextAchievementPrice;
+                    if (!canBuy) {
+                        disabledReason = "INSUFFICIENT_POINTS";
+                    }
+                }
+            }
+
+            if (isUnlocked) {
+                badgeText = "已购";
+            }
+        } else {
+            var purchaseConfig = this.getPurchaseConfig(purchaseId);
+            if (purchaseConfig) {
+                priceText = purchaseConfig.productPriceStr;
+                if (!priceText) {
+                    if (typeof stringUtil !== "undefined" && stringUtil && typeof stringUtil.getString === "function") {
+                        priceText = stringUtil.getString(1191, purchaseConfig.price);
+                    } else {
+                        priceText = "" + purchaseConfig.price;
+                    }
+                }
+            }
+
+            canBuy = !isUnlocked;
+            if (!canBuy) {
+                disabledReason = "ALREADY_UNLOCKED";
+            }
+            canCancel = this.isPaySdkBypassedForTest()
+                && purchaseId < 200
+                && purchaseId !== 0
+                && isUnlocked;
+            if (isUnlocked) {
+                badgeText = "已购";
+            }
+        }
+
+        return {
+            purchaseId: purchaseId,
+            isExchangePurchase: isExchangePurchase,
+            isTalentPurchase: isTalentPurchase,
+            isUnlocked: isUnlocked,
+            currentTalentLevel: isTalentPurchase ? Medal.getTalentLevel(purchaseId) : 0,
+            nextAchievementPrice: nextAchievementPrice,
+            achievementPoints: achievementPoints,
+            priceText: priceText,
+            canBuy: !!canBuy,
+            canCancel: !!canCancel,
+            shouldHideBuyButton: !!shouldHideBuyButton,
+            badgeText: badgeText,
+            hideBadge: !!hideBadge,
+            disabledReason: disabledReason
+        };
     },
     getAchievementPriceByPurchaseId: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null || !this._hasIAPMethod("getAchievementPriceByPurchaseId")) {
+        if (purchaseId === null
+            || typeof ExchangeAchievementConfig === "undefined"
+            || !ExchangeAchievementConfig) {
             return null;
         }
-        return IAPPackage.getAchievementPriceByPurchaseId(purchaseId);
+        var exchangeId = this.getExchangeIdByPurchaseId(purchaseId);
+        if (!exchangeId) {
+            return null;
+        }
+        var config = ExchangeAchievementConfig[exchangeId];
+        if (!config) {
+            return null;
+        }
+        return config.cost;
     },
     isTalentPurchase: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
@@ -118,10 +253,30 @@ var PurchaseService = {
     },
     getPriceOff: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null || !this._hasIAPMethod("getPriceOff")) {
+        if (purchaseId === null
+            || typeof PurchaseList === "undefined"
+            || !PurchaseList
+            || !PurchaseList[purchaseId]) {
             return 0;
         }
-        return IAPPackage.getPriceOff(purchaseId);
+        var purchaseInfo = PurchaseList[purchaseId];
+        if (purchaseInfo.multiPrice) {
+            var priceList = purchaseInfo.priceList || [];
+            if (!priceList.length) {
+                return 0;
+            }
+            var purchaseConfig = this.getPurchaseConfig(purchaseId);
+            var priceInfoIndex = purchaseConfig && isFinite(purchaseConfig.priceIndex)
+                ? Math.min(parseInt(purchaseConfig.priceIndex), priceList.length - 1)
+                : 0;
+            var originalPrice = Number(priceList[priceList.length - 1].price);
+            var currentPrice = Number(priceList[priceInfoIndex].price);
+            if (!(originalPrice > 0) || !isFinite(currentPrice)) {
+                return 0;
+            }
+            return Math.floor((originalPrice - currentPrice) / originalPrice * 100);
+        }
+        return (purchaseId === 206 || purchaseId === 207) ? 50 : 0;
     },
     isPurchaseLockUnlocked: function (purchaseLock) {
         if (!purchaseLock || typeof purchaseLock !== "object") {

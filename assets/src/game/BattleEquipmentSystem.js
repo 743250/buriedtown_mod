@@ -34,11 +34,22 @@ var BattleEquipmentSystem = (function () {
         }
     };
 
-    var applyTalentPreciseBonus = function (precise) {
-        if (IAPPackage.getPreciseEffect) {
-            return IAPPackage.getPreciseEffect(precise);
+    var callTalentRuntime = function (methodName, defaultValue) {
+        var args = Array.prototype.slice.call(arguments, 2);
+        try {
+            if (typeof TalentService !== "undefined"
+                && TalentService
+                && typeof TalentService[methodName] === "function") {
+                return TalentService[methodName].apply(TalentService, args);
+            }
+        } catch (e) {
+            cc.error("BattleEquipmentSystem talent runtime call failed: " + methodName + ", " + e);
         }
-        return precise;
+        return defaultValue;
+    };
+
+    var applyTalentPreciseBonus = function (precise) {
+        return callTalentRuntime("getPreciseEffect", precise, precise);
     };
 
     var applyStatusPreciseAdjustments = function (precise, options) {
@@ -135,15 +146,12 @@ var BattleEquipmentSystem = (function () {
             }
 
             this.attr = this.itemConfig.effect_weapon;
-            if (IAPPackage.applyElitePistolWeaponEffect) {
-                this.attr = SafetyHelper.safeCallWithFallback(IAPPackage.applyElitePistolWeaponEffect, this.attr, this.id, this.attr);
-                this.itemConfig.effect_weapon = this.attr;
-            }
-            if (IAPPackage.getElitePistolDisplayInfo) {
-                var elitePistolDisplay = SafetyHelper.safeCallWithFallback(IAPPackage.getElitePistolDisplayInfo, null, this.id, {title: this.itemConfig.name, des: ""});
-                if (elitePistolDisplay && elitePistolDisplay.title) {
-                    this.itemConfig.name = elitePistolDisplay.title;
-                }
+            this.attr = callTalentRuntime("applyElitePistolWeaponEffect", this.attr, this.id, this.attr);
+            this.itemConfig.effect_weapon = this.attr;
+
+            var elitePistolDisplay = callTalentRuntime("getElitePistolDisplayInfo", null, this.id, {title: this.itemConfig.name, des: ""});
+            if (elitePistolDisplay && elitePistolDisplay.title) {
+                this.itemConfig.name = elitePistolDisplay.title;
             }
 
             this.isInAtkCD = false;
@@ -309,7 +317,7 @@ var BattleEquipmentSystem = (function () {
             if (monster && !this.resolveMeleeHitResult().success) {
                 return 0;
             }
-            return SafetyHelper.safeCallWithFallback(IAPPackage.getMeleeDamageEffect, this.attr.atk, this.attr.atk);
+            return callTalentRuntime("getMeleeDamageEffect", this.attr.atk, this.attr.atk);
         },
         isInRange: function (monster) {
             return !!(monster.line && this.attr.range >= monster.line.index);
@@ -352,10 +360,10 @@ var BattleEquipmentSystem = (function () {
             var deathHit = this.attr.deathHit + this.attr.dtDeathHit * dtLineIndex;
 
             precise = applyTalentPreciseBonus(precise);
-            deathHit = IAPPackage.getHeadshotEffect(deathHit);
-            if (IAPPackage.isElitePistolItem && IAPPackage.isElitePistolItem(this.id)) {
-                precise += IAPPackage.getElitePistolPreciseBonus ? IAPPackage.getElitePistolPreciseBonus() : 0;
-                deathHit += IAPPackage.getElitePistolHeadshotBonus ? IAPPackage.getElitePistolHeadshotBonus() : 0;
+            deathHit = callTalentRuntime("getHeadshotEffect", deathHit, deathHit);
+            if (callTalentRuntime("isElitePistolItem", false, this.id)) {
+                precise += callTalentRuntime("getElitePistolPreciseBonus", 0);
+                deathHit += callTalentRuntime("getElitePistolHeadshotBonus", 0);
             }
             precise = applyStatusPreciseAdjustments(precise, {logPenalty: true});
 
@@ -387,7 +395,7 @@ var BattleEquipmentSystem = (function () {
             return this.battlePlayer.bulletNum > 0;
         },
         getBulletHarm: function () {
-            return IAPPackage.getGunDamageEffect(this.bulletConfig.atk);
+            return callTalentRuntime("getGunDamageEffect", this.bulletConfig.atk, this.bulletConfig.atk);
         }
     });
 
