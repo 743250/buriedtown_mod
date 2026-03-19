@@ -446,13 +446,6 @@ var RoleRuntimeService = {
             return state;
         }
 
-        var checkFn = purchaseLock.checkFn
-            && typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage[purchaseLock.checkFn] === "function"
-            ? IAPPackage[purchaseLock.checkFn]
-            : null;
-        state.isLocked = checkFn ? !checkFn.call(IAPPackage) : false;
         return state;
     },
 

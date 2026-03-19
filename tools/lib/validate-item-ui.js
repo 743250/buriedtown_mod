@@ -28,7 +28,6 @@ function validate(options) {
     const context = gameData.loadItemValidationContext(opts.rootDir);
     const itemConfig = context.itemConfig;
     const zhStrings = context.zhStrings;
-    const enStrings = context.enStrings;
     const iconPlist = context.iconPlist;
     const digItemPlist = context.digItemPlist;
     const uiIssues = [];
@@ -46,9 +45,6 @@ function validate(options) {
 
         if (!zhStrings[itemId] || !zhStrings[itemId].title || !zhStrings[itemId].des) {
             pushIssue(textWarnings, itemId, "missing zh title/des");
-        }
-        if (!enStrings[itemId] || !enStrings[itemId].title || !enStrings[itemId].des) {
-            pushIssue(textWarnings, itemId, "missing en title/des");
         }
 
         if (config.displayItemId !== undefined && !itemConfig[config.displayItemId]) {

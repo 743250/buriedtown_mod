@@ -391,12 +391,16 @@ var ContentBlueprint = {
         }
         return true;
     },
-    _hasIAPMethod: function (methodName) {
-        return typeof methodName === "string"
-            && methodName.length > 0
-            && typeof IAPPackage !== "undefined"
-            && IAPPackage
-            && typeof IAPPackage[methodName] === "function";
+    _legacyPurchaseLockPurchaseIdMap: {
+        isBigBagUnlocked: 105,
+        isBootUnlocked: 106,
+        isDogHouseUnlocked: 107
+    },
+    _getLegacyPurchaseLockPurchaseId: function (checkFn) {
+        return typeof checkFn === "string"
+            && ContentBlueprint._legacyPurchaseLockPurchaseIdMap.hasOwnProperty(checkFn)
+            ? ContentBlueprint._legacyPurchaseLockPurchaseIdMap[checkFn]
+            : null;
     },
     _hasValidPurchaseLock: function (purchaseLock) {
         if (!purchaseLock
@@ -405,13 +409,20 @@ var ContentBlueprint = {
             || !ContentBlueprint._hasOnlyKnownKeys(purchaseLock, ["purchaseId", "checkFn"])) {
             return false;
         }
-        if (!ContentBlueprint._hasIAPMethod(purchaseLock.checkFn)) {
+        var legacyPurchaseLockPurchaseId = ContentBlueprint._getLegacyPurchaseLockPurchaseId(purchaseLock.checkFn);
+        if (purchaseLock.checkFn !== undefined && legacyPurchaseLockPurchaseId === null) {
             return false;
         }
         if (purchaseLock.purchaseId === undefined) {
             return true;
         }
-        return ContentBlueprint._hasPurchaseConfig(purchaseLock.purchaseId);
+        if (!ContentBlueprint._hasPurchaseConfig(purchaseLock.purchaseId)) {
+            return false;
+        }
+        if (legacyPurchaseLockPurchaseId === null) {
+            return true;
+        }
+        return parseInt(purchaseLock.purchaseId) === legacyPurchaseLockPurchaseId;
     },
     _hasValidRuntimeRule: function (runtimeRule) {
         if (!runtimeRule
@@ -542,7 +553,7 @@ var ContentBlueprint = {
             },
             {
                 name: "角色名称文案",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     var roleConfig = ContentBlueprint._getRoleConfig(id);
@@ -551,7 +562,7 @@ var ContentBlueprint = {
             },
             {
                 name: "角色描述文案",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     var roleConfig = ContentBlueprint._getRoleConfig(id);
@@ -566,7 +577,7 @@ var ContentBlueprint = {
             },
             {
                 name: "角色效果文案",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: false,
                 validator: function (id) {
                     var roleConfig = ContentBlueprint._getRoleConfig(id);
@@ -1030,7 +1041,7 @@ var ContentBlueprint = {
             },
             {
                 name: "天赋文案",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     return ContentBlueprint._hasStringText("p_" + id, "name")
@@ -1055,7 +1066,7 @@ var ContentBlueprint = {
             },
             {
                 name: "物品名称文案",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     return ContentBlueprint._hasStringText(id, "title");
@@ -1063,7 +1074,7 @@ var ContentBlueprint = {
             },
             {
                 name: "物品描述文案",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     return ContentBlueprint._hasStringText(id, "des");
@@ -1117,7 +1128,7 @@ var ContentBlueprint = {
             },
             {
                 name: "绔欑偣鍚嶇О鏂囨",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     return ContentBlueprint._hasStringText("site_" + id, "name");
@@ -1125,7 +1136,7 @@ var ContentBlueprint = {
             },
             {
                 name: "绔欑偣鎻忚堪鏂囨",
-                file: "data/string/string_zh.js / string_en.js",
+                file: "data/string/string_zh.js",
                 required: true,
                 validator: function (id) {
                     return ContentBlueprint._hasStringText("site_" + id, "des");

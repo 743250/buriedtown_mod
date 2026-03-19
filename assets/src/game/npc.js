@@ -160,48 +160,104 @@ var NPC = BaseSite.extend({
             : NaN;
         return threshold > 0 ? threshold : 10;
     },
-    _getFavorGiftValue: function () {
-        var value = typeof npcGiftConfig !== "undefined" && npcGiftConfig
-            ? Number(npcGiftConfig.favorGiftValue)
+    _getFavorGiftRatio: function () {
+        var ratio = typeof npcGiftConfig !== "undefined" && npcGiftConfig
+            ? Number(npcGiftConfig.favorGiftRatio)
             : NaN;
-        if (value > 0) {
-            return value;
-        }
-        value = typeof npcGiftConfig !== "undefined" && npcGiftConfig
-            ? Number(npcGiftConfig.produceValue)
-            : NaN;
-        return value > 0 ? value : 4;
+        return ratio > 0 ? ratio : 0.5;
     },
     _getFavorGiftProduceList: function () {
-        if (typeof npcGiftConfig === "undefined" || !npcGiftConfig) {
+        if (Array.isArray(this._favorGiftProduceListCache)) {
+            return this._favorGiftProduceListCache;
+        }
+
+        var weightMap = {};
+        var collectGiftWeight = function (giftInfo) {
+            if (!giftInfo || !giftInfo.hasOwnProperty("itemId")) {
+                return;
+            }
+            var itemId = parseInt(giftInfo.itemId, 10);
+            var num = Number(giftInfo.num);
+            var itemData = itemConfig[itemId];
+            if (isNaN(itemId) || !(num > 0) || !itemData) {
+                return;
+            }
+
+            var unitValue = Number(itemData.value);
+            var weight = unitValue > 0 ? Math.round(unitValue * num) : Math.round(num);
+            if (!(weight > 0)) {
+                weight = 1;
+            }
+            weightMap[itemId] = (weightMap[itemId] || 0) + weight;
+        };
+
+        this.giftInfo.forEach(collectGiftWeight);
+        this.giftExtraInfo.forEach(collectGiftWeight);
+
+        this._favorGiftProduceListCache = Object.keys(weightMap).map(function (itemId) {
+            return {
+                itemId: itemId,
+                weight: weightMap[itemId]
+            };
+        });
+        return this._favorGiftProduceListCache;
+    },
+    _getFavorGiftMinItemValue: function () {
+        if (this._favorGiftMinItemValueCache !== undefined) {
+            return this._favorGiftMinItemValueCache;
+        }
+
+        var minValue = Infinity;
+        this._getFavorGiftProduceList().forEach(function (itemInfo) {
+            var itemId = parseInt(itemInfo.itemId, 10);
+            var itemData = itemConfig[itemId];
+            var value = itemData ? Number(itemData.value) : NaN;
+            if (value > 0 && value < minValue) {
+                minValue = value;
+            }
+        });
+
+        this._favorGiftMinItemValueCache = isFinite(minValue) ? minValue : 0;
+        return this._favorGiftMinItemValueCache;
+    },
+    _getFavorGiftTargetValue: function () {
+        var threshold = this._getGiftProgressThreshold();
+        var ratio = this._getFavorGiftRatio();
+        if (!(threshold > 0) || !(ratio > 0) || this.giftProgress < threshold) {
+            return 0;
+        }
+        return Number((this.giftProgress * ratio).toFixed(3));
+    },
+    _canSendFavorGift: function () {
+        var targetValue = this._getFavorGiftTargetValue();
+        var minItemValue = this._getFavorGiftMinItemValue();
+        return targetValue > 0
+            && minItemValue > 0
+            && targetValue >= minItemValue
+            && this._getFavorGiftProduceList().length > 0;
+    },
+    _buildFavorGiftItems: function () {
+        var produceList = this._getFavorGiftProduceList();
+        var targetValue = this._getFavorGiftTargetValue();
+        if (!this._canSendFavorGift() || !Array.isArray(produceList) || produceList.length === 0) {
             return [];
         }
-        if (Array.isArray(npcGiftConfig.favorGiftList) && npcGiftConfig.favorGiftList.length) {
-            return npcGiftConfig.favorGiftList;
-        }
-        if (Array.isArray(npcGiftConfig.produceList) && npcGiftConfig.produceList.length) {
-            return npcGiftConfig.produceList;
-        }
-        return [];
-    },
-    _queueFavorGift: function () {
-        var produceValue = this._getFavorGiftValue();
-        var produceList = this._getFavorGiftProduceList();
-        if (!(produceValue > 0) || !Array.isArray(produceList) || produceList.length === 0) {
-            return false;
-        }
 
-        var giftItemIds = utils.getFixedValueItemIds(produceValue, produceList);
+        var giftItemIds = utils.getFixedValueItemIds(targetValue, produceList);
         var giftItems = utils.convertItemIds2Item(giftItemIds);
         if (!giftItems.length) {
-            return false;
+            return [];
+        }
+        return giftItems;
+    },
+    _consumeFavorGiftItems: function () {
+        var giftItems = this._buildFavorGiftItems();
+        if (!giftItems.length) {
+            return [];
         }
 
-        this.needSendGiftList["item"] = this.needSendGiftList["item"] || [];
-        giftItems.forEach(function (gift) {
-            this.needSendGiftList["item"].push(gift);
-        }, this);
-        return true;
+        this.giftProgress = 0;
+        return giftItems;
     },
     _getItemListTotalPrice: function (itemList) {
         if (!Array.isArray(itemList) || itemList.length === 0) {
@@ -238,19 +294,10 @@ var NPC = BaseSite.extend({
         }
 
         this.giftProgress = Number((this.giftProgress + value).toFixed(3));
-        var didQueueGift = false;
-        while (this.giftProgress >= threshold) {
-            this.giftProgress = Number((this.giftProgress - threshold).toFixed(3));
-            if (!this._queueFavorGift()) {
-                this.giftProgress = 0;
-                break;
-            }
-            didQueueGift = true;
-        }
         if (Math.abs(this.giftProgress) < 0.001) {
             this.giftProgress = 0;
         }
-        return didQueueGift;
+        return this._canSendFavorGift();
     },
     addGiftProgressByItems: function (itemList) {
         return this.addGiftProgress(this._getItemListTotalPrice(itemList));
@@ -416,11 +463,53 @@ var NPC = BaseSite.extend({
     },
 
     needSendGift: function () {
-        return Object.keys(this.needSendGiftList).length > 0;
+        var itemGiftList = this.needSendGiftList["item"];
+        if (Array.isArray(itemGiftList) && itemGiftList.length > 0) {
+            return true;
+        }
+
+        var siteGiftList = this.needSendGiftList["site"];
+        if (Array.isArray(siteGiftList) && siteGiftList.length > 0) {
+            return true;
+        }
+
+        return this._canSendFavorGift();
+    },
+    consumeGiftBatch: function () {
+        var itemGifts = [];
+        if (Array.isArray(this.needSendGiftList["item"]) && this.needSendGiftList["item"].length > 0) {
+            itemGifts = itemGifts.concat(this.needSendGiftList["item"]);
+        }
+        delete this.needSendGiftList["item"];
+
+        var favorGiftItems = this._consumeFavorGiftItems();
+        if (favorGiftItems.length > 0) {
+            itemGifts = itemGifts.concat(favorGiftItems);
+        }
+
+        if (itemGifts.length > 0) {
+            return {
+                type: "item",
+                gifts: itemGifts
+            };
+        }
+
+        var siteGiftList = this.needSendGiftList["site"];
+        delete this.needSendGiftList["site"];
+        if (Array.isArray(siteGiftList) && siteGiftList.length > 0) {
+            return {
+                type: "site",
+                gifts: siteGiftList
+            };
+        }
+
+        return null;
     },
     sendGift: function () {
         cc.i("sendGift");
-        uiUtil.showNpcSendGiftDialog(this);
+        if (this.needSendGift()) {
+            uiUtil.showNpcSendGiftDialog(this);
+        }
     },
     needHelp: function () {
         cc.i("needHelp");

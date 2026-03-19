@@ -10,6 +10,12 @@ var BattleEquipmentSystem = (function () {
         LINE_LENGTH: 6,
         BULLET_ID: 1305011
     };
+    var roundBattleTime = function (value) {
+        return Number((Number(value) || 0).toFixed(3));
+    };
+    var addBattleTime = function (start, delta) {
+        return roundBattleTime((Number(start) || 0) + (Number(delta) || 0));
+    };
     var EQUIPMENT_KIND = {
         BOMB: "bomb",
         TRAP: "trap",
@@ -33,14 +39,17 @@ var BattleEquipmentSystem = (function () {
             1301063: "ATTACK_5"
         }
     };
+    var getTalentService = function () {
+        return (typeof TalentService !== "undefined" && TalentService) ? TalentService : null;
+    };
 
     var callTalentRuntime = function (methodName, defaultValue) {
         var args = Array.prototype.slice.call(arguments, 2);
+        var talentService = getTalentService();
         try {
-            if (typeof TalentService !== "undefined"
-                && TalentService
-                && typeof TalentService[methodName] === "function") {
-                return TalentService[methodName].apply(TalentService, args);
+            if (talentService
+                && typeof talentService[methodName] === "function") {
+                return talentService[methodName].apply(talentService, args);
             }
         } catch (e) {
             cc.error("BattleEquipmentSystem talent runtime call failed: " + methodName + ", " + e);
@@ -81,6 +90,25 @@ var BattleEquipmentSystem = (function () {
         }
 
         return adjustedPrecise;
+    };
+    var getShotCountFromWeaponAttr = function (attr) {
+        attr = attr || {};
+        var minShots = Number(attr.bulletMin);
+        var maxShots = Number(attr.bulletMax);
+
+        if (!(maxShots > 0)) {
+            return 0;
+        }
+        if (!(minShots > 0)) {
+            minShots = maxShots;
+        }
+        if (minShots > maxShots) {
+            minShots = maxShots;
+        }
+        if (minShots === maxShots) {
+            return maxShots;
+        }
+        return Math.floor(Math.random() * (maxShots - minShots + 1)) + minShots;
     };
 
     var getItemTypePrefix = function (itemId) {
@@ -154,43 +182,63 @@ var BattleEquipmentSystem = (function () {
                 this.itemConfig.name = elitePistolDisplay.title;
             }
 
-            this.isInAtkCD = false;
+            this.cooldownEndsAt = 0;
         },
-        action: function () {
-            if (this.isInAtkCD) {
+        resolveBattleTime: function (battleTime) {
+            battleTime = Number(battleTime);
+            if (battleTime >= 0) {
+                return battleTime;
+            }
+            if (this.battlePlayer && typeof this.battlePlayer.getBattleTime === "function") {
+                return this.battlePlayer.getBattleTime();
+            }
+            return 0;
+        },
+        isCooldownActive: function (battleTime) {
+            battleTime = this.resolveBattleTime(battleTime);
+            return this.cooldownEndsAt > battleTime;
+        },
+        action: function (battleTime) {
+            battleTime = this.resolveBattleTime(battleTime);
+            if (this.isCooldownActive(battleTime)) {
                 return false;
             }
             if (this.usesSharedAttackCooldown()
                 && this.battlePlayer
                 && typeof this.battlePlayer.isInSharedAttackCooldown === "function"
-                && this.battlePlayer.isInSharedAttackCooldown()) {
+                && this.battlePlayer.isInSharedAttackCooldown(battleTime)) {
                 return false;
             }
             cc.d(this.itemConfig.name + " action");
             if (this.beforeCd() === false) {
                 return false;
             }
-            this.isInAtkCD = true;
+            var cooldown = this.getCooldownDuration();
+            if (this.usesSharedAttackCooldown()
+                && this.battlePlayer
+                && typeof this.battlePlayer.enterSharedAttackCooldown === "function") {
+                this.battlePlayer.enterSharedAttackCooldown(cooldown, battleTime);
+            }
+            this.cooldownEndsAt = addBattleTime(battleTime, cooldown);
+            return true;
+        },
+        getCooldownDuration: function () {
             var atkCD = Number(this.attr && this.attr.atkCD);
             if (!(atkCD > 0)) {
                 atkCD = 0.1;
             }
-            var cooldown = atkCD * player.vigourEffect();
-            if (this.usesSharedAttackCooldown()
-                && this.battlePlayer
-                && typeof this.battlePlayer.enterSharedAttackCooldown === "function") {
-                this.battlePlayer.enterSharedAttackCooldown(cooldown);
+            return roundBattleTime(atkCD * player.vigourEffect());
+        },
+        update: function (battleTime) {
+            battleTime = this.resolveBattleTime(battleTime);
+            if (!(this.cooldownEndsAt > 0) || battleTime < this.cooldownEndsAt) {
+                return;
             }
-            var self = this;
-            var finishCooldown = function () {
-                self.isInAtkCD = false;
-                cc.director.getScheduler().unscheduleCallbackForTarget(self, finishCooldown);
-                if (!self.battlePlayer.battle.isBattleEnd) {
-                    self.afterCd();
-                }
-            };
-            cc.director.getScheduler().scheduleCallbackForTarget(this, finishCooldown, cooldown, 1);
-            return true;
+            this.cooldownEndsAt = 0;
+            if (!this.battlePlayer || !this.battlePlayer.battle || this.battlePlayer.battle.isBattleEnd) {
+                return;
+            }
+            this.afterCd();
         },
         _action: function () {
         },
@@ -335,7 +383,8 @@ var BattleEquipmentSystem = (function () {
             var hasRecordedUse = false;
             if (monster && this.isInRange(monster)) {
                 this.atkTimes = 0;
-                for (var i = 0; i < this.attr.bulletMax; i++) {
+                var shotCount = getShotCountFromWeaponAttr(this.attr);
+                for (var i = 0; i < shotCount; i++) {
                     if (this.isEnough() && !monster.isDie()) {
                         if (!hasRecordedUse) {
                             this.battlePlayer.battle.recordWeaponUse(1);
@@ -358,7 +407,6 @@ var BattleEquipmentSystem = (function () {
             var dtLineIndex = CONFIG.LINE_LENGTH - 1 - monster.line.index;
             var precise = this.attr.precise + this.attr.dtPrecise * dtLineIndex;
             var deathHit = this.attr.deathHit + this.attr.dtDeathHit * dtLineIndex;
-
             precise = applyTalentPreciseBonus(precise);
             deathHit = callTalentRuntime("getHeadshotEffect", deathHit, deathHit);
             if (callTalentRuntime("isElitePistolItem", false, this.id)) {
@@ -406,7 +454,8 @@ var BattleEquipmentSystem = (function () {
             var hasRecordedUse = false;
             if (monster && this.isInRange(monster)) {
                 this.atkTimes = 0;
-                for (var i = 0; i < this.attr.bulletMax; i++) {
+                var shotCount = getShotCountFromWeaponAttr(this.attr);
+                for (var i = 0; i < shotCount; i++) {
                     if (this.isEnough() && !monster.isDie()) {
                         if (!hasRecordedUse) {
                             this.battlePlayer.battle.recordWeaponUse(1);

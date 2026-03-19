@@ -174,7 +174,7 @@ function createRuntime(lang) {
 
 function expandLanguages(lang) {
     if (!lang || lang === "both") {
-        return ["zh", "en"];
+        return ["zh"];
     }
     return [lang];
 }

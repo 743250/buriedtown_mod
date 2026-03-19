@@ -27,6 +27,9 @@ var getSiteRuntimePlayer = function () {
         ? GameRuntime.getPlayer()
         : ((typeof player !== "undefined" && player) ? player : null);
 };
+var getSiteTalentService = function () {
+    return (typeof TalentService !== "undefined" && TalentService) ? TalentService : null;
+};
 
 var hasExternalSiteServices = typeof SiteRewardService !== "undefined" && SiteRewardService
     && typeof SiteRoomGenerator !== "undefined" && SiteRoomGenerator;
@@ -34,11 +37,11 @@ var hasExternalSiteServices = typeof SiteRewardService !== "undefined" && SiteRe
 var siteRewardServiceRef = hasExternalSiteServices ? SiteRewardService : {
     buildWorkRoomLoot: function (itemIds) {
         var roomItemIds = itemIds ? itemIds.slice() : [];
+        var talentService = getSiteTalentService();
         var scavengerDoubleTriggered = roomItemIds.length > 0
-            && typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.rollScavengerDoubleDrop === "function"
-            && TalentService.rollScavengerDoubleDrop();
+            && talentService
+            && typeof talentService.rollScavengerDoubleDrop === "function"
+            && talentService.rollScavengerDoubleDrop();
         if (scavengerDoubleTriggered) {
             roomItemIds = roomItemIds.concat(roomItemIds);
         }

@@ -15,6 +15,9 @@ var BattleConfig = {
     //现实距离,m
     MAX_REAL_DISTANCE: 1000,
     REAL_DISTANCE_PER_LINE: 100,
+    PLAYER_UPDATE_INTERVAL: 0.1,
+    MONSTER_MOVE_INTERVAL: 1,
+    MAX_CLOCK_STEP: 0.25,
     //逃生时间
     ESCAPE_TIME: 1.5,
     BULLET_ID: 1305011,
@@ -44,6 +47,13 @@ var getBattleRuntimeEmitter = function () {
     return utils.emitter;
 };
 
+var getBattleTimestampMs = function () {
+    if (typeof Date !== "undefined" && Date && typeof Date.now === "function") {
+        return Date.now();
+    }
+    return new Date().getTime();
+};
+
 var Battle = cc.Class.extend({
     ctor: function (battleInfo, isDodge) {
         cc.log(JSON.stringify(battleInfo));
@@ -71,21 +81,19 @@ var Battle = cc.Class.extend({
         }
         this.processLog(stringUtil.getString(1045, this.monsters.length));
 
-        cc.director.getScheduler().scheduleCallbackForTarget(this, this.updateMonster, 1, cc.REPEAT_FOREVER);
-        cc.director.getScheduler().scheduleCallbackForTarget(this, this.updatePlayer, 0.1, cc.REPEAT_FOREVER);
-        if (this.isDodge) {
-            this.dodgeTime = 5;
-            this.dodgePassTime = 0;
-            this.dodgeTickInterval = 0.1;
-            cc.director.getScheduler().scheduleCallbackForTarget(this, this.dodgeEnd, this.dodgeTickInterval, cc.REPEAT_FOREVER);
-        }
-
         this.player = new BattleActors.Player(this, BattleActors.createBattlePlayerSnapshot({
             testBattleConfig: testBattleConfig,
             bulletItemId: BattleConfig.BULLET_ID
         }), createBattleRuntimeConfig());
 
         this.isMonsterStop = false;
+        this.monsterMoveAccumulator = 0;
+        this.battleTime = 0;
+        this._lastBattleTickAtMs = getBattleTimestampMs();
+        if (this.isDodge) {
+            this.dodgeTime = 5;
+            this.dodgePassTime = 0;
+        }
 
         this.summary = new BattleSummary(this.battleInfo.id, this.isDodge);
         this.sumRes = this.summary.getData();
@@ -94,32 +102,95 @@ var Battle = cc.Class.extend({
         audioManager.insertMusic(audioManager.music.BATTLE);
 
         this.isBattleEnd = false;
+        cc.director.getScheduler().scheduleCallbackForTarget(
+            this,
+            this.updateBattle,
+            BattleConfig.PLAYER_UPDATE_INTERVAL,
+            cc.REPEAT_FOREVER
+        );
     },
-    dodgeEnd: function (dt) {
-        // In battle dialogs the game timer may be paused, which can make scheduler dt 0/undefined.
-        // Fall back to the configured tick interval so dodge progress always advances.
-        var delta = (typeof dt === "number" && isFinite(dt) && dt > 0) ? dt : (this.dodgeTickInterval || 0.1);
+    _resolveElapsedTime: function (dt) {
+        var fallback = Number(dt);
+        if (!(fallback > 0)) {
+            fallback = BattleConfig.PLAYER_UPDATE_INTERVAL;
+        }
+
+        var nowMs = getBattleTimestampMs();
+        var deltaMs = nowMs - this._lastBattleTickAtMs;
+        this._lastBattleTickAtMs = nowMs;
+
+        if (!(deltaMs > 0) || !isFinite(deltaMs)) {
+            deltaMs = fallback * 1000;
+        }
+
+        var maxStepMs = BattleConfig.MAX_CLOCK_STEP * 1000;
+        if (deltaMs > maxStepMs) {
+            deltaMs = maxStepMs;
+        }
+
+        var delta = Number((deltaMs / 1000).toFixed(3));
+        if (!(delta > 0)) {
+            delta = fallback;
+        }
+        this.battleTime = Number((this.battleTime + delta).toFixed(3));
+        return delta;
+    },
+    getBattleTime: function () {
+        return this.battleTime || 0;
+    },
+    _advanceDodge: function (delta) {
         this.dodgePassTime += delta;
         var percentage = Math.min(this.dodgePassTime / this.dodgeTime * 100, 100);
         getBattleRuntimeEmitter().emit(Battle.EVENTS.DODGE_PERCENTAGE, percentage);
         if (this.dodgePassTime >= this.dodgeTime) {
-
             this.gameEnd(true);
         }
     },
-    updatePlayer: function (dt) {
-        //cc.log("updatePlayer");
-        if (!this.isDodge) {
-            this.player.action();
+    _advanceMonsterMovement: function (delta) {
+        if (this.isMonsterStop) {
+            return;
         }
-    },
-    updateMonster: function (dt) {
-        //cc.log("updateMonster");
-        if (!this.isMonsterStop) {
+
+        this.monsterMoveAccumulator = Number((this.monsterMoveAccumulator + delta).toFixed(3));
+        while (this.monsterMoveAccumulator >= BattleConfig.MONSTER_MOVE_INTERVAL) {
+            this.monsterMoveAccumulator = Number((this.monsterMoveAccumulator - BattleConfig.MONSTER_MOVE_INTERVAL).toFixed(3));
             this.monsters.forEach(function (mon) {
                 mon.move();
             });
         }
+    },
+    _advanceMonsterCombat: function () {
+        var battleTime = this.getBattleTime();
+        this.monsters.forEach(function (mon) {
+            if (typeof mon.advanceCombat === "function") {
+                mon.advanceCombat(battleTime);
+            }
+        });
+    },
+    updateBattle: function (dt) {
+        if (this.isBattleEnd) {
+            return;
+        }
+        var delta = this._resolveElapsedTime(dt);
+        if (this.isDodge) {
+            this._advanceDodge(delta);
+            if (this.isBattleEnd) {
+                return;
+            }
+        }
+        if (this.player && typeof this.player.update === "function") {
+            this.player.update(this.getBattleTime(), {
+                autoAction: !this.isDodge
+            });
+            if (this.isBattleEnd) {
+                return;
+            }
+        }
+        this._advanceMonsterMovement(delta);
+        if (this.isBattleEnd) {
+            return;
+        }
+        this._advanceMonsterCombat();
     },
     getLineCapacity: function (line) {
         if (!line) {
@@ -207,11 +278,7 @@ var Battle = cc.Class.extend({
         cc.e(this.battleInfo.id + " gameEnd " + isWin);
         cc.e(JSON.stringify(this.sumRes));
         this.isMonsterStop = true;
-        cc.director.getScheduler().unscheduleCallbackForTarget(this, this.updateMonster);
-        cc.director.getScheduler().unscheduleCallbackForTarget(this, this.updatePlayer);
-        if (this.isDodge) {
-            cc.director.getScheduler().unscheduleCallbackForTarget(this, this.dodgeEnd);
-        }
+        cc.director.getScheduler().unscheduleCallbackForTarget(this, this.updateBattle);
         BattleActors.resetMonsterIds();
         BattleSettlementService.settle({
             isWin: isWin,

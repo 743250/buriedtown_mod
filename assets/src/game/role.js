@@ -246,6 +246,12 @@ var role = {
             return true;
         }
 
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isRoleUnlocked === "function") {
+            return PurchaseService.isRoleUnlocked(roleType);
+        }
+
         var exchangeId = this.getExchangeIdByRoleType(roleType);
         if (!exchangeId) {
             return !this.isRolePurchaseRequired(roleType);

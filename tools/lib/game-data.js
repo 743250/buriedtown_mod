@@ -44,7 +44,6 @@ function loadItemValidationContext(rootDir) {
     return {
         itemConfig: loadVar(path.join(resolvedRootDir, "assets/src/data/itemConfig.js"), "itemConfig"),
         zhStrings: loadVar(path.join(resolvedRootDir, "assets/src/data/string/string_zh.js"), "string"),
-        enStrings: loadVar(path.join(resolvedRootDir, "assets/src/data/string/string_en.js"), "string"),
         iconPlist: fs.readFileSync(path.join(resolvedRootDir, "assets/res/icon.plist"), "utf8"),
         digItemPlist: fs.readFileSync(path.join(resolvedRootDir, "assets/res/dig_item.plist"), "utf8")
     };

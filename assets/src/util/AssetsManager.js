@@ -156,7 +156,6 @@ var AssetsManagerLoaderScene = cc.Scene.extend({
 
 
             lanSupports.push(cc.sys.LANGUAGE_CHINESE);
-            lanSupports.push(cc.sys.LANGUAGE_ENGLISH);
             lanSupports.push(cc.sys.LANGUAGE_ARABIC);
             lanSupports.push(cc.sys.LANGUAGE_SPANISH);
             lanSupports.push(cc.sys.LANGUAGE_FRENCH);
@@ -174,7 +173,10 @@ var AssetsManagerLoaderScene = cc.Scene.extend({
                     for (var key in storagePaths) {
                         var jsFilename = jsList[key1];
                         if (jsFilename.indexOf("string.js") !== -1) {
-                            var lan = cc.sys.localStorage.getItem("language");
+                            var localStorage = cc.sys && cc.sys.localStorage;
+                            var lan = localStorage && typeof localStorage.getItem === "function"
+                                ? localStorage.getItem("language")
+                                : null;
                             if (!lan)
                                 lan = cc.sys.language;
                             cc.RTL = false;
@@ -194,13 +196,17 @@ var AssetsManagerLoaderScene = cc.Scene.extend({
                                 } else {
                                     jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_" + lan + ".js";
                                 }
-                                cc.sys.localStorage.setItem("language", lan);
+                                if (localStorage && typeof localStorage.setItem === "function") {
+                                    localStorage.setItem("language", lan);
+                                }
                             } else if (lan == "zh-Hant") {
                                 jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_zh-Hant" + ".js";
                                 cc.sys.LANGUAGE_CHINESE_HANT = true;
                             } else {
-                                jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_en.js";
-                                cc.sys.localStorage.setItem("language", "en");
+                                jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_zh.js";
+                                if (localStorage && typeof localStorage.setItem === "function") {
+                                    localStorage.setItem("language", cc.sys.LANGUAGE_CHINESE);
+                                }
                             }
                         }
                         var filename = jsFilename.substring(0, jsFilename.lastIndexOf('.'));
@@ -256,4 +262,3 @@ var AssetsManagerLoaderScene = cc.Scene.extend({
         this._super();
     }
 });
-

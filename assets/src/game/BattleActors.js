@@ -9,6 +9,12 @@ if (typeof cc === "undefined" || !cc) {
 
 var BattleActors = (function () {
     var monsterId = 0;
+    var roundBattleTime = function (value) {
+        return Number((Number(value) || 0).toFixed(3));
+    };
+    var addBattleTime = function (start, delta) {
+        return roundBattleTime((Number(start) || 0) + (Number(delta) || 0));
+    };
 
     var createBattlePlayerSnapshot = function (options) {
         options = options || {};
@@ -54,8 +60,7 @@ var BattleActors = (function () {
             this.attr = utils.clone(monsterConfig[type]);
             this.dead = false;
             this.line = null;
-            this._attackCooldownCallback = null;
-            this._isAttackScheduled = false;
+            this.attackReadyAt = 0;
         },
         playEffect: function (soundName) {
             if (this.effectId) {
@@ -63,38 +68,36 @@ var BattleActors = (function () {
             }
             this.effectId = audioManager.playEffect(soundName);
         },
-        _scheduleNextAttack: function () {
-            if (this.dead || this.battle.isBattleEnd || !this.line || !this.isInRange() || this._isAttackScheduled) {
-                return;
-            }
-
+        getAttackCooldownDuration: function () {
             var cooldown = Number(this.attr.attackSpeed);
             if (!(cooldown > 0)) {
                 cooldown = 0.1;
             }
-
-            this._isAttackScheduled = true;
-            var self = this;
-            this._attackCooldownCallback = function () {
-                self._isAttackScheduled = false;
-                cc.director.getScheduler().unscheduleCallbackForTarget(self, self._attackCooldownCallback);
-                self._attackCooldownCallback = null;
-
-                if (self.dead || self.battle.isBattleEnd || !self.line || !self.isInRange()) {
-                    return;
-                }
-
-                self.atk();
-                self._scheduleNextAttack();
-            };
-            cc.director.getScheduler().scheduleCallbackForTarget(this, this._attackCooldownCallback, cooldown, 1);
+            return cooldown;
         },
-        _cancelAttackSchedule: function () {
-            if (this._attackCooldownCallback) {
-                cc.director.getScheduler().unscheduleCallbackForTarget(this, this._attackCooldownCallback);
-                this._attackCooldownCallback = null;
+        resetAttackCadence: function () {
+            this.attackReadyAt = 0;
+        },
+        advanceCombat: function (battleTime) {
+            if (this.dead || this.battle.isBattleEnd || !this.line || !this.isInRange()) {
+                this.resetAttackCadence();
+                return;
             }
-            this._isAttackScheduled = false;
+
+            if (!(this.attackReadyAt > 0)) {
+                this.attackReadyAt = addBattleTime(battleTime, this.getAttackCooldownDuration());
+                return;
+            }
+            if (battleTime < this.attackReadyAt) {
+                return;
+            }
+
+            this.atk();
+            if (this.dead || this.battle.isBattleEnd || !this.line || !this.isInRange()) {
+                this.resetAttackCadence();
+                return;
+            }
+            this.attackReadyAt = addBattleTime(battleTime, this.getAttackCooldownDuration());
         },
         move: function () {
             var targetLine;
@@ -117,9 +120,8 @@ var BattleActors = (function () {
             if (targetLine && !this.battle.isLineFull(targetLine)) {
                 this.moveToLine(targetLine);
             }
-
-            if (this.line && this.isInRange()) {
-                this._scheduleNextAttack();
+            if (!this.line || !this.isInRange()) {
+                this.resetAttackCadence();
             }
         },
         moveToLine: function (line) {
@@ -156,7 +158,7 @@ var BattleActors = (function () {
             var battlePlayer = this.battle.player;
             battlePlayer.underAtk(this);
             if (battlePlayer.isDie()) {
-                this._cancelAttackSchedule();
+                this.resetAttackCadence();
             }
         },
         underAtk: function (obj) {
@@ -195,7 +197,7 @@ var BattleActors = (function () {
             this.battle.recordMonsterKill();
             cc.e("monster " + this.id + " die");
             this.dead = true;
-            this._cancelAttackSchedule();
+            this.resetAttackCadence();
             this.battle.removeMonster(this);
             if (obj instanceof BattleEquipmentSystem.Bomb) {
                 obj.deadMonsterNum++;
@@ -229,45 +231,78 @@ var BattleActors = (function () {
 
             this.bulletNum = playerObj.bulletNum;
             this.toolNum = playerObj.toolNum;
-            this.sharedAttackCooldown = false;
-            this._sharedAttackCooldownCallback = null;
+            this.sharedAttackReadyAt = 0;
+            this.escapeReadyAt = 0;
 
             this.weapon1 = BattleEquipmentSystem.createEquipment(playerObj.weapon1, this);
             this.weapon2 = BattleEquipmentSystem.createEquipment(playerObj.weapon2, this);
             this.equip = BattleEquipmentSystem.createEquipment(playerObj.equip, this);
         },
-        _safeActionStep: function (actionFn, stepName) {
+        getBattleTime: function () {
+            if (!this.battle || typeof this.battle.getBattleTime !== "function") {
+                return 0;
+            }
+            return this.battle.getBattleTime();
+        },
+        _resolveBattleTime: function (battleTime) {
+            battleTime = Number(battleTime);
+            if (!(battleTime >= 0)) {
+                return this.getBattleTime();
+            }
+            return battleTime;
+        },
+        _safeActionStep: function (actionFn, stepName, battleTime) {
             try {
-                actionFn.call(this);
+                actionFn.call(this, battleTime);
             } catch (e) {
                 cc.error("BattlePlayer action step failed (" + stepName + "): " + e);
             }
         },
-        action: function () {
-            this._safeActionStep(this.useWeapon1, "weapon1");
-            this._safeActionStep(this.useWeapon2, "weapon2");
-            this._safeActionStep(this.useEquip, "equip");
+        action: function (battleTime) {
+            battleTime = this._resolveBattleTime(battleTime);
+            this._safeActionStep(this.useWeapon1, "weapon1", battleTime);
+            this._safeActionStep(this.useWeapon2, "weapon2", battleTime);
+            this._safeActionStep(this.useEquip, "equip", battleTime);
         },
-        isInSharedAttackCooldown: function () {
-            return this.sharedAttackCooldown === true;
+        _updateEscape: function (battleTime) {
+            if (!(this.escapeReadyAt > 0)) {
+                this.escapeReadyAt = 0;
+                return;
+            }
+            if (battleTime < this.escapeReadyAt) {
+                return;
+            }
+            this.escapeReadyAt = 0;
+            this.escapeAction();
         },
-        enterSharedAttackCooldown: function (cooldown) {
+        _updateEquipment: function (equipment, battleTime) {
+            if (!equipment || typeof equipment.update !== "function") {
+                return;
+            }
+            equipment.update(battleTime);
+        },
+        update: function (battleTime, options) {
+            battleTime = this._resolveBattleTime(battleTime);
+            options = options || {};
+            this._updateEscape(battleTime);
+            this._updateEquipment(this.weapon1, battleTime);
+            this._updateEquipment(this.weapon2, battleTime);
+            this._updateEquipment(this.equip, battleTime);
+            if (options.autoAction === false) {
+                return;
+            }
+            this.action(battleTime);
+        },
+        isInSharedAttackCooldown: function (battleTime) {
+            battleTime = this._resolveBattleTime(battleTime);
+            return this.sharedAttackReadyAt > battleTime;
+        },
+        enterSharedAttackCooldown: function (cooldown, battleTime) {
             if (!(cooldown > 0)) {
                 cooldown = 0.1;
             }
-
-            this.sharedAttackCooldown = true;
-            if (this._sharedAttackCooldownCallback) {
-                cc.director.getScheduler().unscheduleCallbackForTarget(this, this._sharedAttackCooldownCallback);
-            }
-
-            var self = this;
-            this._sharedAttackCooldownCallback = function () {
-                self.sharedAttackCooldown = false;
-                cc.director.getScheduler().unscheduleCallbackForTarget(self, self._sharedAttackCooldownCallback);
-                self._sharedAttackCooldownCallback = null;
-            };
-            cc.director.getScheduler().scheduleCallbackForTarget(this, this._sharedAttackCooldownCallback, cooldown, 1);
+            battleTime = this._resolveBattleTime(battleTime);
+            this.sharedAttackReadyAt = addBattleTime(battleTime, cooldown);
         },
         getPlayerDodgeRate: function () {
             return CombatResolver.normalizeRate(this.runtimeConfig && this.runtimeConfig.playerDodgeRate, 0);
@@ -312,35 +347,42 @@ var BattleActors = (function () {
         isDie: function () {
             return this.hp <= 0;
         },
-        useWeapon1: function () {
+        useWeapon1: function (battleTime) {
             if (!this.weapon1) {
                 return;
             }
-            this.weapon1.action();
-            this.interruptEscape();
+            if (this.weapon1.action(battleTime)) {
+                this.interruptEscape();
+            }
         },
-        useWeapon2: function () {
+        useWeapon2: function (battleTime) {
             if (!this.weapon2) {
                 return;
             }
-            this.weapon2.action();
-            this.interruptEscape();
+            if (this.weapon2.action(battleTime)) {
+                this.interruptEscape();
+            }
         },
-        useEquip: function () {
+        useEquip: function (battleTime) {
             if (!this.equip) {
                 return;
             }
-            this.equip.action();
-            this.interruptEscape();
+            if (this.equip.action(battleTime)) {
+                this.interruptEscape();
+            }
         },
         escape: function () {
-            cc.director.getScheduler().scheduleCallbackForTarget(this, this.escapeAction, this.runtimeConfig.escapeTime, 1);
+            var escapeTime = Number(this.runtimeConfig.escapeTime);
+            if (!(escapeTime > 0)) {
+                escapeTime = 0.1;
+            }
+            this.escapeReadyAt = addBattleTime(this.getBattleTime(), escapeTime);
         },
         escapeAction: function () {
             this.battle.gameEnd(false);
         },
         interruptEscape: function () {
-            cc.director.getScheduler().unscheduleCallbackForTarget(this, this.escapeAction);
+            this.escapeReadyAt = 0;
         }
     });
 

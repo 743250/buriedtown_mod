@@ -81,13 +81,17 @@ var NpcDialogHelper = {
             target: npc
         };
 
-        var gifts;
-        var isItem;
-        if (npc.needSendGiftList["item"]) {
-            isItem = true;
-            gifts = npc.needSendGiftList["item"];
-            delete npc.needSendGiftList["item"];
+        var giftBatch = typeof npc.consumeGiftBatch === "function"
+            ? npc.consumeGiftBatch()
+            : null;
+        if (!giftBatch || !Array.isArray(giftBatch.gifts) || giftBatch.gifts.length === 0) {
+            return;
+        }
 
+        var gifts = giftBatch.gifts;
+        var isItem = giftBatch.type === "item";
+        if (isItem) {
+            isItem = true;
             var itemMap = {};
             gifts.forEach(function (item) {
                 itemMap[item.itemId] = itemMap[item.itemId] || 0;
@@ -102,10 +106,6 @@ var NpcDialogHelper = {
                 player.log.addMsg(1103, gift.num, stringUtil.getString(gift.itemId).title, player.storage.getNumByItemId(gift.itemId));
             });
         } else {
-            isItem = false;
-            gifts = npc.needSendGiftList["site"];
-            delete npc.needSendGiftList["site"];
-
             config.content.des = stringUtil.getString(1070);
             gifts.forEach(function (gift) {
                 var siteName = stringUtil.getString("site_" + gift.siteId).name;

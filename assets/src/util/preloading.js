@@ -8,12 +8,17 @@ var loadJSForH5 = function () {
             var jsFilename = jsList[key];
             if (jsFilename.indexOf("string.js") !== -1) {
                 var lan = cc.sys.language;
+                var localStorage = cc.sys && cc.sys.localStorage;
                 if (lan === cc.sys.LANGUAGE_CHINESE) {
                     jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_" + lan + ".js";
+                    if (localStorage && typeof localStorage.setItem === "function") {
+                        localStorage.setItem("language", cc.sys.LANGUAGE_CHINESE);
+                    }
                 } else {
-                    //todo 暂时屏蔽英文
                     jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_zh.js";
-                    //jsFilename = jsFilename.substring(0, jsFilename.lastIndexOf('.')) + "_en.js";
+                    if (localStorage && typeof localStorage.setItem === "function") {
+                        localStorage.setItem("language", cc.sys.LANGUAGE_CHINESE);
+                    }
                 }
             }
             fileList.push(jsFilename);

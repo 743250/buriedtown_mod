@@ -106,6 +106,28 @@
 - `talentConfigTable.js`
 - `configValidator.js`
 
+### 2.5 T版带来的补充判断
+
+- 这次对 `T版游戏assets` 的对比结论很明确：
+  - 值得借鉴的不是旧核心实现方式，而是“侧功能独立打包”的方法
+  - 不值得借鉴的是页面直连业务、全局状态和存档的老写法
+- 对当前仓库最有价值的 4 类经验：
+  - 一个侧功能尽量带齐入口、文案、资源、最小状态入口和最小说明，而不是只补一个页面
+  - 成就 / 兑换、关于 / 社区、备份 / 恢复、特殊剧情页 / 商人页这类功能，适合做成低耦合独立功能包
+  - 菜单 / 导航上的入口要可发现，不能只让能力存在于底层 service 或隐藏按钮
+  - 外围功能的数据导入导出应有正式入口，而不是长期依赖散落在旧页面里的临时逻辑
+- 后续如果借鉴 T版，只采纳这些“方式”：
+  - `独立 scene / node + 局部 service / config + 文案 / 资源配套`
+  - `MenuScene / dialog / bottom navigation` 作为显式入口层
+  - 最小验证和说明跟功能一起落地
+- 明确不回流的旧做法：
+  - 页面直接读写 `localStorage`
+  - 页面直接操作 `player`、`Achievement`、`Medal` 等全局对象完成业务决策
+  - 用大段 `setTimeout` + 显隐脚本硬编排剧情流转
+  - 把购买 / 兑换主配置重新放回 `data` 层
+- 当前仓库在 `medal.js`、`MedalSceneView.js`、`PurchaseService.js` 这一层已经比 T版更适合作为长期维护基座
+  - 因此后续重点应放在“入口与打包完整性”补强，而不是回退实现层
+
 ## 3. 分阶段路线
 
 ### 3.1 `Phase 0`: 基线与工具主入口固定
@@ -231,6 +253,88 @@
   - 战斗展示层瘦身
   - 商店展示与购买弹窗 UI
 
+### 3.9 `Phase 7`: 产品化次级路线
+
+- 定位：
+  - 这是借鉴 T版“侧功能独立打包”方式的次级路线
+  - 不替代 `Phase 3 ~ 5` 主线，只在不打断主线收口时推进
+- 目标：
+  - 沿当前服务 / 配置边界，把外围功能做成可发现、可维护、可验证的独立功能包
+  - 优先补强“入口与打包完整性”，而不是回退到旧式页面直写业务
+- 主要文件：
+  - `assets/src/ui/MenuScene.js`
+  - `assets/src/ui/dialog.js`
+  - `assets/src/ui/MedalSceneView.js`
+  - `assets/src/ui/radioNode.js`
+  - `assets/src/ui/bottomFrame.js`
+  - 必要时新增局部 service / config / string 入口
+- 实施原则：
+  - 每个功能包至少带齐“入口 + 文案 + 资源 + 最小状态入口 + 最小验证”
+  - UI 只做展示和转发，不直接碰外围存档和 gameplay 状态
+  - 新入口优先挂到已有 `MenuScene`、dialog、bottom navigation，不重排 `jsList`
+  - 涉及导出 / 恢复时，先抽 service 或工具入口，再接 UI
+
+1. **`Batch 7A`: 成就 / 兑换入口显性化**
+   - 主行为文件：
+     - `assets/src/ui/MenuScene.js`
+     - `assets/src/ui/MedalSceneView.js`
+     - `assets/src/ui/shopScene.js`
+     - `assets/src/ui/PurchaseUiHelper.js`
+   - 目标：
+     - 把已有成就 / 兑换能力做成更明确的菜单与场景入口
+     - 让玩家能在 `MenuScene` 和成就页中更直接理解“成就点 -> 兑换”的关系
+   - 同批不做：
+     - 不重写 `medal.js` 的成就判定逻辑
+     - 不在同一批里同时改购买结果解释
+
+2. **`Batch 7B`: 关于 / 社区入口统一化**
+   - 主行为文件：
+     - `assets/src/ui/MenuScene.js`
+     - `assets/src/ui/dialog.js`
+     - `assets/src/plugin/commonUtil.js`
+   - 配套文件：
+     - `assets/src/data/clientData.js`
+     - 必要时新增局部配置文件
+   - 目标：
+     - 把“关于、社区、更新说明、外链”从散点按钮和渠道分支收成单一维护入口
+     - 让对外信息页成为正式内容页 / 弹窗，而不是继续散落在页面分支里
+   - 同批不做：
+     - 不改支付 SDK
+     - 不在同一批里混入商店或存档逻辑
+
+3. **`Batch 7C`: 成就 / 勋章 / dataLog 备份恢复入口**
+   - 主行为文件：
+     - `assets/src/ui/radioNode.js`
+     - `assets/src/game/achievement.js`
+     - `assets/src/game/medal.js`
+     - `assets/src/util/dataLog.js`
+   - 配套文件：
+     - 必要时新增独立 transfer / import-export service
+   - 目标：
+     - 为成就、勋章、外围日志建立正式导出 / 恢复入口
+     - 把这条链从页面内临时逻辑收成可校验、可复用的独立能力
+   - 同批不做：
+     - 不恢复 `eval` 类能力
+     - 不让 UI 直接操作 `localStorage` 完成校验和恢复
+
+4. **`Batch 7D`: 独立侧功能包模板化**
+   - 主行为文件：
+     - `assets/src/ui/bottomFrame.js`
+     - `assets/src/ui/StoryScene.js`
+     - `assets/src/ui/dialog.js`
+   - 配套文件：
+     - 对应 feature config / string / asset
+   - 目标：
+     - 沉淀一个可复用的“特殊商人 / 剧情结局页 / 一次性事件页”落地模板
+     - 后续新增侧功能时，优先复用模板，不再回旧核心补一次性分支
+   - 同批不做：
+     - 不直接修改 `player.js` / `site.js` 的主流程职责
+
+- 退出标准：
+  - 新增一个侧功能时，不需要同时改动多个旧核心文件
+  - 菜单或导航新增入口时，业务变化主要落在局部 service / config / string
+  - 关于 / 社区、成就入口、外围数据导出恢复不再依赖散落的页面内临时逻辑
+
 ## 4. `Phase 2` 收口记录
 
 ### 4.1 为什么 `Phase 2` 是当前第一优先级
@@ -323,6 +427,7 @@
 4. 新逻辑优先收进已有服务 / 配置表，不再新增平行 helper
 5. 只要新增一种内容类型，就同步补最小校验能力
 6. UI 层不允许新增业务编排分支；业务决策必须走服务层，UI 只做展示和转发
+7. 借鉴 T版 时，只迁移“入口与功能打包方式”，不回迁页面直写存档、全局状态和旧渠道分支
 
 ### 5.3 高风险入口安全改法
 
@@ -413,6 +518,7 @@
 - `Phase 1`：可视为已完成，`build` / `build-action` / `role` 运行时配置边界已有基础校验
 - `Phase 2`：可视为已完成，退出标准已达成
 - `Phase 3`：下一主战场，建议先从角色 fallback 与购买兼容边界清点开始
+- `Phase 7`：已立项为次级路线，用于承接 T版 值得保留的产品化做法，但不抢当前主线
 
 ### 6.2 `Phase 2` 已完成内容
 
@@ -436,7 +542,10 @@
 - `Batch 3A` 已完成：`role.js` 的并行 fallback 角色表已删除，旧 `roleType` 键只保留到分槽键的单向迁移
 - `Batch 3B` 已完成：`IAPPackage.js` 的角色 / 道具兑换硬编码 fallback 映射已删除，purchase->exchange 关系已由配置驱动并补了 smoke
 - `Batch 3C` 已完成：`TalentService.js` 的运行时读写已收敛到 `chosenTalents_slot_<slot>`，旧全局键与 `chosenTalent_slot_<slot>` 只保留迁移职责
-- 当前下一步切到 `Batch 3D`：继续收窄 `PurchaseService.js` / `IAPPackage.js` 的职责边界，能回服务层的 gameplay API 不再继续留在购买链
+- `Batch 3D` 已开始：`RoleRuntimeService`、`utils.updatePayInfo()` 与 `role.isRoleUnlocked()` 已去掉对 `IAPPackage` / `Medal` 的直接读取或解释依赖，外围购买状态统一回 `PurchaseService`
+- 当前下一步继续 `Batch 3D`：把剩余 runtime / gameplay 侧的购买状态读取继续收口到 `PurchaseService`，避免新逻辑再越过服务层碰 `IAPPackage`
+- 如果主线间隙要插入一个低风险产品化批次，优先 `Batch 7B`
+  - 原因：它主要涉及 `MenuScene`、`dialog`、`commonUtil` 和局部配置，不直接触碰 gameplay 主链
 
 ## 7. `Phase 3` 启动记录
 
@@ -523,7 +632,7 @@
 
 4. **`Batch 3D`: 购买链职责收边**
    - 状态：
-     - 当前下一步
+     - 进行中
    - 主行为文件：
      - `assets/src/game/PurchaseService.js`
      - `assets/src/game/IAPPackage.js`
@@ -535,7 +644,9 @@
      - 如果某段逻辑本质上是“规则解释”，优先回服务层
      - 如果某段逻辑本质上是“已购买 / 可兑换 / 可取消”的兼容判断，才留在购买链
    - 当前子步：
-     - 先切断运行时系统对 `IAPPackage` 的天赋 gameplay API 依赖
+     - 已完成：`RoleRuntimeService` 与 `utils.updatePayInfo()` 不再直接碰 `IAPPackage`
+     - 已完成：`role.isRoleUnlocked()` 优先通过 `PurchaseService` 判断角色解锁状态，不再在人物层直接解释兑换结果
+     - 继续切断 runtime / gameplay 对 `IAPPackage` 的残余状态读取依赖
      - 让 `TalentService` 成为天赋效果、选择状态和运行时加成的唯一出口
      - 让 `PurchaseService` 成为商店 / 解锁入口，`IAPPackage` 只保留购买记录、兑换适配和必要商店状态职责
    - 备注：
@@ -584,9 +695,11 @@
   - `Batch 3A`
   - `Batch 3B`
   - `Batch 3C`
-- 当前下一批：
+- 进行中：
   - `Batch 3D`
+- 当前下一批：
+  - `Batch 3D` 当前子步：继续清理 runtime / gameplay 侧对 `IAPPackage` 的残余直连
 - 原因：
   - 角色主表、兑换映射、天赋选择存储这三条最直接的 legacy 主入口已经收住
-  - 下一步该继续判断哪些 gameplay API 仍然只是因为兼容历史而挂在 `IAPPackage`
+  - 下一步该继续判断哪些 purchase 状态读取仍然只是因为兼容历史而挂在 `IAPPackage`
   - 如果某些接口已经只剩转发职责，应考虑回收到 `TalentService`、`PlayerAttrService` 或其他现有服务

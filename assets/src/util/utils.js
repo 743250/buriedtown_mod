@@ -522,21 +522,15 @@ utils.updatePayInfo = function (target, cb, purchaseIdList) {
                     var purchasedIds = queryResult && queryResult.purchasedIds ? queryResult.purchasedIds : {};
                     for (var purchaseId in purchasedIds) {
                         if (purchasedIds[purchaseId] && PurchaseList[purchaseId]) {
-                            if (typeof PurchaseService !== "undefined"
+                            // Keep purchase-state sync behind PurchaseService so utils does not
+                            // depend on IAPPackage internals.
+                            if (!(typeof PurchaseService !== "undefined"
                                 && PurchaseService
-                                && typeof PurchaseService.syncPurchasedUnlock === "function") {
-                                PurchaseService.syncPurchasedUnlock(purchaseId);
-                            } else {
-                                if (IAPPackage.isExchangePurchase && IAPPackage.isExchangePurchase(purchaseId)) {
-                                    continue;
-                                }
-                                if (IAPPackage.syncIAPPurchased && IAPPackage.syncIAPPurchased(purchaseId)) {
-                                    continue;
-                                }
-                                if (!IAPPackage.isIAPUnlocked(purchaseId)) {
-                                    IAPPackage.onIAPPaied(purchaseId);
-                                }
+                                && typeof PurchaseService.syncPurchasedUnlock === "function")) {
+                                cc.error("PurchaseService is unavailable during purchased id sync");
+                                continue;
                             }
+                            PurchaseService.syncPurchasedUnlock(purchaseId);
                         }
                     }
 

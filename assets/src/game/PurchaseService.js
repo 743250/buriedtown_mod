@@ -16,12 +16,35 @@ var PurchaseService = {
         MAX_LEVEL: "MAX_LEVEL",
         PURCHASE_FAILED: "PURCHASE_FAILED"
     },
+    LEGACY_PURCHASE_LOCK_PURCHASE_IDS: {
+        isBigBagUnlocked: 105,
+        isBootUnlocked: 106,
+        isDogHouseUnlocked: 107
+    },
     _normalizePurchaseId: function (purchaseId) {
         var normalizedPurchaseId = parseInt(purchaseId);
         if (isNaN(normalizedPurchaseId)) {
             return null;
         }
         return normalizedPurchaseId;
+    },
+    _getLegacyPurchaseLockPurchaseId: function (checkFn) {
+        if (typeof checkFn !== "string" || !this.LEGACY_PURCHASE_LOCK_PURCHASE_IDS.hasOwnProperty(checkFn)) {
+            return null;
+        }
+        return this.LEGACY_PURCHASE_LOCK_PURCHASE_IDS[checkFn];
+    },
+    _resolvePurchaseLockPurchaseId: function (purchaseLock) {
+        if (!purchaseLock || typeof purchaseLock !== "object") {
+            return null;
+        }
+
+        var purchaseId = this._normalizePurchaseId(purchaseLock.purchaseId);
+        if (purchaseId !== null) {
+            return purchaseId;
+        }
+
+        return this._getLegacyPurchaseLockPurchaseId(purchaseLock.checkFn);
     },
     isExchangePurchase: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
@@ -282,10 +305,11 @@ var PurchaseService = {
         if (!purchaseLock || typeof purchaseLock !== "object") {
             return true;
         }
-        if (typeof purchaseLock.checkFn !== "string" || !this._hasIAPMethod(purchaseLock.checkFn)) {
+        var purchaseId = this._resolvePurchaseLockPurchaseId(purchaseLock);
+        if (purchaseId === null) {
             return true;
         }
-        return !!IAPPackage[purchaseLock.checkFn].call(IAPPackage);
+        return this.isUnlocked(purchaseId);
     },
     _getSortedPurchaseIds: function (filterFn) {
         if (typeof PurchaseList === "undefined" || !PurchaseList) {
@@ -336,6 +360,28 @@ var PurchaseService = {
         });
 
         return this._dedupePurchaseIds(rolePurchaseIds);
+    },
+    isRoleUnlocked: function (roleType) {
+        if (typeof role === "undefined"
+            || !role
+            || typeof role.getPurchaseIdByRoleType !== "function"
+            || typeof role.isRolePurchaseRequired !== "function") {
+            return false;
+        }
+
+        roleType = parseInt(roleType);
+        if (isNaN(roleType)) {
+            return false;
+        }
+        if (!role.isRolePurchaseRequired(roleType)) {
+            return true;
+        }
+
+        var purchaseId = role.getPurchaseIdByRoleType(roleType);
+        if (purchaseId === null || purchaseId === undefined) {
+            return false;
+        }
+        return this.isUnlocked(purchaseId);
     },
     getTalentPurchaseIds: function () {
         var talentPurchaseIds = [];
