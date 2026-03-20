@@ -96,7 +96,9 @@ var PurchaseService = {
     },
     getPurchaseConfig: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null || !this._hasIAPMethod("getPurchaseConfig")) {
+        if (purchaseId === null
+            || !this.getPurchaseInfo(purchaseId)
+            || !this._hasIAPMethod("getPurchaseConfig")) {
             return null;
         }
         return IAPPackage.getPurchaseConfig(purchaseId);

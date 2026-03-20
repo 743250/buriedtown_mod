@@ -632,6 +632,9 @@ var IAPPackage = {
     },
     getPurchaseConfig: function (purchaseId) {
         var purchaseInfo = PurchaseList[purchaseId];
+        if (!purchaseInfo || !purchaseInfo.priceList || !purchaseInfo.priceList.length) {
+            return null;
+        }
         var priceInfoIndex = 0;
         if (purchaseInfo.multiPrice) {
             priceInfoIndex = this._record[purchaseId];

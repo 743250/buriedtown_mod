@@ -108,6 +108,17 @@ var role = {
         this._removeStorageValue(this.LEGACY_STORAGE_KEY);
         return normalizedRoleType;
     },
+    _resolveRoleTypeForCurrentSlot: function (roleType) {
+        roleType = this._normalizeStoredRoleType(roleType);
+        if (this._currentSlotHasRecord() || this.isRoleUnlocked(roleType)) {
+            return roleType;
+        }
+
+        // Starting a fresh run should not inherit a stale locked role from a deleted save slot.
+        roleType = this._normalizeStoredRoleType(RoleType.STRANGER);
+        this._writeStorageValue(this._getScopedStorageKey(), roleType);
+        return roleType;
+    },
     _getRoleStringValue: function (stringId) {
         if (stringId === undefined || stringId === null || typeof stringUtil === "undefined" || !stringUtil) {
             return "";
@@ -239,7 +250,7 @@ var role = {
         if (SafetyHelper.isEmpty(roleType)) {
             roleType = this._migrateLegacyStoredRoleType();
         }
-        return this._normalizeStoredRoleType(roleType);
+        return this._resolveRoleTypeForCurrentSlot(roleType);
     },
     isRoleUnlocked: function (roleType) {
         if (roleType === RoleType.STRANGER) {

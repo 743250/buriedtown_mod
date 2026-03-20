@@ -261,6 +261,62 @@ function runPurchaseUiStateProjectionSmoke() {
     };
 }
 
+function runSentinelPurchaseIdSnapshotSmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.SafetyHelper = {
+        isEmpty: function (value) {
+            return value === undefined || value === null || value === "";
+        },
+        safeJSONParse: function (value) {
+            return JSON.parse(value);
+        }
+    };
+    sandbox.Medal = {
+        getAchievementPoints: function () {
+            return 0;
+        },
+        getTalentLevel: function () {
+            return 0;
+        }
+    };
+    sandbox.stringUtil = {
+        getString: function () {
+            return {};
+        }
+    };
+    sandbox.uiUtil = {
+        getPurchaseStringConfig: function () {
+            return {};
+        },
+        getTalentDisplayInfo: function () {
+            return null;
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
+    loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
+    sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
+    loadIntoSandbox(sandbox, "assets/src/ui/PurchaseUiHelper.js");
+
+    assert(sandbox.PurchaseService.getPurchaseConfig(0) === null,
+        "PurchaseService should return null config for sentinel purchase ids like the no-talent option");
+    const snapshot = sandbox.PurchaseUiHelper.getPurchaseUiSnapshot(0);
+    assert(snapshot && snapshot.purchaseId === 0,
+        "PurchaseUiHelper should still build a snapshot for sentinel purchase ids");
+    assert(snapshot.isUnlocked === true,
+        "PurchaseUiHelper should keep the no-talent sentinel option selectable");
+    assert(snapshot.purchaseConfig === null,
+        "PurchaseUiHelper should not require a purchase config for sentinel purchase ids");
+
+    return {
+        name: "sentinel-purchase-id-snapshot",
+        ok: true,
+        detail: "validated sentinel purchase ids like the no-talent option avoid purchase-config crashes while remaining selectable"
+    };
+}
+
 function runTalentSelectionMigrationSmoke() {
     const sandbox = createVmSandbox();
     sandbox.Record = {
@@ -395,11 +451,63 @@ function runPlayerPersistencePurchaseDelegationSmoke() {
     };
 }
 
+function runNewGameRoleSelectionFallbackSmoke() {
+    const sandbox = createVmSandbox();
+    sandbox.SafetyHelper = {
+        isEmpty: function (value) {
+            return value === undefined || value === null || value === "";
+        }
+    };
+    sandbox.Record = {
+        getCurrentSlot: function () {
+            return 2;
+        },
+        hasRecord: function () {
+            return false;
+        },
+        getAllRecordNames: function () {
+            return ["record", "record_2", "record_3"];
+        }
+    };
+    sandbox.IAPPackage = {
+        isIAPUnlocked: function () {
+            return false;
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
+    loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
+    loadIntoSandbox(sandbox, "assets/src/game/role.js");
+
+    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
+    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.STRANGER,
+        "role.getChoosenRoleType should fall back to stranger for fresh runs when the stored slot role is locked");
+    assert(sandbox.cc.sys.localStorage.getItem("roleType_slot_2") === String(sandbox.RoleType.STRANGER),
+        "role.getChoosenRoleType should rewrite stale locked new-game slot selections to stranger");
+
+    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
+    sandbox.IAPPackage.isIAPUnlocked = function (purchaseId) {
+        return Number(purchaseId) === 114;
+    };
+    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.BELL,
+        "role.getChoosenRoleType should preserve unlocked stored slot roles for fresh runs");
+
+    return {
+        name: "new-game-role-selection-fallback",
+        ok: true,
+        detail: "validated fresh-run role selection falls back from stale locked slot roles while preserving unlocked ones"
+    };
+}
+
 module.exports = [
     runPurchaseUnlockRewardSmoke,
     runPurchaseRecordBoundarySmoke,
     runPurchaseExchangeConfigSmoke,
     runPurchaseUiStateProjectionSmoke,
+    runSentinelPurchaseIdSnapshotSmoke,
     runTalentSelectionMigrationSmoke,
+    runNewGameRoleSelectionFallbackSmoke,
     runPlayerPersistencePurchaseDelegationSmoke
 ];
