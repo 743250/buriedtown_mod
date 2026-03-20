@@ -1,3 +1,7 @@
+var getPurchaseUiService = function () {
+    return GameKernel.require("PurchaseService", "PurchaseUiHelper.js");
+};
+
 var PurchaseUiHelper = {
     getDisplayIconMeta: function (purchaseId, purchaseConfig) {
         var roleType = uiUtil.getRoleTypeByPurchaseId(purchaseId);
@@ -91,13 +95,12 @@ var PurchaseUiHelper = {
         return parseInt(purchaseId) === 106;
     },
 
+    getAchievementPoints: function () {
+        return getPurchaseUiService().getAchievementPoints();
+    },
+
     getAchievementPointsText: function () {
-        var points = 0;
-        if (typeof Medal !== "undefined"
-            && Medal
-            && typeof Medal.getAchievementPoints === "function") {
-            points = Medal.getAchievementPoints();
-        }
+        var points = this.getAchievementPoints();
         return "\u6210\u5c31\u70b9 " + points;
     },
 
@@ -120,6 +123,18 @@ var PurchaseUiHelper = {
         }
         return purchaseIds.indexOf(purchaseId) !== -1;
     },
+    getResolvedPurchaseConfig: function (purchaseId, purchaseConfig) {
+        if (purchaseConfig) {
+            return purchaseConfig;
+        }
+        return getPurchaseUiService().getPurchaseConfig(purchaseId);
+    },
+    getResolvedShopState: function (purchaseId, shopState) {
+        if (shopState !== undefined) {
+            return shopState;
+        }
+        return getPurchaseUiService().getShopUiState(purchaseId);
+    },
 
     getPurchaseUiSnapshot: function (purchaseId, purchaseConfig, shopState) {
         purchaseId = parseInt(purchaseId);
@@ -141,128 +156,30 @@ var PurchaseUiHelper = {
             };
         }
 
-        var resolvedPurchaseConfig = purchaseConfig;
-        if (!resolvedPurchaseConfig
-            && typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.getPurchaseConfig === "function") {
-            resolvedPurchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
-        }
-
-        var resolvedShopState = shopState;
-        if (resolvedShopState === undefined
-            && typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.getShopUiState === "function") {
-            resolvedShopState = PurchaseService.getShopUiState(purchaseId);
-        }
-
-        var isExchangePurchase = typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isExchangePurchase === "function"
-            ? PurchaseService.isExchangePurchase(purchaseId)
-            : false;
-        var isTalentPurchase = typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isTalentPurchase === "function"
-            ? PurchaseService.isTalentPurchase(purchaseId)
-            : false;
-        var isUnlocked = typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isUnlocked === "function"
-            ? PurchaseService.isUnlocked(purchaseId)
-            : false;
-        var currentTalentLevel = isTalentPurchase
-            && typeof Medal !== "undefined"
-            && Medal
-            && typeof Medal.getTalentLevel === "function"
-            ? Medal.getTalentLevel(purchaseId)
-            : 0;
-
-        var priceText = "";
-        var badgeText = "";
-        var hideBadge = false;
-        if (resolvedShopState
-            && resolvedShopState.priceText !== undefined
-            && resolvedShopState.priceText !== null
-            && resolvedShopState.priceText !== "") {
-            priceText = resolvedShopState.priceText;
-        } else if (isExchangePurchase) {
-            var achievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
-            if (achievementPrice !== null && achievementPrice !== undefined) {
-                priceText = achievementPrice + " \u6210\u5c31\u70b9";
-            } else if (PurchaseService.isTalentPurchase(purchaseId)) {
-                priceText = "\u5df2\u6ee1\u7ea7";
-            } else {
-                priceText = "\u5df2\u8d2d";
-            }
-        } else if (resolvedPurchaseConfig) {
-            priceText = resolvedPurchaseConfig.productPriceStr;
-            if (!priceText) {
-                priceText = stringUtil.getString(1191, resolvedPurchaseConfig.price);
-            }
-        }
-
-        var canBuy = resolvedShopState ? !!resolvedShopState.canBuy : true;
-        var shouldHideBuyButton = resolvedShopState ? !!resolvedShopState.shouldHideBuyButton : false;
-        var canCancel = resolvedShopState ? !!resolvedShopState.canCancel : false;
-        if (resolvedShopState) {
-            badgeText = resolvedShopState.badgeText || "";
-            hideBadge = !!resolvedShopState.hideBadge;
-            if (resolvedShopState.isTalentPurchase !== undefined) {
-                isTalentPurchase = !!resolvedShopState.isTalentPurchase;
-            }
-            if (resolvedShopState.isUnlocked !== undefined) {
-                isUnlocked = !!resolvedShopState.isUnlocked;
-            }
-            if (resolvedShopState.currentTalentLevel !== undefined && resolvedShopState.currentTalentLevel !== null) {
-                currentTalentLevel = resolvedShopState.currentTalentLevel;
-            }
-        }
-        if (!resolvedShopState) {
-            if (isExchangePurchase) {
-                var nextAchievementPrice = PurchaseService.getAchievementPriceByPurchaseId(purchaseId);
-                var currentAchievementPoints = Medal.getAchievementPoints ? Medal.getAchievementPoints() : 0;
-                shouldHideBuyButton = nextAchievementPrice === null || nextAchievementPrice === undefined;
-                canBuy = nextAchievementPrice !== null
-                    && nextAchievementPrice !== undefined
-                    && currentAchievementPoints >= nextAchievementPrice;
-                canCancel = purchaseId < 200 && purchaseId !== 0 && !!isUnlocked;
-                if (isTalentPurchase) {
-                    if (shouldHideBuyButton) {
-                        badgeText = "\u5df2\u6ee1\u7ea7";
-                        hideBadge = false;
-                    } else {
-                        badgeText = "";
-                        hideBadge = true;
-                    }
-                } else if (isUnlocked) {
-                    badgeText = "\u5df2\u8d2d";
-                    hideBadge = false;
-                }
-            } else {
-                canBuy = !PurchaseService.isUnlocked(purchaseId);
-                if (isUnlocked) {
-                    badgeText = "\u5df2\u8d2d";
-                }
-            }
-        }
+        var resolvedPurchaseConfig = this.getResolvedPurchaseConfig(purchaseId, purchaseConfig);
+        var resolvedShopState = this.getResolvedShopState(purchaseId, shopState);
+        resolvedShopState = resolvedShopState || null;
 
         return {
             purchaseId: purchaseId,
             purchaseConfig: resolvedPurchaseConfig,
-            shopState: resolvedShopState || null,
-            isExchangePurchase: isExchangePurchase,
-            isTalentPurchase: isTalentPurchase,
-            isUnlocked: isUnlocked,
-            currentTalentLevel: currentTalentLevel,
-            priceText: priceText,
-            canBuy: canBuy,
-            canCancel: canCancel,
-            shouldHideBuyButton: shouldHideBuyButton,
-            badgeText: badgeText,
-            hideBadge: hideBadge
+            shopState: resolvedShopState,
+            isExchangePurchase: !!(resolvedShopState && resolvedShopState.isExchangePurchase),
+            isTalentPurchase: !!(resolvedShopState && resolvedShopState.isTalentPurchase),
+            isUnlocked: !!(resolvedShopState && resolvedShopState.isUnlocked),
+            currentTalentLevel: resolvedShopState && resolvedShopState.currentTalentLevel !== undefined && resolvedShopState.currentTalentLevel !== null
+                ? resolvedShopState.currentTalentLevel
+                : 0,
+            priceText: resolvedShopState && resolvedShopState.priceText ? resolvedShopState.priceText : "",
+            canBuy: !!(resolvedShopState && resolvedShopState.canBuy),
+            canCancel: !!(resolvedShopState && resolvedShopState.canCancel),
+            shouldHideBuyButton: !!(resolvedShopState && resolvedShopState.shouldHideBuyButton),
+            badgeText: resolvedShopState && resolvedShopState.badgeText ? resolvedShopState.badgeText : "",
+            hideBadge: !!(resolvedShopState && resolvedShopState.hideBadge)
         };
+    },
+    isPurchaseUnlocked: function (purchaseId, shopState) {
+        return !!this.getPurchaseUiSnapshot(purchaseId, null, shopState).isUnlocked;
     },
 
     getPurchaseDisplayContext: function (purchaseId, purchaseConfig, shopState) {
@@ -301,7 +218,7 @@ var PurchaseUiHelper = {
         var resolvedPurchaseConfig = purchaseUiState.purchaseConfig || null;
         var resolvedShopState = purchaseUiState.shopState || null;
         var talentDisplayInfo = uiUtil.getTalentDisplayInfo
-            ? uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name)
+            ? uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name, purchaseUiState)
             : null;
         var purchaseIconMeta = this.getDisplayIconMeta(purchaseId, resolvedPurchaseConfig);
         var titleIconConfig = this.getTitleIconConfig(purchaseId, resolvedPurchaseConfig);
@@ -441,7 +358,7 @@ var PurchaseUiHelper = {
         host._shopStateListener = function (changeInfo) {
             handler.call(host, changeInfo);
         };
-        utils.emitter.on(PurchaseService.getShopStateChangeEventName(), host._shopStateListener);
+        utils.emitter.on(getPurchaseUiService().getShopStateChangeEventName(), host._shopStateListener);
     },
 
     unbindShopStateListener: function (host) {
@@ -456,7 +373,7 @@ var PurchaseUiHelper = {
             return;
         }
 
-        utils.emitter.off(PurchaseService.getShopStateChangeEventName(), host._shopStateListener);
+        utils.emitter.off(getPurchaseUiService().getShopStateChangeEventName(), host._shopStateListener);
         host._shopStateListener = null;
     },
 
@@ -502,10 +419,10 @@ var PurchaseUiHelper = {
             return false;
         }
 
-        if (result.failedReason === PurchaseService.FAIL_REASON.ALREADY_UNLOCKED
-            || result.failedReason === PurchaseService.FAIL_REASON.MAX_LEVEL) {
+        if (result.failedReason === getPurchaseUiService().FAIL_REASON.ALREADY_UNLOCKED
+            || result.failedReason === getPurchaseUiService().FAIL_REASON.MAX_LEVEL) {
             uiUtil.showTip("\u5df2\u8d2d\u6216\u5df2\u6ee1\u7ea7");
-        } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
+        } else if (result.failedReason === getPurchaseUiService().FAIL_REASON.INSUFFICIENT_POINTS) {
             uiUtil.showTip("\u6210\u5c31\u70b9\u4e0d\u8db3");
         } else {
             uiUtil.showTip("\u8d2d\u4e70\u5931\u8d25");

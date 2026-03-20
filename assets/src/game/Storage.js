@@ -281,6 +281,11 @@ var Bag = Storage.extend({
                 this.decreaseItem(itemId, 1);
                 cc.log("itemId=" + itemId + " is broken");
                 player.log.addMsg(1205, stringUtil.getString(itemId).title);
+                if (typeof Medal !== "undefined"
+                    && Medal
+                    && typeof Medal.trackWeaponBroken === "function") {
+                    Medal.trackWeaponBroken(itemId, 1);
+                }
 
                 Record.saveAll();
             }

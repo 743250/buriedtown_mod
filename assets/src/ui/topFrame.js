@@ -428,7 +428,8 @@ var showRoleTalentDialog = function () {
         chosenTalentIds.forEach(function (purchaseId) {
             var talentCfg = stringUtil.getString("p_" + purchaseId) || {};
             var baseTalentName = talentCfg.name || ("天赋ID " + purchaseId);
-            var talentLevel = Medal.getTalentLevel ? Medal.getTalentLevel(purchaseId) : 0;
+            var purchaseUiState = PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId);
+            var talentLevel = Number(purchaseUiState.currentTalentLevel) || 0;
             var levelText = talentLevel > 0 ? " Lv." + talentLevel : "";
             var talentName = baseTalentName + levelText;
 

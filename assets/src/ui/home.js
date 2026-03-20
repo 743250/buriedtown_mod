@@ -294,7 +294,7 @@ var HomeNode = BottomFrameNode.extend({
         var bid = 12;
         var btn = this.btnList[bid];
         var self = this;
-        if (!PurchaseService.isUnlocked(107)) {
+        if (!PurchaseUiHelper.isPurchaseUnlocked(107)) {
             btn.setEnabled(false);
             var lockNode = uiUtil.createLockNode(btn.getContentSize(), 107, function (result) {
                 if (result.isSuccess) {

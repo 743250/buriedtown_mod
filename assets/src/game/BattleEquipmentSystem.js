@@ -318,9 +318,6 @@ var BattleEquipmentSystem = (function () {
     });
 
     var BattleWeapon = BattleEquipment.extend({
-        usesSharedAttackCooldown: function () {
-            return true;
-        },
         playEffect: function (soundName) {
             if (this.effectId) {
                 audioManager.stopEffect(this.effectId);
@@ -361,6 +358,12 @@ var BattleEquipmentSystem = (function () {
         resolveMeleeHitResult: function () {
             return CombatResolver.resolveTwoPhaseHit(this.getMeleeHitChance(), this.getMonsterDodgeRate());
         },
+        getAttackResult: function (monster) {
+            return {
+                harm: this.getHarm(monster),
+                isHeadshot: false
+            };
+        },
         getHarm: function (monster) {
             if (monster && !this.resolveMeleeHitResult().success) {
                 return 0;
@@ -373,6 +376,9 @@ var BattleEquipmentSystem = (function () {
     });
 
     var BattleGun = BattleWeapon.extend({
+        usesSharedAttackCooldown: function () {
+            return true;
+        },
         ctor: function (id, battlePlayer) {
             this._super(id, battlePlayer);
             this.bulletConfig = utils.clone(itemConfig[CONFIG.BULLET_ID].effect_weapon);
@@ -404,6 +410,9 @@ var BattleEquipmentSystem = (function () {
             return attackTriggered || this.atkTimes > 0;
         },
         getHarm: function (monster) {
+            return this.getAttackResult(monster).harm;
+        },
+        getAttackResult: function (monster) {
             var dtLineIndex = CONFIG.LINE_LENGTH - 1 - monster.line.index;
             var precise = this.attr.precise + this.attr.dtPrecise * dtLineIndex;
             var deathHit = this.attr.deathHit + this.attr.dtDeathHit * dtLineIndex;
@@ -420,16 +429,25 @@ var BattleEquipmentSystem = (function () {
 
             var rand = Math.random();
             if (rand <= deathHit) {
-                return Number.MAX_VALUE;
+                return {
+                    harm: this.getBulletHarm() * 2,
+                    isHeadshot: true
+                };
             }
 
             rand = Math.random();
             cc.e("precise: " + precise);
             if (rand <= precise) {
-                return this.getBulletHarm();
+                return {
+                    harm: this.getBulletHarm(),
+                    isHeadshot: false
+                };
             }
 
-            return 0;
+            return {
+                harm: 0,
+                isHeadshot: false
+            };
         },
         cost: function () {
             this.battlePlayer.bulletNum--;

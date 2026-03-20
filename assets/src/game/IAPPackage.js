@@ -567,60 +567,6 @@ var IAPPackage = {
         // 当前局之外的存档也同步处理，避免菜单商店重置后读取旧状态。
         this._removeSingleUnlockRewardFromSavedRecord(purchaseId);
     },
-    resetIAPPaid: function (purchaseId) {
-        purchaseId = parseInt(purchaseId);
-        if (!PurchaseList[purchaseId]) {
-            return {refundedPoints: 0, resetCount: 0};
-        }
-
-        var refundedPoints = 0;
-        var resetCount = 0;
-        var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
-
-        if (exchangeIds.length > 0) {
-            var exchangeIdToCancel = this.getLastUnlockedExchangeIdByPurchaseId(purchaseId);
-            if (exchangeIdToCancel) {
-                var exchangeConfig = ExchangeAchievementConfig[exchangeIdToCancel];
-                if (Medal.cancelExchange(exchangeIdToCancel)) {
-                    refundedPoints += (exchangeConfig && exchangeConfig.cost) ? exchangeConfig.cost : 0;
-                    resetCount = 1;
-                }
-            }
-        } else {
-            resetCount = this._record[purchaseId] || 0;
-        }
-
-        this._record[purchaseId] = Math.max(0, (this._record[purchaseId] || 0) - resetCount);
-        if (this._unlockAllRoleAndTalentForTest && purchaseId < 200 && exchangeIds.length === 0) {
-            this._testForceLocked[purchaseId] = 1;
-            this.saveIAPForceLockedRecord();
-        }
-
-        var isSingleExchangeUnlock = exchangeIds.length === 1 && !this._isTalentPurchaseId(purchaseId);
-        if (resetCount > 0 && isSingleExchangeUnlock && !this.isIAPUnlocked(purchaseId)) {
-            this._removeSingleUnlockReward(purchaseId);
-            this._syncChosenRoleAfterReset();
-            if (typeof Record !== "undefined" && Record) {
-                try {
-                    // 菜单商店场景通常没有 player 对象，直接调用 saveAll 会抛错并中断后续UI刷新事件。
-                    if (typeof player !== "undefined" && player && typeof Record.saveAll === "function") {
-                        Record.saveAll();
-                    } else if (typeof Record.flush === "function" && Record.recordObj) {
-                        Record.flush();
-                    }
-                } catch (e) {
-                    cc.e("resetIAPPaid save record failed: " + e);
-                }
-            }
-        }
-
-        this.saveIAPRecord();
-        this._emitShopStateChanged(purchaseId, "reset", {
-            refundedPoints: refundedPoints,
-            resetCount: resetCount
-        });
-        return {refundedPoints: refundedPoints, resetCount: resetCount};
-    },
     payConsumeIAP: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
         if (!PurchaseList[purchaseId]) {

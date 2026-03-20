@@ -9,6 +9,9 @@ if (typeof cc === "undefined" || !cc) {
 
 var BattleActors = (function () {
     var monsterId = 0;
+    var getBattleActorsRuntimePlayer = function () {
+        return GameRuntime.getPlayer();
+    };
     var roundBattleTime = function (value) {
         return Number((Number(value) || 0).toFixed(3));
     };
@@ -34,17 +37,18 @@ var BattleActors = (function () {
             };
         }
 
+        var runtimePlayer = getBattleActorsRuntimePlayer();
         var playerSnapshot = {
-            bulletNum: player.bag.getNumByItemId(bulletItemId),
-            toolNum: player.bag.getNumByItemId(player.equip.getEquip(EquipmentPos.TOOL)),
-            hp: memoryUtil.decode(player.hp),
-            injury: memoryUtil.decode(player.injury),
-            weapon1: player.equip.getEquip(EquipmentPos.GUN),
-            weapon2: player.equip.getEquip(EquipmentPos.WEAPON),
-            equip: player.equip.getEquip(EquipmentPos.TOOL)
+            bulletNum: runtimePlayer.bag.getNumByItemId(bulletItemId),
+            toolNum: runtimePlayer.bag.getNumByItemId(runtimePlayer.equip.getEquip(EquipmentPos.TOOL)),
+            hp: memoryUtil.decode(runtimePlayer.hp),
+            injury: memoryUtil.decode(runtimePlayer.injury),
+            weapon1: runtimePlayer.equip.getEquip(EquipmentPos.GUN),
+            weapon2: runtimePlayer.equip.getEquip(EquipmentPos.WEAPON),
+            equip: runtimePlayer.equip.getEquip(EquipmentPos.TOOL)
         };
-        playerSnapshot.def = player.equip.getEquip(EquipmentPos.EQUIP)
-            ? itemConfig[player.equip.getEquip(EquipmentPos.EQUIP)].effect_arm.def
+        playerSnapshot.def = runtimePlayer.equip.getEquip(EquipmentPos.EQUIP)
+            ? itemConfig[runtimePlayer.equip.getEquip(EquipmentPos.EQUIP)].effect_arm.def
             : 0;
         return playerSnapshot;
     };
@@ -102,7 +106,8 @@ var BattleActors = (function () {
         move: function () {
             var targetLine;
             if (this.line) {
-                var monsterSpeed = this.attr.speed + player.weather.getValue("monster_speed");
+                var runtimePlayer = getBattleActorsRuntimePlayer();
+                var monsterSpeed = this.attr.speed + runtimePlayer.weather.getValue("monster_speed");
                 monsterSpeed = Math.max(monsterSpeed, 1);
                 var targetIndex = this.line.index - monsterSpeed;
                 targetIndex = Math.max(0, targetIndex);
@@ -164,7 +169,11 @@ var BattleActors = (function () {
         underAtk: function (obj) {
             var harm = 0;
             if (obj instanceof BattleEquipmentSystem.Weapon) {
-                harm = obj.getHarm(this);
+                var attackResult = (typeof obj.getAttackResult === "function")
+                    ? obj.getAttackResult(this)
+                    : {harm: obj.getHarm(this), isHeadshot: false};
+                harm = Number(attackResult && attackResult.harm) || 0;
+                var isHeadshot = !!(attackResult && attackResult.isHeadshot);
 
                 if (obj instanceof BattleEquipmentSystem.Gun) {
                     this.battle.processLog(stringUtil.getString(1048, obj.itemConfig.name, stringUtil.getString("monsterType_" + this.attr.prefixType)));
@@ -174,7 +183,7 @@ var BattleActors = (function () {
                     this.battle.processLog(stringUtil.getString(1049, obj.itemConfig.name, stringUtil.getString("monsterType_" + this.attr.prefixType)));
                 }
 
-                if (harm === Number.MAX_VALUE) {
+                if (isHeadshot) {
                     this.battle.processLog(stringUtil.getString(1051, stringUtil.getString("monsterType_" + this.attr.prefixType)));
                 } else if (harm === 0) {
                     this.battle.processLog(stringUtil.getString(1054));
@@ -194,7 +203,7 @@ var BattleActors = (function () {
             }
         },
         die: function (obj) {
-            this.battle.recordMonsterKill();
+            this.battle.recordMonsterKill(obj && obj.id);
             cc.e("monster " + this.id + " die");
             this.dead = true;
             this.resetAttackCadence();
@@ -309,8 +318,9 @@ var BattleActors = (function () {
         },
         getMonsterHitChance: function (monster) {
             var precise = CombatResolver.normalizeRate(monster && monster.attr && monster.attr.precise, 0.9);
-            if (typeof player !== "undefined" && player && player.weather && typeof player.weather.getValue === "function") {
-                precise += Number(player.weather.getValue("monster_precise")) || 0;
+            var runtimePlayer = getBattleActorsRuntimePlayer();
+            if (runtimePlayer && runtimePlayer.weather && typeof runtimePlayer.weather.getValue === "function") {
+                precise += Number(runtimePlayer.weather.getValue("monster_precise")) || 0;
             }
             return CombatResolver.normalizeRate(precise, 0.9);
         },
@@ -335,12 +345,13 @@ var BattleActors = (function () {
                 this.die();
             }
 
-            player.changeAttr("hp", -harm);
-            player.changeAttr("injury", 1);
+            var runtimePlayer = getBattleActorsRuntimePlayer();
+            runtimePlayer.changeAttr("hp", -harm);
+            runtimePlayer.changeAttr("injury", 1);
         },
         die: function () {
             cc.e("player die");
-            player.log.addMsg(1109);
+            getBattleActorsRuntimePlayer().log.addMsg(1109);
             this.battle.processLog(stringUtil.getString(1057));
             this.battle.gameEnd(false);
         },

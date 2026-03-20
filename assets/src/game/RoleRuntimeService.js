@@ -1,3 +1,7 @@
+var getRoleRuntimePurchaseService = function () {
+    return GameKernel.get("PurchaseService");
+};
+
 var RoleRuntimeService = {
     _buildActionVisibilityGroups: [],
 
@@ -439,10 +443,10 @@ var RoleRuntimeService = {
         }
 
         state.purchaseId = purchaseLock.purchaseId || null;
-        if (typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isPurchaseLockUnlocked === "function") {
-            state.isLocked = !PurchaseService.isPurchaseLockUnlocked(purchaseLock);
+        var purchaseService = getRoleRuntimePurchaseService();
+        if (purchaseService
+            && typeof purchaseService.isPurchaseLockUnlocked === "function") {
+            state.isLocked = !purchaseService.isPurchaseLockUnlocked(purchaseLock);
             return state;
         }
 
@@ -657,3 +661,5 @@ var RoleRuntimeService = {
         return changed;
     }
 };
+
+GameKernel.register("RoleRuntimeService", RoleRuntimeService);

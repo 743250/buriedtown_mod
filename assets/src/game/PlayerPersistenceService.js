@@ -1,6 +1,16 @@
 /**
  * Centralizes player save/restore so player.js can focus on gameplay flow.
  */
+var getPlayerPersistenceRoleRuntimeService = function () {
+    return GameKernel.require("RoleRuntimeService", "PlayerPersistenceService");
+};
+var getPlayerPersistenceTalentService = function () {
+    return GameKernel.get("TalentService");
+};
+var getPlayerPersistencePurchaseService = function () {
+    return GameKernel.get("PurchaseService");
+};
+
 var PlayerPersistenceService = {
     ATTR_KEYS: ["hp", "spirit", "starve", "vigour", "injury", "infect", "temperature"],
     RESTORE_ATTR_KEYS: ["hp", "hpMaxOrigin", "hpMax", "spirit", "starve", "vigour", "injury", "infect", "temperature"],
@@ -114,12 +124,11 @@ var PlayerPersistenceService = {
         return false;
     },
     _inferRoleTypeFromSaveData: function (saveData) {
+        var roleRuntimeService = getPlayerPersistenceRoleRuntimeService();
         if (!saveData
-            || typeof RoleRuntimeService === "undefined"
-            || !RoleRuntimeService
-            || typeof RoleRuntimeService.getRoomBuildStates !== "function"
-            || typeof RoleRuntimeService.getInitialUnlockSites !== "function"
-            || typeof RoleRuntimeService.getInitialUnlockNpcs !== "function") {
+            || typeof roleRuntimeService.getRoomBuildStates !== "function"
+            || typeof roleRuntimeService.getInitialUnlockSites !== "function"
+            || typeof roleRuntimeService.getInitialUnlockNpcs !== "function") {
             return null;
         }
 
@@ -141,7 +150,7 @@ var PlayerPersistenceService = {
             ? RoleType.STRANGER
             : 6;
         var defaultRoomBuildMap = {};
-        RoleRuntimeService.getRoomBuildStates(defaultRoleType).forEach(function (buildState) {
+        roleRuntimeService.getRoomBuildStates(defaultRoleType).forEach(function (buildState) {
             defaultRoomBuildMap[buildState.id] = Number(buildState.level);
         });
 
@@ -149,7 +158,7 @@ var PlayerPersistenceService = {
         var inferredScore = 0;
         this._getLegacyRoleInferenceCandidateList().forEach(function (roleType) {
             var score = 0;
-            RoleRuntimeService.getRoomBuildStates(roleType).forEach(function (buildState) {
+            roleRuntimeService.getRoomBuildStates(roleType).forEach(function (buildState) {
                 var defaultLevel = defaultRoomBuildMap.hasOwnProperty(buildState.id)
                     ? defaultRoomBuildMap[buildState.id]
                     : null;
@@ -160,19 +169,19 @@ var PlayerPersistenceService = {
                     score += 10;
                 }
             });
-            RoleRuntimeService.getInitialUnlockSites(roleType).forEach(function (siteId) {
+            roleRuntimeService.getInitialUnlockSites(roleType).forEach(function (siteId) {
                 if (siteIdSet[siteId]) {
                     score += 3;
                 }
             });
-            RoleRuntimeService.getInitialUnlockNpcs(roleType).forEach(function (npcId) {
+            roleRuntimeService.getInitialUnlockNpcs(roleType).forEach(function (npcId) {
                 if (npcIdSet[npcId]) {
                     score += 2;
                 }
             });
             if (hasSavedZiplineLinks
-                && typeof RoleRuntimeService.supportsZipline === "function"
-                && RoleRuntimeService.supportsZipline(roleType)) {
+                && typeof roleRuntimeService.supportsZipline === "function"
+                && roleRuntimeService.supportsZipline(roleType)) {
                 score += 12;
             }
 
@@ -207,12 +216,12 @@ var PlayerPersistenceService = {
         }
 
         var chosenTalentIds = this._hasSavedChosenTalentIds(saveData) ? saveData.chosenTalentIds : null;
+        var talentService = getPlayerPersistenceTalentService();
         if (saveData
             && chosenTalentIds
-            && typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.chooseTalents === "function") {
-            TalentService.chooseTalents(chosenTalentIds);
+            && talentService
+            && typeof talentService.chooseTalents === "function") {
+            talentService.chooseTalents(chosenTalentIds);
             if (!this._isValidRoleType(saveData.roleType)
                 || !this._hasSavedChosenTalentIds(saveData)) {
                 playerInstance._selectionStateNeedsSave = true;
@@ -242,10 +251,10 @@ var PlayerPersistenceService = {
             roleType: playerInstance.roleType
         };
 
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.getChosenTalentPurchaseIds === "function") {
-            saveData.chosenTalentIds = TalentService.getChosenTalentPurchaseIds();
+        var talentService = getPlayerPersistenceTalentService();
+        if (talentService
+            && typeof talentService.getChosenTalentPurchaseIds === "function") {
+            saveData.chosenTalentIds = talentService.getChosenTalentPurchaseIds();
         }
 
         this.SAVE_COMPONENTS.forEach(function (component) {
@@ -292,10 +301,10 @@ var PlayerPersistenceService = {
         });
     },
     _restoreNewGame: function (playerInstance) {
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.init === "function") {
-            TalentService.init(playerInstance);
+        var talentService = getPlayerPersistenceTalentService();
+        if (talentService
+            && typeof talentService.init === "function") {
+            talentService.init(playerInstance);
         }
         Medal.improve(playerInstance);
         if (Record.getShareFlag() === ShareType.SHARED_CAN_REWARD) {
@@ -317,47 +326,41 @@ var PlayerPersistenceService = {
     },
     _applyPostRestoreFixups: function (playerInstance) {
         var hasPostRestoreMutation = !!(playerInstance && playerInstance._selectionStateNeedsSave);
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.migrateLegacyElitePistol === "function") {
-            var migratedLegacyElitePistol = TalentService.migrateLegacyElitePistol(playerInstance);
+        var talentService = getPlayerPersistenceTalentService();
+        if (talentService
+            && typeof talentService.migrateLegacyElitePistol === "function") {
+            var migratedLegacyElitePistol = talentService.migrateLegacyElitePistol(playerInstance);
             if (migratedLegacyElitePistol) {
                 hasPostRestoreMutation = true;
             }
         }
 
-        if (typeof TalentService !== "undefined"
-            && TalentService
-            && typeof TalentService.reconcilePlayerHpByTalentSelection === "function") {
-            TalentService.reconcilePlayerHpByTalentSelection(playerInstance);
+        if (talentService
+            && typeof talentService.reconcilePlayerHpByTalentSelection === "function") {
+            talentService.reconcilePlayerHpByTalentSelection(playerInstance);
         }
 
-        if (typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.reconcileUnlockRewardsForPlayer === "function") {
-            if (PurchaseService.reconcileUnlockRewardsForPlayer(playerInstance, [105, 106, 107])) {
+        var purchaseService = getPlayerPersistencePurchaseService();
+        if (purchaseService
+            && typeof purchaseService.reconcileUnlockRewardsForPlayer === "function") {
+            if (purchaseService.reconcileUnlockRewardsForPlayer(playerInstance, [105, 106, 107])) {
                 hasPostRestoreMutation = true;
             }
         }
 
-        if (typeof RoleRuntimeService !== "undefined"
-            && RoleRuntimeService
-            && typeof RoleRuntimeService.ensureRoomBuildStates === "function"
-            && RoleRuntimeService.ensureRoomBuildStates(playerInstance.room, playerInstance.roleType)) {
+        var roleRuntimeService = getPlayerPersistenceRoleRuntimeService();
+        if (typeof roleRuntimeService.ensureRoomBuildStates === "function"
+            && roleRuntimeService.ensureRoomBuildStates(playerInstance.room, playerInstance.roleType)) {
             hasPostRestoreMutation = true;
         }
 
-        if (typeof RoleRuntimeService !== "undefined"
-            && RoleRuntimeService
-            && typeof RoleRuntimeService.ensureInitialUnlocks === "function"
-            && RoleRuntimeService.ensureInitialUnlocks(playerInstance.map, playerInstance.roleType)) {
+        if (typeof roleRuntimeService.ensureInitialUnlocks === "function"
+            && roleRuntimeService.ensureInitialUnlocks(playerInstance.map, playerInstance.roleType)) {
             hasPostRestoreMutation = true;
         }
 
-        if (typeof RoleRuntimeService !== "undefined"
-            && RoleRuntimeService
-            && typeof RoleRuntimeService.ensureSpecialItems === "function") {
-            RoleRuntimeService.ensureSpecialItems(playerInstance);
+        if (typeof roleRuntimeService.ensureSpecialItems === "function") {
+            roleRuntimeService.ensureSpecialItems(playerInstance);
         }
 
         if (hasPostRestoreMutation
@@ -371,6 +374,8 @@ var PlayerPersistenceService = {
         }
     }
 };
+
+GameKernel.register("PlayerPersistenceService", PlayerPersistenceService);
 
 if (typeof module !== "undefined" && module.exports) {
     module.exports = PlayerPersistenceService;

@@ -5,149 +5,463 @@
  * Created by lancelot on 15/5/15.
  */
 
-var MedalTriggerType = {
-    DAY: "day",
-    MONSTER_KILLED: "monsterKilled",
-    SECRET_ROOM_END: "secretRoomEnd"
+var MedalProgressScope = {
+    ACCOUNT: "account",
+    RUN: "run"
 };
 
-var MedalConfig = {
-    103: {
-        categoryId: 1,
-        seriesId: 1,
-        seriesOrder: 1,
-        stageLevel: 3,
-        iconId: 1,
-        triggerType: MedalTriggerType.DAY,
-        resetOnNewGame: true,
-        aim: 10,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 100,
-        effect: {items: [{itemId: 1103083, num: 6}]}
+var MedalProgressKey = {
+    SURVIVAL_DAYS: "survival_days_run",
+    ZOMBIE_KILLS: "zombie_kills_total",
+    SECRET_ROOM_END: "secret_room_end_run",
+    WEAPON_BROKEN: "weapon_broken_total",
+    EXPLOSIVE_KILLS: "explosive_kills_total",
+    KATANA_KILLS: "katana_kills_total",
+    CANNED_EATEN: "canned_eaten_total",
+    MEDICINE_CRAFTED: "medicine_crafted_total",
+    MELEE_CRAFTED: "melee_crafted_total",
+    EXPLOSIVE_CRAFTED: "explosive_crafted_total",
+    DOG_SURVIVAL_DAYS: "dog_survival_days_run"
+};
+
+var MedalTrackedItemSet = {
+    explosiveBattle: {
+        1303012: true,
+        1303033: true,
+        1303044: true
     },
-    102: {
-        categoryId: 1,
-        seriesId: 1,
-        seriesOrder: 1,
-        stageLevel: 2,
-        iconId: 1,
-        triggerType: MedalTriggerType.DAY,
-        resetOnNewGame: true,
-        aim: 20,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 200,
-        effect: {items: [{itemId: 1104011, num: 2}]}
+    medicineCraft: {
+        1104011: true,
+        1104021: true,
+        1104032: true,
+        1104043: true
     },
-    101: {
-        categoryId: 1,
-        seriesId: 1,
-        seriesOrder: 1,
-        stageLevel: 1,
-        iconId: 1,
-        triggerType: MedalTriggerType.DAY,
-        resetOnNewGame: true,
-        aim: 30,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 300,
-        effect: {items: [{itemId: 1104043, num: 1}]}
+    meleeCraft: {
+        1302011: true,
+        1302021: true,
+        1302032: true,
+        1302043: true
     },
-    203: {
-        categoryId: 2,
-        seriesId: 2,
-        seriesOrder: 1,
-        stageLevel: 3,
-        iconId: 2,
-        triggerType: MedalTriggerType.MONSTER_KILLED,
-        resetOnNewGame: false,
-        aim: 50,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 100,
-        effect: {attr: {hp: 10}}
-    },
-    202: {
-        categoryId: 2,
-        seriesId: 2,
-        seriesOrder: 1,
-        stageLevel: 2,
-        iconId: 2,
-        triggerType: MedalTriggerType.MONSTER_KILLED,
-        resetOnNewGame: false,
-        aim: 100,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 200,
-        effect: {attr: {hp: 20}}
-    },
-    201: {
-        categoryId: 2,
-        seriesId: 2,
-        seriesOrder: 1,
-        stageLevel: 1,
-        iconId: 2,
-        triggerType: MedalTriggerType.MONSTER_KILLED,
-        resetOnNewGame: false,
-        aim: 200,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 300,
-        effect: {attr: {hp: 50}}
-    },
-    303: {
-        categoryId: 3,
-        seriesId: 3,
-        seriesOrder: 1,
-        stageLevel: 3,
-        iconId: 3,
-        triggerType: MedalTriggerType.SECRET_ROOM_END,
-        resetOnNewGame: true,
-        aim: 4,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 100,
-        effect: {items: [{itemId: 1305011, num: 30}]}
-    },
-    302: {
-        categoryId: 3,
-        seriesId: 3,
-        seriesOrder: 1,
-        stageLevel: 2,
-        iconId: 3,
-        triggerType: MedalTriggerType.SECRET_ROOM_END,
-        resetOnNewGame: true,
-        aim: 8,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 200,
-        effect: {items: [{itemId: 1301011, num: 1}]}
-    },
-    301: {
-        categoryId: 3,
-        seriesId: 3,
-        seriesOrder: 1,
-        stageLevel: 1,
-        iconId: 3,
-        triggerType: MedalTriggerType.SECRET_ROOM_END,
-        resetOnNewGame: true,
-        aim: 16,
-        aimCompleted: 0,
-        completed: 0,
-        claimed: 0,
-        points: 300,
-        effect: {items: [{itemId: 1301052, num: 1}, {itemId: 1305011, num: 50}]}
+    explosiveCraft: {
+        1303012: true
     }
 };
+
+function createMedalStage(opt) {
+    opt = opt || {};
+    return {
+        categoryId: opt.categoryId,
+        seriesId: opt.seriesId,
+        seriesOrder: opt.seriesOrder,
+        stageLevel: opt.stageLevel,
+        iconId: opt.iconId || opt.categoryId,
+        progressKey: opt.progressKey || null,
+        progressScope: opt.progressScope || MedalProgressScope.ACCOUNT,
+        resetOnNewGame: opt.progressScope === MedalProgressScope.RUN,
+        aim: opt.aim,
+        aimCompleted: 0,
+        completed: 0,
+        claimed: 0,
+        points: opt.points,
+        effect: opt.effect || null
+    };
+}
+
+var MedalConfig = {
+    103: createMedalStage({
+        categoryId: 1,
+        seriesId: 1,
+        seriesOrder: 1,
+        stageLevel: 3,
+        iconId: 1,
+        progressKey: MedalProgressKey.SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        aim: 40,
+        points: 20,
+        effect: {items: [{itemId: 1103083, num: 1}]}
+    }),
+    102: createMedalStage({
+        categoryId: 1,
+        seriesId: 1,
+        seriesOrder: 1,
+        stageLevel: 2,
+        iconId: 1,
+        progressKey: MedalProgressKey.SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        aim: 60,
+        points: 40,
+        effect: {items: [{itemId: 1103083, num: 1}]}
+    }),
+    101: createMedalStage({
+        categoryId: 1,
+        seriesId: 1,
+        seriesOrder: 1,
+        stageLevel: 1,
+        iconId: 1,
+        progressKey: MedalProgressKey.SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        aim: 120,
+        points: 60,
+        effect: {items: [{itemId: 1103083, num: 2}]}
+    }),
+    203: createMedalStage({
+        categoryId: 2,
+        seriesId: 2,
+        seriesOrder: 1,
+        stageLevel: 3,
+        iconId: 2,
+        progressKey: MedalProgressKey.ZOMBIE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 100,
+        points: 20,
+        effect: {attr: {hp: 10}}
+    }),
+    202: createMedalStage({
+        categoryId: 2,
+        seriesId: 2,
+        seriesOrder: 1,
+        stageLevel: 2,
+        iconId: 2,
+        progressKey: MedalProgressKey.ZOMBIE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 200,
+        points: 40,
+        effect: {attr: {hp: 10}}
+    }),
+    201: createMedalStage({
+        categoryId: 2,
+        seriesId: 2,
+        seriesOrder: 1,
+        stageLevel: 1,
+        iconId: 2,
+        progressKey: MedalProgressKey.ZOMBIE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 400,
+        points: 60,
+        effect: {attr: {hp: 20}}
+    }),
+    303: createMedalStage({
+        categoryId: 3,
+        seriesId: 3,
+        seriesOrder: 1,
+        stageLevel: 3,
+        iconId: 3,
+        progressKey: MedalProgressKey.SECRET_ROOM_END,
+        progressScope: MedalProgressScope.RUN,
+        aim: 4,
+        points: 100,
+        effect: {items: [{itemId: 1305011, num: 30}]}
+    }),
+    302: createMedalStage({
+        categoryId: 3,
+        seriesId: 3,
+        seriesOrder: 1,
+        stageLevel: 2,
+        iconId: 3,
+        progressKey: MedalProgressKey.SECRET_ROOM_END,
+        progressScope: MedalProgressScope.RUN,
+        aim: 8,
+        points: 200,
+        effect: {items: [{itemId: 1301011, num: 1}]}
+    }),
+    301: createMedalStage({
+        categoryId: 3,
+        seriesId: 3,
+        seriesOrder: 1,
+        stageLevel: 1,
+        iconId: 3,
+        progressKey: MedalProgressKey.SECRET_ROOM_END,
+        progressScope: MedalProgressScope.RUN,
+        aim: 16,
+        points: 300,
+        effect: {items: [{itemId: 1301052, num: 1}, {itemId: 1305011, num: 50}]}
+    }),
+    403: createMedalStage({
+        categoryId: 2,
+        seriesId: 4,
+        seriesOrder: 2,
+        stageLevel: 3,
+        iconId: 2,
+        progressKey: MedalProgressKey.WEAPON_BROKEN,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 30,
+        points: 20
+    }),
+    402: createMedalStage({
+        categoryId: 2,
+        seriesId: 4,
+        seriesOrder: 2,
+        stageLevel: 2,
+        iconId: 2,
+        progressKey: MedalProgressKey.WEAPON_BROKEN,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 50,
+        points: 40
+    }),
+    401: createMedalStage({
+        categoryId: 2,
+        seriesId: 4,
+        seriesOrder: 2,
+        stageLevel: 1,
+        iconId: 2,
+        progressKey: MedalProgressKey.WEAPON_BROKEN,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 70,
+        points: 60
+    }),
+    503: createMedalStage({
+        categoryId: 2,
+        seriesId: 5,
+        seriesOrder: 3,
+        stageLevel: 3,
+        iconId: 2,
+        progressKey: MedalProgressKey.EXPLOSIVE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 20,
+        points: 20
+    }),
+    502: createMedalStage({
+        categoryId: 2,
+        seriesId: 5,
+        seriesOrder: 3,
+        stageLevel: 2,
+        iconId: 2,
+        progressKey: MedalProgressKey.EXPLOSIVE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 40,
+        points: 40
+    }),
+    501: createMedalStage({
+        categoryId: 2,
+        seriesId: 5,
+        seriesOrder: 3,
+        stageLevel: 1,
+        iconId: 2,
+        progressKey: MedalProgressKey.EXPLOSIVE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 60,
+        points: 60
+    }),
+    603: createMedalStage({
+        categoryId: 2,
+        seriesId: 6,
+        seriesOrder: 4,
+        stageLevel: 3,
+        iconId: 2,
+        progressKey: MedalProgressKey.KATANA_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 20,
+        points: 20
+    }),
+    602: createMedalStage({
+        categoryId: 2,
+        seriesId: 6,
+        seriesOrder: 4,
+        stageLevel: 2,
+        iconId: 2,
+        progressKey: MedalProgressKey.KATANA_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 40,
+        points: 40
+    }),
+    601: createMedalStage({
+        categoryId: 2,
+        seriesId: 6,
+        seriesOrder: 4,
+        stageLevel: 1,
+        iconId: 2,
+        progressKey: MedalProgressKey.KATANA_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 60,
+        points: 60
+    }),
+    703: createMedalStage({
+        categoryId: 1,
+        seriesId: 7,
+        seriesOrder: 2,
+        stageLevel: 3,
+        iconId: 1,
+        progressKey: MedalProgressKey.CANNED_EATEN,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 10,
+        points: 20
+    }),
+    702: createMedalStage({
+        categoryId: 1,
+        seriesId: 7,
+        seriesOrder: 2,
+        stageLevel: 2,
+        iconId: 1,
+        progressKey: MedalProgressKey.CANNED_EATEN,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 40,
+        points: 40
+    }),
+    701: createMedalStage({
+        categoryId: 1,
+        seriesId: 7,
+        seriesOrder: 2,
+        stageLevel: 1,
+        iconId: 1,
+        progressKey: MedalProgressKey.CANNED_EATEN,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 80,
+        points: 60
+    }),
+    803: createMedalStage({
+        categoryId: 1,
+        seriesId: 8,
+        seriesOrder: 3,
+        stageLevel: 3,
+        iconId: 1,
+        progressKey: MedalProgressKey.MEDICINE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 100,
+        points: 20
+    }),
+    802: createMedalStage({
+        categoryId: 1,
+        seriesId: 8,
+        seriesOrder: 3,
+        stageLevel: 2,
+        iconId: 1,
+        progressKey: MedalProgressKey.MEDICINE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 200,
+        points: 40
+    }),
+    801: createMedalStage({
+        categoryId: 1,
+        seriesId: 8,
+        seriesOrder: 3,
+        stageLevel: 1,
+        iconId: 1,
+        progressKey: MedalProgressKey.MEDICINE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 300,
+        points: 60
+    }),
+    903: createMedalStage({
+        categoryId: 1,
+        seriesId: 9,
+        seriesOrder: 4,
+        stageLevel: 3,
+        iconId: 1,
+        progressKey: MedalProgressKey.MELEE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 40,
+        points: 20,
+        effect: {durableCraftChanceBonus: 0.02}
+    }),
+    902: createMedalStage({
+        categoryId: 1,
+        seriesId: 9,
+        seriesOrder: 4,
+        stageLevel: 2,
+        iconId: 1,
+        progressKey: MedalProgressKey.MELEE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 60,
+        points: 40,
+        effect: {durableCraftChanceBonus: 0.02}
+    }),
+    901: createMedalStage({
+        categoryId: 1,
+        seriesId: 9,
+        seriesOrder: 4,
+        stageLevel: 1,
+        iconId: 1,
+        progressKey: MedalProgressKey.MELEE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 80,
+        points: 60,
+        effect: {durableCraftChanceBonus: 0.02}
+    }),
+    1203: createMedalStage({
+        categoryId: 1,
+        seriesId: 12,
+        seriesOrder: 5,
+        stageLevel: 3,
+        iconId: 1,
+        progressKey: MedalProgressKey.EXPLOSIVE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 10,
+        points: 20
+    }),
+    1202: createMedalStage({
+        categoryId: 1,
+        seriesId: 12,
+        seriesOrder: 5,
+        stageLevel: 2,
+        iconId: 1,
+        progressKey: MedalProgressKey.EXPLOSIVE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 20,
+        points: 40
+    }),
+    1201: createMedalStage({
+        categoryId: 1,
+        seriesId: 12,
+        seriesOrder: 5,
+        stageLevel: 1,
+        iconId: 1,
+        progressKey: MedalProgressKey.EXPLOSIVE_CRAFTED,
+        progressScope: MedalProgressScope.ACCOUNT,
+        aim: 30,
+        points: 60
+    }),
+    1303: createMedalStage({
+        categoryId: 1,
+        seriesId: 13,
+        seriesOrder: 6,
+        stageLevel: 3,
+        iconId: 1,
+        progressKey: MedalProgressKey.DOG_SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        aim: 20,
+        points: 20
+    }),
+    1302: createMedalStage({
+        categoryId: 1,
+        seriesId: 13,
+        seriesOrder: 6,
+        stageLevel: 2,
+        iconId: 1,
+        progressKey: MedalProgressKey.DOG_SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        aim: 40,
+        points: 40
+    }),
+    1301: createMedalStage({
+        categoryId: 1,
+        seriesId: 13,
+        seriesOrder: 6,
+        stageLevel: 1,
+        iconId: 1,
+        progressKey: MedalProgressKey.DOG_SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        aim: 60,
+        points: 60
+    })
+};
+
+var MedalLegacyProgressMap = [
+    {
+        progressKey: MedalProgressKey.SURVIVAL_DAYS,
+        progressScope: MedalProgressScope.RUN,
+        stageIds: [103, 102, 101]
+    },
+    {
+        progressKey: MedalProgressKey.ZOMBIE_KILLS,
+        progressScope: MedalProgressScope.ACCOUNT,
+        stageIds: [203, 202, 201]
+    },
+    {
+        progressKey: MedalProgressKey.SECRET_ROOM_END,
+        progressScope: MedalProgressScope.RUN,
+        stageIds: [303, 302, 301]
+    }
+];
 
 // 兑换成就配置
 var ExchangeAchievementConfig = {
@@ -210,14 +524,32 @@ var ExchangeAchievementConfig = {
     4009: {type: "consumable", targetId: 209, cost: 12, name: "高级物资包"}
 };
 
+function normalizeMedalTrackedItemId(itemId) {
+    itemId = parseInt(itemId);
+    if (typeof WeaponCraftService !== "undefined"
+        && WeaponCraftService
+        && typeof WeaponCraftService.getBaseItemId === "function") {
+        itemId = WeaponCraftService.getBaseItemId(itemId);
+    }
+    return itemId;
+}
+
+function medalDebugLog(msg) {
+    if (typeof cc !== "undefined" && cc && typeof cc.log === "function") {
+        cc.log(msg);
+    }
+}
+
 var Medal = {
     _map: null,
+    _progress: null,
     _achievementPoints: 0,
     _exchangeMap: null,
 
     init: function () {
+        var savedMap = null;
+        var savedProgress = null;
         if (!this._map) {
-            var savedMap = null;
             var medalStr = cc.sys.localStorage.getItem("medal");
             if (medalStr) {
                 savedMap = SafetyHelper.safeJSONParse(medalStr, null, "Medal.init.medal");
@@ -225,16 +557,30 @@ var Medal = {
             if (!savedMap) {
                 savedMap = {};
             }
-            this._map = {};
 
+            var progressStr = cc.sys.localStorage.getItem("medalProgress");
+            if (progressStr) {
+                savedProgress = SafetyHelper.safeJSONParse(progressStr, null, "Medal.init.progress");
+            }
+            this._progress = this._normalizeProgressMap(savedProgress);
+            this._migrateLegacyProgress(savedMap);
+
+            this._map = {};
             for (var medalId in MedalConfig) {
+                if (!MedalConfig.hasOwnProperty(medalId)) {
+                    continue;
+                }
                 var config = MedalConfig[medalId];
                 var savedInfo = savedMap[medalId] || {};
+                var completed = (savedInfo.completed === 1 || savedInfo.claimed === 1) ? 1 : 0;
+                var claimed = savedInfo.claimed === 1 ? 1 : 0;
+                var aimCompleted = this._resolveAimCompleted(config, savedInfo, completed);
+
                 this._map[medalId] = {
                     aim: config.aim,
-                    aimCompleted: Math.max(0, Number(savedInfo.aimCompleted) || 0),
-                    completed: savedInfo.completed === 1 ? 1 : 0,
-                    claimed: savedInfo.claimed === 1 ? 1 : 0,
+                    aimCompleted: aimCompleted,
+                    completed: completed,
+                    claimed: claimed,
                     points: config.points,
                     effect: config.effect,
                     categoryId: config.categoryId,
@@ -242,9 +588,14 @@ var Medal = {
                     seriesOrder: config.seriesOrder,
                     stageLevel: config.stageLevel,
                     iconId: config.iconId || config.categoryId,
-                    triggerType: config.triggerType,
+                    progressKey: config.progressKey || null,
+                    progressScope: config.progressScope || MedalProgressScope.ACCOUNT,
                     resetOnNewGame: !!config.resetOnNewGame
                 };
+
+                if (!completed) {
+                    this.checkCompleted(this._map[medalId], medalId, {silent: true});
+                }
             }
         }
 
@@ -264,27 +615,188 @@ var Medal = {
         }
 
         this.save();
-        cc.log(JSON.stringify(this._map));
+        medalDebugLog(JSON.stringify(this._map));
+    },
+    _ensureState: function () {
+        if (!this._map) {
+            this.init();
+        }
+    },
+    _ensureExchangeState: function () {
+        if (this._exchangeMap === undefined || this._exchangeMap === null) {
+            var exchangeStr = cc.sys.localStorage.getItem("exchangeAchievements");
+            this._exchangeMap = exchangeStr
+                ? SafetyHelper.safeJSONParse(exchangeStr, {}, "Medal.ensureExchangeState.exchange")
+                : {};
+            if (!this._exchangeMap) {
+                this._exchangeMap = {};
+            }
+        }
+
+        var points = Number(this._achievementPoints);
+        if (!isFinite(points) || points < 0) {
+            var pointsStr = cc.sys.localStorage.getItem("achievementPoints");
+            this._achievementPoints = pointsStr ? Number(pointsStr) : 0;
+            if (!isFinite(this._achievementPoints) || this._achievementPoints < 0) {
+                this._achievementPoints = 0;
+            }
+        }
+    },
+    _normalizeProgressMap: function (savedProgress) {
+        savedProgress = savedProgress || {};
+        return {
+            account: savedProgress.account || {},
+            run: savedProgress.run || {}
+        };
+    },
+    _getProgressBucket: function (scope) {
+        this._progress = this._progress || {account: {}, run: {}};
+        if (scope === MedalProgressScope.RUN) {
+            this._progress.run = this._progress.run || {};
+            return this._progress.run;
+        }
+        this._progress.account = this._progress.account || {};
+        return this._progress.account;
+    },
+    _getProgressValue: function (progressKey, scope) {
+        if (!progressKey) {
+            return 0;
+        }
+        var bucket = this._getProgressBucket(scope);
+        return Math.max(0, Number(bucket[progressKey]) || 0);
+    },
+    _setProgressValue: function (progressKey, scope, value) {
+        if (!progressKey) {
+            return;
+        }
+        var bucket = this._getProgressBucket(scope);
+        bucket[progressKey] = Math.max(0, Number(value) || 0);
+    },
+    _hasStoredProgressValue: function (progressKey, scope) {
+        if (!progressKey) {
+            return false;
+        }
+        var bucket = this._getProgressBucket(scope);
+        return bucket.hasOwnProperty(progressKey);
+    },
+    _migrateLegacyProgress: function (savedMap) {
+        var self = this;
+        MedalLegacyProgressMap.forEach(function (migration) {
+            if (!migration || !migration.progressKey || self._hasStoredProgressValue(migration.progressKey, migration.progressScope)) {
+                return;
+            }
+
+            var migratedValue = 0;
+            migration.stageIds.forEach(function (stageId) {
+                var savedInfo = savedMap[stageId] || {};
+                var config = MedalConfig[stageId] || {};
+                var stageValue = Math.max(0, Number(savedInfo.aimCompleted) || 0);
+                if (savedInfo.completed === 1 || savedInfo.claimed === 1) {
+                    stageValue = Math.max(stageValue, Number(config.aim) || 0);
+                }
+                migratedValue = Math.max(migratedValue, stageValue);
+            });
+
+            if (migratedValue > 0) {
+                self._setProgressValue(migration.progressKey, migration.progressScope, migratedValue);
+            }
+        });
+    },
+    _resolveAimCompleted: function (config, savedInfo, completed) {
+        var aimCompleted = 0;
+        if (config && config.progressKey) {
+            aimCompleted = this._getProgressValue(config.progressKey, config.progressScope);
+        } else {
+            aimCompleted = Math.max(0, Number(savedInfo.aimCompleted) || 0);
+        }
+
+        if (completed) {
+            aimCompleted = Math.max(aimCompleted, Number(config.aim) || 0);
+        }
+        return aimCompleted;
+    },
+    _syncProgressForMedal: function (medalId, options) {
+        options = options || {};
+        var config = MedalConfig[medalId];
+        var info = this._map[medalId];
+        if (!config || !info || !config.progressKey) {
+            return;
+        }
+
+        var currentValue = this._getProgressValue(config.progressKey, config.progressScope);
+        info.aimCompleted = info.completed === 1 ? Math.max(currentValue, info.aim) : currentValue;
+        this.checkCompleted(info, medalId, options);
+    },
+    _applyProgressDeltas: function (deltaList, options) {
+        options = options || {};
+        this._ensureState();
+
+        if (!Array.isArray(deltaList) || deltaList.length === 0) {
+            return;
+        }
+
+        var touchedKeys = {};
+        var hasChange = false;
+        var self = this;
+        deltaList.forEach(function (delta) {
+            if (!delta || !delta.progressKey) {
+                return;
+            }
+
+            var amount = Number(delta.amount) || 0;
+            if (amount <= 0) {
+                return;
+            }
+
+            var scope = delta.progressScope || MedalProgressScope.ACCOUNT;
+            var bucket = self._getProgressBucket(scope);
+            bucket[delta.progressKey] = Math.max(0, (Number(bucket[delta.progressKey]) || 0) + amount);
+            touchedKeys[scope + ":" + delta.progressKey] = true;
+            hasChange = true;
+        });
+
+        if (!hasChange) {
+            return;
+        }
+
+        this.getMedalIds().forEach(function (medalId) {
+            var config = MedalConfig[medalId];
+            if (!config || !config.progressKey) {
+                return;
+            }
+            if (touchedKeys[config.progressScope + ":" + config.progressKey]) {
+                self._syncProgressForMedal(medalId, options);
+            }
+        });
+        this.save();
     },
     save: function () {
-        cc.sys.localStorage.setItem("medal", JSON.stringify(this._map));
+        if (this._map) {
+            cc.sys.localStorage.setItem("medal", JSON.stringify(this._map));
+        }
+        if (this._progress) {
+            cc.sys.localStorage.setItem("medalProgress", JSON.stringify(this._progress));
+        }
         cc.sys.localStorage.setItem("achievementPoints", this._achievementPoints.toString());
         cc.sys.localStorage.setItem("exchangeAchievements", JSON.stringify(this._exchangeMap));
     },
 
     // 获取成就点
     getAchievementPoints: function () {
+        this._ensureExchangeState();
         return this._achievementPoints;
     },
 
     // 添加成就点
     addAchievementPoints: function (points) {
+        this._ensureExchangeState();
         this._achievementPoints += points;
         this.save();
     },
 
     // 消耗成就点
     spendAchievementPoints: function (points) {
+        this._ensureExchangeState();
         if (this._achievementPoints >= points) {
             this._achievementPoints -= points;
             this.save();
@@ -295,6 +807,7 @@ var Medal = {
 
     // 兑换成就
     exchangeAchievement: function (exchangeId) {
+        this._ensureExchangeState();
         var config = ExchangeAchievementConfig[exchangeId];
         if (!config) return false;
 
@@ -312,28 +825,18 @@ var Medal = {
 
     // 检查是否已兑换
     isExchanged: function (exchangeId) {
+        this._ensureExchangeState();
         return !!this._exchangeMap[exchangeId];
-    },
-
-    // 取消兑换
-    cancelExchange: function (exchangeId) {
-        var config = ExchangeAchievementConfig[exchangeId];
-        if (!config) return false;
-
-        if (!this._exchangeMap[exchangeId]) {
-            return false; // 未兑换过
-        }
-
-        delete this._exchangeMap[exchangeId];
-        this.addAchievementPoints(config.cost);
-        this.save();
-        return true;
     },
 
     // 获取天赋等级
     getTalentLevel: function (talentId) {
+        this._ensureExchangeState();
         var level = 0;
         for (var exchangeId in this._exchangeMap) {
+            if (!this._exchangeMap.hasOwnProperty(exchangeId)) {
+                continue;
+            }
             var config = ExchangeAchievementConfig[exchangeId];
             if (config && config.type === "talent" && config.targetId === talentId) {
                 level = Math.max(level, config.level);
@@ -491,6 +994,12 @@ var Medal = {
         });
         return total;
     },
+    getTotalClaimableCount: function () {
+        var self = this;
+        return this.getCategoryIds().reduce(function (sum, categoryId) {
+            return sum + self.getClaimableCountByCategory(categoryId);
+        }, 0);
+    },
     getClaimableCountByCategory: function (categoryId) {
         var total = 0;
         var self = this;
@@ -500,17 +1009,32 @@ var Medal = {
         return total;
     },
     newGameReset: function () {
+        this._ensureState();
+        var resetProgressKeys = {};
         var self = this;
         this.getMedalIds().forEach(function (id) {
-            var info = self._map[id];
             var config = MedalConfig[id];
-            if (info && config && config.resetOnNewGame && !info.completed) {
-                info.aimCompleted = 0;
+            if (config && config.progressScope === MedalProgressScope.RUN && config.progressKey) {
+                resetProgressKeys[config.progressKey] = true;
             }
+        });
+
+        Object.keys(resetProgressKeys).forEach(function (progressKey) {
+            self._setProgressValue(progressKey, MedalProgressScope.RUN, 0);
+        });
+
+        this.getMedalIds().forEach(function (id) {
+            var config = MedalConfig[id];
+            var info = self._map[id];
+            if (!config || !info || config.progressScope !== MedalProgressScope.RUN) {
+                return;
+            }
+            self._syncProgressForMedal(id, {silent: true});
         });
         this.save();
     },
     improve: function (player) {
+        this._ensureState();
         this.improveAttr(player);
         this.improveItems(player);
     },
@@ -519,7 +1043,7 @@ var Medal = {
         this.getMedalIds().forEach(function (id) {
             var info = self._map[id];
             if (info && info.completed === 1 && info.effect && info.effect.attr && info.effect.attr.hp) {
-                cc.log('improveAttr: ' + id);
+                medalDebugLog("improveAttr: " + id);
                 player.hp += memoryUtil.changeEncode(info.effect.attr.hp);
                 player.hpMaxOrigin += memoryUtil.changeEncode(info.effect.attr.hp);
                 player.hpMax = player.hpMaxOrigin;
@@ -549,7 +1073,7 @@ var Medal = {
         this.getMedalIds().forEach(function (id) {
             var info = self._map[id];
             if (info && info.completed === 1 && info.effect && info.effect.items) {
-                cc.log('improveItems: ' + id);
+                medalDebugLog("improveItems: " + id);
                 info.effect.items.forEach(function (item) {
                     player.storage.increaseItem(item.itemId, item.num);
                 });
@@ -557,7 +1081,11 @@ var Medal = {
         });
     },
     improveTalentItems: function (player) {
+        this._ensureState();
         for (var exchangeId in this._exchangeMap) {
+            if (!this._exchangeMap.hasOwnProperty(exchangeId)) {
+                continue;
+            }
             var config = ExchangeAchievementConfig[exchangeId];
             if (config && config.effect && config.effect.items) {
                 if (config.type === "talent") {
@@ -574,22 +1102,40 @@ var Medal = {
                     var hasInStorage = player.storage.getNumByItemId(item.itemId);
                     var hasInBag = player.bag.getNumByItemId(item.itemId);
                     if (hasInStorage + hasInBag === 0) {
-                        cc.log('improveTalentItems: ' + exchangeId + ', itemId: ' + item.itemId);
+                        medalDebugLog("improveTalentItems: " + exchangeId + ", itemId: " + item.itemId);
                         player.storage.increaseItem(item.itemId, item.num);
                     }
                 });
             }
         }
     },
-    checkCompleted: function (medalInfo, medalId) {
+    getDurableCraftChanceBonus: function () {
+        this._ensureState();
+        var totalBonus = 0;
+        var self = this;
+        this.getMedalIds().forEach(function (medalId) {
+            var info = self._map[medalId];
+            if (!info || info.completed !== 1 || !info.effect) {
+                return;
+            }
+            totalBonus += Number(info.effect.durableCraftChanceBonus) || 0;
+        });
+        return totalBonus;
+    },
+    checkCompleted: function (medalInfo, medalId, options) {
+        options = options || {};
         if (medalInfo && medalInfo.aimCompleted >= medalInfo.aim && medalInfo.completed === 0) {
             medalInfo.completed = 1;
-            this.addCompletedForOneGame(Number(medalId));
+            medalInfo.aimCompleted = Math.max(medalInfo.aimCompleted, medalInfo.aim);
+            if (!options.silent) {
+                this.addCompletedForOneGame(Number(medalId));
+            }
         }
     },
 
     // 领取成就奖励
     claimAchievement: function (medalId) {
+        this._ensureState();
         var medalInfo = this._map[medalId];
         if (!medalInfo || medalInfo.completed !== 1 || medalInfo.claimed === 1) {
             return false;
@@ -622,32 +1168,104 @@ var Medal = {
     getCompletedForOneGame: function () {
         return this._completeForOneGame;
     },
-    _increaseTriggerProgress: function (triggerType, value) {
-        var amount = Number(value) || 0;
-        if (amount <= 0) {
+    trackProgress: function (progressKey, value, progressScope) {
+        this._applyProgressDeltas([{
+            progressKey: progressKey,
+            progressScope: progressScope,
+            amount: value
+        }]);
+    },
+    trackBattleResult: function (summary) {
+        summary = summary || {};
+        this._applyProgressDeltas([
+            {
+                progressKey: MedalProgressKey.ZOMBIE_KILLS,
+                progressScope: MedalProgressScope.ACCOUNT,
+                amount: summary.monsterKilledNum
+            },
+            {
+                progressKey: MedalProgressKey.EXPLOSIVE_KILLS,
+                progressScope: MedalProgressScope.ACCOUNT,
+                amount: summary.explosiveKilledNum
+            },
+            {
+                progressKey: MedalProgressKey.KATANA_KILLS,
+                progressScope: MedalProgressScope.ACCOUNT,
+                amount: summary.katanaKilledNum
+            }
+        ]);
+    },
+    trackWeaponBroken: function (itemId, num) {
+        if (!itemId) {
+            return;
+        }
+        this.trackProgress(MedalProgressKey.WEAPON_BROKEN, num || 1, MedalProgressScope.ACCOUNT);
+    },
+    trackConsumedItem: function (itemId, num) {
+        itemId = normalizeMedalTrackedItemId(itemId);
+        if (itemId !== 1103083) {
+            return;
+        }
+        this.trackProgress(MedalProgressKey.CANNED_EATEN, num || 1, MedalProgressScope.ACCOUNT);
+    },
+    trackProducedItems: function (produceList) {
+        if (!Array.isArray(produceList) || produceList.length === 0) {
             return;
         }
 
-        var self = this;
-        this.getMedalIds().forEach(function (medalId) {
-            var config = MedalConfig[medalId];
-            var info = self._map[medalId];
-            if (!config || !info || config.triggerType !== triggerType || info.completed === 1) {
+        var medicineCount = 0;
+        var meleeCount = 0;
+        var explosiveCount = 0;
+        produceList.forEach(function (itemInfo) {
+            if (!itemInfo) {
                 return;
             }
-            info.aimCompleted += amount;
-            self.checkCompleted(info, medalId);
+            var itemId = normalizeMedalTrackedItemId(itemInfo.itemId);
+            var amount = Math.max(0, parseInt(itemInfo.num, 10) || 0);
+            if (amount <= 0) {
+                return;
+            }
+
+            if (MedalTrackedItemSet.medicineCraft[itemId]) {
+                medicineCount += amount;
+            }
+            if (MedalTrackedItemSet.meleeCraft[itemId]) {
+                meleeCount += amount;
+            }
+            if (MedalTrackedItemSet.explosiveCraft[itemId]) {
+                explosiveCount += amount;
+            }
         });
-        this.save();
+
+        this._applyProgressDeltas([
+            {
+                progressKey: MedalProgressKey.MEDICINE_CRAFTED,
+                progressScope: MedalProgressScope.ACCOUNT,
+                amount: medicineCount
+            },
+            {
+                progressKey: MedalProgressKey.MELEE_CRAFTED,
+                progressScope: MedalProgressScope.ACCOUNT,
+                amount: meleeCount
+            },
+            {
+                progressKey: MedalProgressKey.EXPLOSIVE_CRAFTED,
+                progressScope: MedalProgressScope.ACCOUNT,
+                amount: explosiveCount
+            }
+        ]);
     },
     checkDay: function (day) {
-        this._increaseTriggerProgress(MedalTriggerType.DAY, day);
+        this.trackProgress(MedalProgressKey.SURVIVAL_DAYS, day, MedalProgressScope.RUN);
+    },
+    checkDogSurvivalDay: function (day) {
+        this.trackProgress(MedalProgressKey.DOG_SURVIVAL_DAYS, day, MedalProgressScope.RUN);
     },
     checkMonsterKilled: function (num) {
-        this._increaseTriggerProgress(MedalTriggerType.MONSTER_KILLED, num);
+        this.trackProgress(MedalProgressKey.ZOMBIE_KILLS, num, MedalProgressScope.ACCOUNT);
     },
     checkSecretRoomEnd: function (num) {
-        this._increaseTriggerProgress(MedalTriggerType.SECRET_ROOM_END, num);
+        this.trackProgress(MedalProgressKey.SECRET_ROOM_END, num, MedalProgressScope.RUN);
     }
 
 };

@@ -81,8 +81,7 @@ node tools/validate-content.js checklist role 1 --lang zh
 高风险改动前后建议跑：
 
 ```bash
-node tools/smoke-runtime-boundaries.js
-node tools/smoke-startup.js
+node tools/run-smoke.js
 ```
 
 如果只是想临时查看单个配置，可直接调用：
@@ -125,8 +124,6 @@ node tools/smoke-startup.js
 ```bash
 python3 tools/normalize-portrait.py inspect assets/res/贝尔.png --json
 python3 tools/normalize-portrait.py normalize --input assets/res/贝尔.png --output assets/res/npc/npc_dig_8.png --preset npc_dig --trim-alpha --cut 0,0,0,18
-python3 tools/normalize-portrait.py batch tools/portrait-normalizer.sample.json
-python3 tools/normalize-portrait.py batch tools/examples/bell/normalize-bell.json
 ```
 
 常用预设：

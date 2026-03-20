@@ -57,6 +57,10 @@ var AttrHelperRuntime = (typeof AttrHelper !== "undefined" && AttrHelper) ? Attr
     }
 };
 
+var getPlayerPersistenceService = function () {
+    return GameKernel.require("PlayerPersistenceService", "player.js");
+};
+
 var Player = cc.Class.extend({
     ctor: function () {
         this.config = utils.clone(playerConfig);
@@ -114,11 +118,11 @@ var Player = cc.Class.extend({
     },
 
     save: function () {
-        return PlayerPersistenceService.buildSaveData(this, AttrHelperRuntime);
+        return getPlayerPersistenceService().buildSaveData(this, AttrHelperRuntime);
     },
 
     restore: function () {
-        return PlayerPersistenceService.restore(this, AttrHelperRuntime);
+        return getPlayerPersistenceService().restore(this, AttrHelperRuntime);
     },
 
     getRuntime: function () {
@@ -452,6 +456,11 @@ var Player = cc.Class.extend({
                     return {result: false};
                 storage.decreaseItem(itemId, 1);
                 this.log.addMsg(1093, itemName, storage.getNumByItemId(itemId));
+                if (typeof Medal !== "undefined"
+                    && Medal
+                    && typeof Medal.trackConsumedItem === "function") {
+                    Medal.trackConsumedItem(itemId, 1);
+                }
                 this.itemEffect(item, item.getFoodEffect());
                 return {result: true};
             } else if (item.isType(ItemType.TOOL, ItemType.MEDICINE)) {
@@ -792,6 +801,9 @@ var Player = cc.Class.extend({
                 self.log.addMsg(1122);
                 self.weather.checkWeather();
                 Medal.checkDay(1);
+                if (self.dog && typeof self.dog.isActive === "function" && self.dog.isActive()) {
+                    Medal.checkDogSurvivalDay(1);
+                }
             } else {
                 self.log.addMsg(1121);
             }

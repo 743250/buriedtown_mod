@@ -52,7 +52,7 @@ var DeathNode = BottomFrameNode.extend({
 
         } else {
 
-            if (!PurchaseService.isUnlocked(203)) {
+            if (!PurchaseUiHelper.isPurchaseUnlocked(203)) {
                 btn2.x = this.bgRect.width / 4;
                 btn1.x = this.bgRect.width / 4 * 3;
                 label1.x = btn1.x;

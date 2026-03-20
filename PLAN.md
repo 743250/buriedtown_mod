@@ -149,7 +149,7 @@ Batch 3E 的目标就是把这张表清空到只剩 `GameRuntime.js` 内部的�
 ### 3.1 `Phase 0` ~ `Phase 1`（已完成）
 
 - `Phase 0`：固定 legacy 基线，`tools/validate-content.js` 作为仓库验证主入口
-- `Phase 0.5`：高风险入口护栏，`tools/smoke-runtime-boundaries.js` 与 `tools/smoke-startup.js`
+- `Phase 0.5`：高风险入口护栏，`tools/run-smoke.js runtime-boundaries startup`
 - `Phase 1`：内容校验覆盖扩展到 `build / build-action / role runtime rule / special item reference`
 
 ### 3.2 `Phase 2`: 建筑 / 动作链（已完成）
@@ -158,7 +158,7 @@ Batch 3E 的目标就是把这张表清空到只剩 `GameRuntime.js` 内部的�
 - `DogBuildAction`、`BombBuildAction`、`BonfireBuildAction` 已迁到通用 timed-state / fuel 注册模式
 - `Build.js` 回归状态模型职责，不再直接读取当前角色
 - `runtimeRule` 在 `formula` / `build-action` 上都有最小 schema 护栏
-- `tools/smoke-runtime-boundaries.js` 已覆盖 build action registry 复用与 bonfire 状态机验证
+- `tools/run-smoke.js runtime-boundaries` 已覆盖 build action registry 复用与 bonfire 状态机验证
 
 ### 3.3 `Phase 3`: 角色 / 天赋 / 购买 / runtime 边界定型
 
@@ -326,8 +326,7 @@ Batch 3E 的目标就是把这张表清空到只剩 `GameRuntime.js` 内部的�
 
 - `node tools/validate-content.js all --lang zh`
 - `node tools/validate-content.js all --lang en`
-- `node tools/smoke-runtime-boundaries.js`
-- `node tools/smoke-startup.js`
+- `node tools/run-smoke.js runtime-boundaries startup`
 - 针对改动文件做最小语法检查
 
 补充规则：
@@ -441,12 +440,15 @@ Batch 3E 的目标就是把这张表清空到只剩 `GameRuntime.js` 内部的�
      - 2.3 清单中的业务文件不再直接回退到 `player`、`cc.timer`、`utils.emitter`
      - runtime 依赖缺失时，在测试或启动阶段显式暴露，而不是在业务里静默兜底
 
-6. **`Batch 3F`: 商店 / 购买 UI 单一状态源** — ⏳ 待开始
+6. **`Batch 3F`: 商店 / 购买 UI 单一状态源** — 🔄 进行中
    - 主行为文件：`PurchaseService.js` / `PurchaseUiHelper.js` / `uiUtil.js` / `dialog.js` / `shopScene.js`
    - 目标：
      - 让 `PurchaseService.getShopUiState()` 成为 shop state 唯一业务主出口
      - 删除 `PurchaseUiHelper.getPurchaseUiSnapshot()` 中 `shopState` 缺失时的 ~60 行 fallback
      - 让 UI 退回展示与转发职责
+   - 当前落地：
+     - `PurchaseUiHelper.getPurchaseUiSnapshot()` 已删除业务 fallback，只消费 `PurchaseService.getShopUiState()`
+     - `ChooseScene` / `uiUtil.js` / `MedalSceneView.js` / `topFrame.js` / `home.js` / `deathNode.js` 已收口 UI 侧的直接购买状态读取
    - 同批不做：不同时重写资源 fallback 和图标装配策略、不混改支付结果解释
    - 退出标准：商店 UI 不再重算购买业务状态
 
@@ -473,13 +475,70 @@ Batch 3E 的目标就是把这张表清空到只剩 `GameRuntime.js` 内部的�
 ### 5.4 当前进度与下一步
 
 - 已完成：`Batch 3A` / `Batch 3B` / `Batch 3C`
-- 进行中：`Batch 3D`
-- 待开始：`Batch 3E` / `Batch 3F` / `Batch 3G`
+- 进行中：`Batch 3D` / `Batch 3F`
+- 待开始：`Batch 3E` / `Batch 3G`
 
 当前下一步按顺序推进：
-1. 先完成 `Batch 3D`：把剩余 runtime / gameplay 侧的购买状态读取收口到 `PurchaseService`
+1. 先收完 `Batch 3F`：清理商店外残留 UI 购买状态读取点，锁定 `PurchaseService.getShopUiState()` 单一状态源
 2. 再进入 `Batch 3E`：清理双轨 runtime fallback（优先处理 2.3 清单）
-3. 然后进入 `Batch 3F`：让 `PurchaseUiHelper` 停止在 UI 层重算购买业务状态
-4. 最后进入 `Batch 3G`：把 `restore` 与 `migration` 拆开
+3. 最后进入 `Batch 3G`：把 `restore` 与 `migration` 拆开
 
 在 `Batch 3E ~ 3G` 没有稳定前，不插入 `Batch 7B`。
+
+## 6. 重构整改计划（新增）
+
+### 6.1 目标（与现有 Phase 并行推进）
+
+- 让模块边界可读、可测、可执行，不再依赖脚本顺序和隐式全局兜底
+- 让职责真正落位：配置 → 服务 → 状态模型 → UI/装配
+- 让接口稳定：关键服务 API 有固定契约与最小 smoke 护栏
+- 让系统收敛：减少 fallback、减少平行状态源、减少 UI 侧业务推导
+
+### 6.2 整改范围与落地原则
+
+- 整改范围仅覆盖影响“新增人物/天赋/物品/建筑/机制”的关键链路
+- 所有整改都必须能对应到现有 Phase 或 Batch，避免另起平行主线
+- 高风险入口只允许做薄改或兼容式切换，禁止大改序或多点重写
+- 新增或变更接口必须同步补最小契约验证
+
+### 6.3 整改批次（R 系列，与 Phase 3/4 对齐）
+
+1. **R1：边界清单化与接口契约冻结** — 🔄 已启动
+   交付物：关键服务与核心入口的接口清单、责任归属表、最小契约断言。
+   当前落地：
+   - `tools/run-smoke.js runtime-boundaries startup`：执行高价值 smoke 护栏
+   - `tools/precommit/run-tests.js`：提交前默认跑高价值 smoke
+   覆盖对象：`GameRuntime`、`RoleRuntimeService`、`TalentService`、`BuildActionEffectService`、`PurchaseService`、`PlayerPersistenceService`。
+   下一步：
+   - 补充 `RoleRuntimeService` / `BuildActionEffectService` 的行为级边界断言
+   - 在 `R2 ~ R4` 推进时，继续把高风险回归收进 `runtime-boundaries`
+   验收标准：高风险入口与现有 smoke 同步，新增高风险入口必须先补最小断言。
+
+2. **R2：runtime 真源唯一化（对应 Batch 3E）**
+   动作要点：清理 2.3 清单中的 fallback；所有运行时依赖统一经 `GameRuntime` 获取。
+   验收标准：业务文件不再直接回退到 `player` / `cc.timer` / `utils.emitter`。
+
+3. **R3：商店 UI 单一状态源（对应 Batch 3F）** — 🔄 进行中
+   动作要点：UI 仅消费 `PurchaseService.getShopUiState()`；删除 UI 侧重算逻辑。
+   验收标准：`PurchaseUiHelper.getPurchaseUiSnapshot()` 不再有业务 fallback。
+
+4. **R4：restore / migration 分层（对应 Batch 3G）**
+   动作要点：`PlayerPersistenceService` 只还原状态；历史兼容迁移走独立入口。
+   验收标准：正常读档路径不再承担修复与补偿逻辑。
+
+5. **R5：配置 fallback 清退（对应 Phase 4 之前的收口）**
+   动作要点：逐步移除 `RoleRuntimeService._defaultConfig`、`SiteConfigService._buildFallbackConfig` 的常驻兜底。
+   验收标准：缺配置直接暴露，规则解释必须依赖主配置表。
+
+### 6.4 验收指标（每批次都要对照）
+
+- 新增内容时，改动文件数量下降且集中在配置与服务层
+- 高风险入口的改动必须被 smoke 覆盖
+- 业务侧不新增新的 fallback 或平行状态源
+- UI 层不新增业务判断分支
+
+### 6.5 风险与回退策略
+
+- 触碰高风险入口时，优先采用影子函数比对与渐进切换
+- 一次提交只允许一个高风险入口承担主要行为变化
+- 每批次结束必须有最小人工回归清单与清晰回退点

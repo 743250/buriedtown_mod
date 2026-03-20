@@ -2,15 +2,11 @@
  * Encapsulates world-map movement and encounter stepping for the player marker.
  */
 var getMapActorRuntimePlayer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
-        ? GameRuntime.getPlayer()
-        : player;
+    return GameRuntime.getPlayer();
 };
 
 var getMapActorRuntimeTimer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function")
-        ? GameRuntime.getTimer()
-        : cc.timer;
+    return GameRuntime.getTimer();
 };
 
 var MapActor = cc.Node.extend({

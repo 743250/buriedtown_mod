@@ -7,27 +7,25 @@ var BuildNodeUpdateEventName = (typeof GameEvents !== "undefined" && GameEvents 
     : "build_node_update";
 
 var getBuildActionRuntimePlayer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
-        ? GameRuntime.getPlayer()
-        : player;
+    return GameRuntime.getPlayer();
 };
 
 var getBuildActionRuntimeTimer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function")
-        ? GameRuntime.getTimer()
-        : cc.timer;
+    return GameRuntime.getTimer();
 };
 
 var getBuildActionRuntimeEmitter = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getEmitter === "function")
-        ? GameRuntime.getEmitter()
-        : utils.emitter;
+    return GameRuntime.getEmitter();
 };
 
 var getBuildActionRuntimeRecord = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getRecord === "function")
-        ? GameRuntime.getRecord()
-        : Record;
+    return GameRuntime.getRecord();
+};
+var getBuildActionEffectService = function () {
+    return GameKernel.require("BuildActionEffectService", "buildAction.js");
+};
+var getBuildActionRoleRuntimeService = function () {
+    return GameKernel.require("RoleRuntimeService", "buildAction.js");
 };
 
 var BuildAction = cc.Class.extend({
@@ -213,16 +211,16 @@ var createTimedEffectBuildAction = function (options) {
             cc.assert(this.config, options.className + " buildActionConfig entry doesn't exist!");
         },
         updateConfig: function () {
-            return BuildActionEffectService.updateConfig(this);
+            return getBuildActionEffectService().updateConfig(this);
         },
         clickIcon: function () {
-            return BuildActionEffectService.showBuildActionDialog(this);
+            return getBuildActionEffectService().showBuildActionDialog(this);
         },
         clickAction1: function () {
-            return BuildActionEffectService.runTimedEffectAction(this, {logMessageId: options.logMessageId});
+            return getBuildActionEffectService().runTimedEffectAction(this, {logMessageId: options.logMessageId});
         },
         _getUpdateViewInfo: function () {
-            return BuildActionEffectService.buildTimedEffectViewInfo(this, {
+            return getBuildActionEffectService().buildTimedEffectViewInfo(this, {
                 iconIndex: options.iconIndex,
                 actionTextId: options.actionTextId,
                 progressHintIds: options.progressHintIds,
@@ -595,7 +593,7 @@ var Formula = BuildAction.extend({
     _grantImmediateMakeProduce: function (makeCount, itemInfo) {
         var self = this;
         var produce = self._buildMakeProduce(makeCount);
-        return BuildActionEffectService.grantProducedItems(self, produce, {
+        return getBuildActionEffectService().grantProducedItems(self, produce, {
             achievementMethod: "checkMake",
             logMessageId: 1090,
             fallbackItemInfo: itemInfo,
@@ -631,12 +629,13 @@ var Formula = BuildAction.extend({
             if (self.step == self.maxStep) {
                 self.step = 0;
             }
+            var runtimePlayer = getBuildActionRuntimePlayer();
             if (self.step == 1) {
-                player.costItems(scaledCost);
+                runtimePlayer.costItems(scaledCost);
                 self.place();
                 self._finishActioning({resetBuildBtn: false});
             } else {
-                player.costItems(scaledCost);
+                runtimePlayer.costItems(scaledCost);
                 self._grantImmediateMakeProduce(makeCount, itemInfo);
             }
         });
@@ -649,10 +648,10 @@ var Formula = BuildAction.extend({
         };
     },
     place: function () {
-        BuildActionEffectService.startPlacedTimer(this, this._buildPlacedTimerOptions());
+        getBuildActionEffectService().startPlacedTimer(this, this._buildPlacedTimerOptions());
     },
     _buildPlacedProduce: function () {
-        return BuildActionEffectService.buildPlacedProduce(this, {
+        return getBuildActionEffectService().buildPlacedProduce(this, {
             applyGreenhouseBonus: this.bid == 2,
             rollCraftProduce: true
         });
@@ -668,7 +667,7 @@ var Formula = BuildAction.extend({
             return;
         } else {
             var produce = this._buildPlacedProduce();
-            BuildActionEffectService.grantProducedItems(this, produce, {
+            getBuildActionEffectService().grantProducedItems(this, produce, {
                 achievementMethod: "checkProduce",
                 logMessageId: 1092,
                 fallbackItemInfo: itemInfo,
@@ -813,14 +812,15 @@ var TrapBuildAction = Formula.extend({
             return false;
         }
 
-        player.costItems(cost);
+        var runtimePlayer = getBuildActionRuntimePlayer();
+        runtimePlayer.costItems(cost);
         this.step = 1;
-        var trapBuild = this.build || getBuildActionRuntimePlayer().room.getBuild(this.bid);
+        var trapBuild = this.build || runtimePlayer.room.getBuild(this.bid);
         if (trapBuild && typeof trapBuild.setActiveBtnIndex === "function") {
             trapBuild.setActiveBtnIndex(this.getActionKey());
         }
         this.place();
-        player.log.addMsg(stringUtil.getString("trap_auto_set_log", getBuildActionCostText(cost)));
+        runtimePlayer.log.addMsg(stringUtil.getString("trap_auto_set_log", getBuildActionCostText(cost)));
         this._sendUpdageSignal();
         getBuildActionRuntimeRecord().saveAll();
         return true;
@@ -846,7 +846,7 @@ var TrapBuildAction = Formula.extend({
             return;
         } else {
             var produce = this._buildPlacedProduce();
-            BuildActionEffectService.grantProducedItems(this, produce, {
+            getBuildActionEffectService().grantProducedItems(this, produce, {
                 achievementMethod: "checkProduce",
                 logMessageId: 1092,
                 fallbackItemInfo: itemInfo,
@@ -861,10 +861,10 @@ var TrapBuildAction = Formula.extend({
         return stringUtil.getString(1154);
     },
     _buildPlacedProduce: function () {
-        return BuildActionEffectService.buildPlacedProduce(this);
+        return getBuildActionEffectService().buildPlacedProduce(this);
     },
     _grantImmediateMakeProduce: function (makeCount, itemInfo) {
-        return BuildActionEffectService.grantProducedItems(this, this.config.produce, {
+        return getBuildActionEffectService().grantProducedItems(this, this.config.produce, {
             finishOptions: undefined
         });
     },
@@ -1165,7 +1165,7 @@ var BuildActionFactory = {
             this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 3 }),
             this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 })
         ];
-        RoleRuntimeService.getRestActionTypes(roleType).forEach(function (actionType) {
+        getBuildActionRoleRuntimeService().getRestActionTypes(roleType).forEach(function (actionType) {
             var action = this.createRestActionByType(actionType, bid, level);
             if (action) {
                 actions.push(action);
@@ -1226,10 +1226,10 @@ var BedBuildAction = BuildAction.extend({
                 time = 4 * 60 * 60;
                 break;
             case BedBuildActionType.SLEEP_ALL_NIGHT:
-                time = cc.timer.getTimeFromNowToMorning();
+                time = getBuildActionRuntimeTimer().getTimeFromNowToMorning();
                 break;
             case BedBuildActionType.SLEEP_TO_NIGHT:
-                time = cc.timer.getTimeFromNowToNight();
+                time = getBuildActionRuntimeTimer().getTimeFromNowToNight();
                 break;
         }
         //单位小时的影响
@@ -1243,15 +1243,16 @@ var BedBuildAction = BuildAction.extend({
                 totalEffect[key] = effect[key];
             }
         }
-        player.sleep();
+        var runtimePlayer = getBuildActionRuntimePlayer();
+        runtimePlayer.sleep();
         var self = this;
         this.addTimer(time, time, function () {
-            player.applyEffect(totalEffect);
-            player.wakeUp();
+            runtimePlayer.applyEffect(totalEffect);
+            runtimePlayer.wakeUp();
             self._finishActioning();
         });
         this._sendUpdageSignal();
-        player.log.addMsg(1098);
+        runtimePlayer.log.addMsg(1098);
     },
     _getUpdateViewInfo: function () {
         this.updateConfig();

@@ -65,7 +65,7 @@ var ItemRuntimeService = {
             return [];
         }
 
-        return produceList.reduce(function (result, itemInfo) {
+        var rolledProduce = produceList.reduce(function (result, itemInfo) {
             if (!itemInfo) {
                 return result;
             }
@@ -83,5 +83,12 @@ var ItemRuntimeService = {
             }
             return result;
         }, []);
+
+        if (typeof WeaponCraftService !== "undefined"
+            && WeaponCraftService
+            && typeof WeaponCraftService.rollDurableProduce === "function") {
+            rolledProduce = WeaponCraftService.rollDurableProduce(rolledProduce);
+        }
+        return rolledProduce;
     }
 };

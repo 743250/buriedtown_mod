@@ -155,6 +155,7 @@ function runManifestSmoke() {
     [
         "src/game/record.js",
         "src/game/GameRuntime.js",
+        "src/game/GameKernel.js",
         "src/game/game.js",
         "src/game/player.js",
         "src/ui/baseScene.js",
@@ -168,6 +169,7 @@ function runManifestSmoke() {
 
     assert(getSourceIndex(jsList, "src/game/record.js") < getSourceIndex(jsList, "src/game/game.js"), "record.js must load before game.js");
     assert(getSourceIndex(jsList, "src/game/GameRuntime.js") < getSourceIndex(jsList, "src/game/game.js"), "GameRuntime.js must load before game.js");
+    assert(getSourceIndex(jsList, "src/game/GameKernel.js") < getSourceIndex(jsList, "src/game/player.js"), "GameKernel.js must load before player.js");
     assert(getSourceIndex(jsList, "src/ui/baseScene.js") < getSourceIndex(jsList, "src/ui/MainScene.js"), "baseScene.js must load before MainScene.js");
     assert(getSourceIndex(jsList, "src/ui/baseScene.js") < getSourceIndex(jsList, "src/ui/MenuScene.js"), "baseScene.js must load before MenuScene.js");
     assert(getSourceIndex(jsList, "src/ui/baseScene.js") < getSourceIndex(jsList, "src/ui/ChooseScene.js"), "baseScene.js must load before ChooseScene.js");

@@ -4,16 +4,10 @@
  */
 var BuildActionEffectService = {
     _getPlayer: function () {
-        if (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function") {
-            return GameRuntime.getPlayer();
-        }
-        return player;
+        return GameRuntime.getPlayer();
     },
     _getEmitter: function () {
-        if (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getEmitter === "function") {
-            return GameRuntime.getEmitter();
-        }
-        return utils.emitter;
+        return GameRuntime.getEmitter();
     },
     updateConfig: function (action) {
         var level = action.getCurrentBuildLevel();
@@ -84,6 +78,12 @@ var BuildActionEffectService = {
         options = options || {};
         var runtimePlayer = this._getPlayer();
         runtimePlayer.gainItems(produce);
+
+        if (typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.trackProducedItems === "function") {
+            Medal.trackProducedItems(produce);
+        }
 
         var achievementMethod = options.achievementMethod;
         if (achievementMethod && typeof Achievement[achievementMethod] === "function") {
@@ -188,6 +188,8 @@ var BuildActionEffectService = {
         };
     }
 };
+
+GameKernel.register("BuildActionEffectService", BuildActionEffectService);
 
 if (typeof module !== "undefined" && module.exports) {
     module.exports = BuildActionEffectService;

@@ -1758,15 +1758,13 @@ uiUtil._talentLevelTextMap = {
     3: "三"
 };
 
-uiUtil.getTalentDisplayInfo = function (purchaseId, baseName) {
-    if (typeof PurchaseService === "undefined"
-        || !PurchaseService
-        || !PurchaseService.isTalentPurchase(purchaseId)) {
+uiUtil.getTalentDisplayInfo = function (purchaseId, baseName, purchaseUiState) {
+    if (!purchaseUiState || !purchaseUiState.isTalentPurchase) {
         return null;
     }
 
     purchaseId = parseInt(purchaseId);
-    var currentLevel = Medal.getTalentLevel(purchaseId);
+    var currentLevel = Number(purchaseUiState.currentTalentLevel) || 0;
     var maxLevel = (typeof TalentService !== "undefined"
         && TalentService
         && typeof TalentService.getTalentMaxLevel === "function")
@@ -1841,11 +1839,7 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     var node = new cc.Node();
     var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
 
-    var purchaseConfig = purchaseDisplayContext.purchaseConfig;
-    purchaseConfig = purchaseConfig
-        || (typeof PurchaseService !== "undefined" && PurchaseService
-            ? PurchaseService.getPurchaseConfig(purchaseId)
-            : null);
+    var purchaseConfig = purchaseDisplayContext.purchaseConfig || null;
 
     var bgName = "";
     if (purchaseId <= 120) {
@@ -1913,10 +1907,12 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
     icon.x = bg.width / 2;
     icon.y = 118;
     if (isRolePortrait) {
-        // Role portraits are tall and visually narrower than item icons. Give them a taller box so
-        // they don't read as undersized relative to shop items while still staying clear of labels.
-        icon.setScale(fitSpriteScaleToBox(icon, bg.width * 0.76, 156, 0.5, 1));
-        icon.y = 108;
+        // Role portraits ship with wider framing and transparent margins than item icons.
+        // Push them larger so they visually fill the product card instead of reading as undersized.
+        var roleScale = fitSpriteScaleToBox(icon, bg.width * 0.9, 170, 0.62, 1.26);
+        roleScale = Math.min(1.42, roleScale * 1.18);
+        icon.setScale(roleScale);
+        icon.y = 110;
     } else if (isSupportPackIcon) {
         // Support-pack icons are not visually uniform; normalize their perceived size.
         var supportScale = fitSpriteScaleToBox(icon, bg.width * 0.72, 132, 1, 1.32);

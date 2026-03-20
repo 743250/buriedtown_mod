@@ -148,6 +148,11 @@ var WeaponCraftService = {
             && typeof TalentService.getDurableCraftChance === "function") {
             chance = TalentService.getDurableCraftChance(chance);
         }
+        if (typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.getDurableCraftChanceBonus === "function") {
+            chance += Medal.getDurableCraftChanceBonus();
+        }
         return Math.max(0, Math.min(1, chance));
     },
 

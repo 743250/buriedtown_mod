@@ -35,6 +35,8 @@ var medalShowDialog = cc.Layer.extend({
 
         var bg = autoSpriteFrameController.getSpriteFromSpriteName("#frame_medal_bg.png");
         bg.setAnchorPoint(0, 0);
+        bg.setColor(cc.color(26, 26, 26, 255));
+        bg.setOpacity(248);
         this.addChild(bg);
 
         var medalInfoIndex = Medal.getCompletedMedalIndex(medalIndex);
@@ -42,10 +44,14 @@ var medalShowDialog = cc.Layer.extend({
             return;
         }
         var medalInfo = Medal._map[medalInfoIndex];
-        var medalStrings = stringUtil.getString("m_" + medalInfoIndex);
+        var medalStrings = stringUtil.getString("m_" + medalInfoIndex) || {};
+        var titleColor = cc.color(248, 248, 248, 255);
+        var bodyColor = cc.color(232, 232, 232, 255);
+        var mutedColor = cc.color(186, 186, 186, 255);
 
         var leftEdge = 50;
         var medalIcon = autoSpriteFrameController.getSpriteFromSpriteName("#medalIcon_" + Medal.getIconIdByMedalId(medalInfoIndex) + ".png");
+        medalIcon.setColor(cc.color(246, 246, 246, 255));
         medalIcon.setPosition(leftEdge + 75, 128);
         this.addChild(medalIcon);
 
@@ -54,30 +60,30 @@ var medalShowDialog = cc.Layer.extend({
         starBg.setPosition(leftEdge + 75, 16);
         this.addChild(starBg);
 
-        var newGetLabel = new cc.LabelTTF(stringUtil.getString(1265), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_1);
+        var newGetLabel = new cc.LabelTTF(stringUtil.getString(1265), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_1 + 2);
         newGetLabel.setAnchorPoint(0, 0);
-        newGetLabel.setColor(cc.color(255, 255, 255, 255));
+        newGetLabel.setColor(mutedColor);
         newGetLabel.setPosition(leftEdge + 218, 170);
         newGetLabel.setHorizontalAlignment(cc.TEXT_ALIGNMENT_LEFT);
         this.addChild(newGetLabel);
 
-        var medalTitle = new cc.LabelTTF(medalStrings.name, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(300, 0));
+        var medalTitle = new cc.LabelTTF(medalStrings.name || "", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2 + 2, cc.size(300, 0));
         medalTitle.setAnchorPoint(0, 1);
-        medalTitle.setColor(cc.color(255, 255, 255, 255));
+        medalTitle.setColor(titleColor);
         medalTitle.setPosition(leftEdge + 218, 130);
         medalTitle.setHorizontalAlignment(cc.TEXT_ALIGNMENT_LEFT);
         this.addChild(medalTitle);
 
-        var medalCondition = new cc.LabelTTF(medalStrings.condition, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(300, 0));
+        var medalCondition = new cc.LabelTTF(medalStrings.condition || "", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2 + 1, cc.size(300, 0));
         medalCondition.setAnchorPoint(0, 1);
-        medalCondition.setColor(cc.color(255, 255, 255, 255));
+        medalCondition.setColor(bodyColor);
         medalCondition.setPosition(leftEdge + 218, medalTitle.y - medalTitle.height);
         medalCondition.setHorizontalAlignment(cc.TEXT_ALIGNMENT_LEFT);
         this.addChild(medalCondition);
 
-        var medalDes = new cc.LabelTTF(medalStrings.des, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(300, 0));
+        var medalDes = new cc.LabelTTF(medalStrings.des || "", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2 + 1, cc.size(300, 0));
         medalDes.setAnchorPoint(0, 1);
-        medalDes.setColor(cc.color(255, 255, 255, 255));
+        medalDes.setColor(mutedColor);
         medalDes.setPosition(leftEdge + 218, medalCondition.y - medalCondition.height);
         medalDes.setHorizontalAlignment(cc.TEXT_ALIGNMENT_LEFT);
         this.addChild(medalDes);

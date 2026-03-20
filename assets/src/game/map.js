@@ -2,15 +2,11 @@
  * Created by lancelot on 15/4/10.
  */
 var getMapRuntimePlayer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
-        ? GameRuntime.getPlayer()
-        : player;
+    return GameRuntime.getPlayer();
 };
 
 var getMapRuntimeEmitter = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getEmitter === "function")
-        ? GameRuntime.getEmitter()
-        : utils.emitter;
+    return GameRuntime.getEmitter();
 };
 
 var Map = cc.Class.extend({

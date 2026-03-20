@@ -598,3 +598,5 @@ var TalentService = {
         return changed;
     }
 };
+
+GameKernel.register("TalentService", TalentService);

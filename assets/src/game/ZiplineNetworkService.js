@@ -92,12 +92,12 @@ var ZiplineNetworkService = cc.Class.extend({
             && isFinite(entity.pos.y));
     },
     _getRuntimeZiplineConfig: function () {
+        var runtimePlayer = GameRuntime.getPlayer();
         if (typeof RoleRuntimeService !== "undefined"
             && RoleRuntimeService
             && typeof RoleRuntimeService.getZiplineConfig === "function"
-            && typeof player !== "undefined"
-            && player) {
-            return RoleRuntimeService.getZiplineConfig(player.roleType) || {};
+            && runtimePlayer) {
+            return RoleRuntimeService.getZiplineConfig(runtimePlayer.roleType) || {};
         }
         return {};
     },
@@ -105,7 +105,8 @@ var ZiplineNetworkService = cc.Class.extend({
         if (map) {
             return map;
         }
-        return (typeof player !== "undefined" && player && player.map) ? player.map : null;
+        var runtimePlayer = GameRuntime.getPlayer();
+        return runtimePlayer ? runtimePlayer.map : null;
     },
     _isHomeEntityKey: function (entityKey) {
         var entityInfo = this._splitEntityKey(entityKey);
@@ -449,12 +450,12 @@ var ZiplineNetworkService = cc.Class.extend({
             var npcEntity = map && typeof map.getNpc === "function"
                 ? map.getNpc(normalizedEntityId)
                 : null;
+            var runtimePlayer = GameRuntime.getPlayer();
             if (!npcEntity
-                && typeof player !== "undefined"
-                && player
-                && player.npcManager
-                && typeof player.npcManager.getNPC === "function") {
-                npcEntity = player.npcManager.getNPC(normalizedEntityId) || null;
+                && runtimePlayer
+                && runtimePlayer.npcManager
+                && typeof runtimePlayer.npcManager.getNPC === "function") {
+                npcEntity = runtimePlayer.npcManager.getNPC(normalizedEntityId) || null;
             }
             return npcEntity;
         }

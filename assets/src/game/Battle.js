@@ -34,17 +34,11 @@ var createBattleRuntimeConfig = function () {
 };
 
 var getBattleRuntimeTimer = function () {
-    if (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function") {
-        return GameRuntime.getTimer();
-    }
-    return cc.timer;
+    return GameRuntime.getTimer();
 };
 
 var getBattleRuntimeEmitter = function () {
-    if (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getEmitter === "function") {
-        return GameRuntime.getEmitter();
-    }
-    return utils.emitter;
+    return GameRuntime.getEmitter();
 };
 
 var getBattleTimestampMs = function () {
@@ -289,6 +283,13 @@ var Battle = cc.Class.extend({
             testBattleConfig: testBattleConfig
         });
 
+        if (!testBattleConfig
+            && typeof Medal !== "undefined"
+            && Medal
+            && typeof Medal.trackBattleResult === "function") {
+            Medal.trackBattleResult(this.sumRes);
+        }
+
         if (this.gameEndListener) {
             this.gameEndListener.call(this, this.sumRes);
         }
@@ -329,8 +330,8 @@ var Battle = cc.Class.extend({
         this.summary.recordBulletConsumed();
     },
 
-    recordMonsterKill: function () {
-        this.summary.recordMonsterKill();
+    recordMonsterKill: function (itemId) {
+        this.summary.recordMonsterKill(itemId);
     },
 
     recordPlayerUnderAttack: function (harm) {

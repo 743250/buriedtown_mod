@@ -685,8 +685,6 @@ var RandomBattleDialog = DialogBig.extend({
             utils.emitter.off(Battle.EVENTS.MONSTER_LENGTH);
             utils.emitter.off(Battle.EVENTS.DODGE_PERCENTAGE);
 
-            Medal.checkMonsterKilled(sumRes.monsterKilledNum);
-
             self.scheduleOnce(function () {
                 self.log.removeAllChildren();
                 self.actionNode.removeAllChildren();
@@ -1142,30 +1140,6 @@ var PayDialog = DialogBig.extend({
         }
         config.action.btn_2.target = null;
         config.action.btn_2.cb = cb;
-
-        var canResetUnlock = !!purchaseUiState.canCancel;
-        if (canResetUnlock) {
-            config.action.btn_1.txt = "关闭";
-            config.action.btn_3 = {
-                txt: "取消购买",
-                target: null,
-                cb: function () {
-                    var cancelResult = PurchaseService.cancelPurchase(purchaseId);
-
-                    var refundedPoints = (cancelResult && cancelResult.refundedPoints) ? cancelResult.refundedPoints : 0;
-                    var cancelChanged = !!(cancelResult && cancelResult.changed);
-                    if (refundedPoints > 0) {
-                        uiUtil.showTip("返还成就点: " + refundedPoints);
-                    } else if (cancelChanged) {
-                        uiUtil.showTip("已取消购买");
-                    } else {
-                        uiUtil.showTip("当前没有可取消的已购等级");
-                    }
-
-                    PurchaseUiHelper.refreshShopOwnerLayer(ownerLayer, purchaseId, "reset_dialog_owner");
-                }
-            };
-        }
 
         this._super(config);
 

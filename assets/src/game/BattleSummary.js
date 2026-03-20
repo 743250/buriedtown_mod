@@ -2,6 +2,22 @@ if (typeof cc === "undefined" || !cc) {
     var cc = require("../test/testBattle");
 }
 
+var BattleSummaryExplosiveItemSet = {
+    1303012: true,
+    1303033: true,
+    1303044: true
+};
+
+function normalizeBattleSummaryWeaponId(itemId) {
+    itemId = Number(itemId) || 0;
+    if (typeof WeaponCraftService !== "undefined"
+        && WeaponCraftService
+        && typeof WeaponCraftService.getBaseItemId === "function") {
+        itemId = WeaponCraftService.getBaseItemId(itemId);
+    }
+    return itemId;
+}
+
 var BattleSummary = cc.Class.extend({
     ctor: function (battleId, isDodge) {
         this.data = {
@@ -14,7 +30,9 @@ var BattleSummary = cc.Class.extend({
             tools: 0,
             win: false,
             isDodge: isDodge,
-            monsterKilledNum: 0
+            monsterKilledNum: 0,
+            explosiveKilledNum: 0,
+            katanaKilledNum: 0
         };
     },
 
@@ -42,8 +60,16 @@ var BattleSummary = cc.Class.extend({
         this.data.bulletNum++;
     },
 
-    recordMonsterKill: function () {
+    recordMonsterKill: function (itemId) {
         this.data.monsterKilledNum++;
+
+        itemId = normalizeBattleSummaryWeaponId(itemId);
+        if (BattleSummaryExplosiveItemSet[itemId]) {
+            this.data.explosiveKilledNum++;
+        }
+        if (itemId === 1302032) {
+            this.data.katanaKilledNum++;
+        }
     },
 
     recordPlayerUnderAttack: function (harm) {

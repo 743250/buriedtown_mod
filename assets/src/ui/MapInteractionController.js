@@ -3,21 +3,15 @@
  * scrolling and movement visuals.
  */
 var getMapInteractionRuntimePlayer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
-        ? GameRuntime.getPlayer()
-        : player;
+    return GameRuntime.getPlayer();
 };
 
 var getMapInteractionRuntimeTimer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getTimer === "function")
-        ? GameRuntime.getTimer()
-        : cc.timer;
+    return GameRuntime.getTimer();
 };
 
 var getMapInteractionRuntimeRecord = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getRecord === "function")
-        ? GameRuntime.getRecord()
-        : Record;
+    return GameRuntime.getRecord();
 };
 
 var MapInteractionController = cc.Class.extend({

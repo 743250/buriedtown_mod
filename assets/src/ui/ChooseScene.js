@@ -135,7 +135,7 @@ var ChooseLayer = cc.Layer.extend({
         });
 
         this.btnList.forEach(function (btn) {
-            btn.setEnabled(PurchaseService.isUnlocked(btn.purchaseId));
+            btn.setEnabled(PurchaseUiHelper.isPurchaseUnlocked(btn.purchaseId));
         });
         this.updateTalentCheckedState();
         this.refreshUnlockState = function () {
@@ -146,7 +146,7 @@ var ChooseLayer = cc.Layer.extend({
             }
 
             self.btnList.forEach(function (btn) {
-                btn.setEnabled(PurchaseService.isUnlocked(btn.purchaseId));
+                btn.setEnabled(PurchaseUiHelper.isPurchaseUnlocked(btn.purchaseId));
             });
 
             self.selectedTalentIds = self.selectedTalentIds.filter(function (id) {
@@ -154,7 +154,7 @@ var ChooseLayer = cc.Layer.extend({
                 if (talentId === 0) {
                     return true;
                 }
-                return PurchaseService.isUnlocked(talentId);
+                return PurchaseUiHelper.isPurchaseUnlocked(talentId);
             });
             if (self.selectedTalentIds.length === 0) {
                 self.selectedTalentIds = [0];
@@ -204,10 +204,7 @@ var ChooseLayer = cc.Layer.extend({
     },
 
     onExit: function () {
-        if (this._shopStateListener && typeof utils !== "undefined" && utils && utils.emitter) {
-            utils.emitter.off(PurchaseService.getShopStateChangeEventName(), this._shopStateListener);
-            this._shopStateListener = null;
-        }
+        PurchaseUiHelper.unbindShopStateListener(this);
         this._super();
     },
 
@@ -216,15 +213,11 @@ var ChooseLayer = cc.Layer.extend({
         if (typeof this.refreshUnlockState === "function") {
             this.refreshUnlockState();
         }
-        if (!this._shopStateListener && typeof utils !== "undefined" && utils && utils.emitter) {
-            var self = this;
-            this._shopStateListener = function () {
-                if (typeof self.refreshUnlockState === "function") {
-                    self.refreshUnlockState();
-                }
-            };
-            utils.emitter.on(PurchaseService.getShopStateChangeEventName(), this._shopStateListener);
-        }
+        PurchaseUiHelper.bindShopStateListener(this, function () {
+            if (typeof this.refreshUnlockState === "function") {
+                this.refreshUnlockState();
+            }
+        });
     }
 });
 

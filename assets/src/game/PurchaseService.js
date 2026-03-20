@@ -212,7 +212,6 @@ var PurchaseService = {
                 }
             }
 
-            canCancel = purchaseId < 200 && purchaseId !== 0 && isUnlocked;
             if (isTalentPurchase) {
                 if (shouldHideBuyButton) {
                     badgeText = "已满级";
@@ -263,10 +262,6 @@ var PurchaseService = {
             if (!canBuy) {
                 disabledReason = "ALREADY_UNLOCKED";
             }
-            canCancel = this.isPaySdkBypassedForTest()
-                && purchaseId < 200
-                && purchaseId !== 0
-                && isUnlocked;
             if (isUnlocked) {
                 badgeText = "已购";
             }
@@ -827,35 +822,7 @@ var PurchaseService = {
             }
         };
         purchaseTask.pay();
-    },
-    cancelPurchase: function (purchaseId) {
-        purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null) {
-            return {
-                purchaseId: null,
-                refundedPoints: 0,
-                resetCount: 0,
-                changed: false
-            };
-        }
-
-        var beforePoints = this.getAchievementPoints();
-        var resetResult = IAPPackage.resetIAPPaid(purchaseId) || {};
-        var afterPoints = this.getAchievementPoints();
-
-        var refundedPoints = 0;
-        if (resetResult.refundedPoints) {
-            refundedPoints = resetResult.refundedPoints;
-        } else {
-            refundedPoints = Math.max(0, afterPoints - beforePoints);
-        }
-        var resetCount = resetResult.resetCount || 0;
-
-        return {
-            purchaseId: purchaseId,
-            refundedPoints: refundedPoints,
-            resetCount: resetCount,
-            changed: refundedPoints > 0 || resetCount > 0
-        };
     }
 };
+
+GameKernel.register("PurchaseService", PurchaseService);

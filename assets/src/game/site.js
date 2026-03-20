@@ -23,9 +23,16 @@ var BOSS_SITE = 61;
 var WORK_SITE = 204;
 
 var getSiteRuntimePlayer = function () {
-    return (typeof GameRuntime !== "undefined" && GameRuntime && typeof GameRuntime.getPlayer === "function")
-        ? GameRuntime.getPlayer()
-        : ((typeof player !== "undefined" && player) ? player : null);
+    return GameRuntime.getPlayer();
+};
+var getSiteRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+var getSiteRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+var getSiteRuntimeRecord = function () {
+    return GameRuntime.getRecord();
 };
 var getSiteTalentService = function () {
     return (typeof TalentService !== "undefined" && TalentService) ? TalentService : null;
@@ -192,16 +199,17 @@ var Site = BaseSite.extend({
             var ITEM_FLASHLIGHT = 1305053;
 
             //密室收到道具影响
+            var runtimePlayer = getSiteRuntimePlayer();
             var maxCount = parseInt(this.secretRoomsConfig.maxCount);
-            if (player.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
+            if (runtimePlayer.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
                 maxCount += specialItemConfig[ITEM_EXPLORER].maxCount;
             }
             if (this.secretRoomsShowedCount < maxCount) {
                 var probability = parseFloat(this.secretRoomsConfig.probability);
 
-                if (player.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
+                if (runtimePlayer.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
                     probability += specialItemConfig[ITEM_EXPLORER].probability;
-                } else if (player.storage.getNumByItemId(ITEM_FLASHLIGHT) > 0) {
+                } else if (runtimePlayer.storage.getNumByItemId(ITEM_FLASHLIGHT) > 0) {
                     probability += specialItemConfig[ITEM_FLASHLIGHT].probability;
                 }
 
@@ -304,9 +312,10 @@ var Site = BaseSite.extend({
     roomEnd: function (isWin) {
         if (isWin) {
             var doneRoom = this.roomBegin();
+            var runtimePlayer = getSiteRuntimePlayer();
             if (doneRoom.type === "battle") {
             } else {
-                player.log.addMsg(1117, stringUtil.getString(3007)[doneRoom.workType]);
+                runtimePlayer.log.addMsg(1117, stringUtil.getString(3007)[doneRoom.workType]);
             }
             this.step++;
             cc.i("roomEnd " + isWin + " " + this.step + "/" + this.rooms.length);
@@ -316,16 +325,17 @@ var Site = BaseSite.extend({
         }
     },
     siteEnd: function () {
-        player.log.addMsg(1119, this.getName());
+        var runtimePlayer = getSiteRuntimePlayer();
+        runtimePlayer.log.addMsg(1119, this.getName());
         var unlockValue = this.config.unlockValue;
         if (unlockValue.site) {
             unlockValue.site.forEach(function (siteId) {
-                player.map.unlockSite(siteId);
+                runtimePlayer.map.unlockSite(siteId);
             });
         }
-        if (unlockValue.npc && RoleRuntimeService.canUnlockNpcsFromSite(player.roleType)) {
+        if (unlockValue.npc && RoleRuntimeService.canUnlockNpcsFromSite(runtimePlayer.roleType)) {
             unlockValue.npc.forEach(function (npcId) {
-                player.npcManager.unlockNpc(npcId);
+                runtimePlayer.npcManager.unlockNpc(npcId);
             });
         }
     },
@@ -475,9 +485,10 @@ var WorkSite = Site.extend({
         return Math.max(0, Math.min(maxMaintenance, value));
     },
     _notifyWorkSiteChange: function () {
-        utils.emitter.emit("onWorkSiteChange", this.isActive);
-        if (typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
-            Record.saveAll();
+        getSiteRuntimeEmitter().emit("onWorkSiteChange", this.isActive);
+        var runtimeRecord = getSiteRuntimeRecord();
+        if (runtimeRecord && typeof runtimeRecord.saveAll === "function") {
+            runtimeRecord.saveAll();
         }
     },
     getMaintenanceMax: function () {
@@ -495,14 +506,14 @@ var WorkSite = Site.extend({
             return false;
         }
         this.maintenance = nextValue;
-        this.fixedTime = cc.timer.time;
+        this.fixedTime = getSiteRuntimeTimer().time;
         this._notifyWorkSiteChange();
         return true;
     },
     fix: function () {
         this.isActive = true;
         this.maintenance = this.getMaintenanceMax();
-        this.fixedTime = cc.timer.time;
+        this.fixedTime = getSiteRuntimeTimer().time;
         this._notifyWorkSiteChange();
     },
     performSmallMaintenance: function (value) {
@@ -516,7 +527,7 @@ var WorkSite = Site.extend({
         var changed = !this.isActive || this.getMaintenanceValue() !== nextMaintenance;
         this.isActive = true;
         this.maintenance = nextMaintenance;
-        this.fixedTime = cc.timer.time;
+        this.fixedTime = getSiteRuntimeTimer().time;
         if (changed) {
             this._notifyWorkSiteChange();
         }
@@ -529,8 +540,9 @@ var WorkSite = Site.extend({
             var maintenanceDecayPerHour = Math.max(0, Number(repairConfig.maintenanceDecayPerHour) || 0);
             var brokenProbability = Math.max(0, Number(repairConfig.brokenProbability) || 0);
             var maintenanceBefore = this.getMaintenanceValue();
-            var currentTime = (typeof cc !== "undefined" && cc && cc.timer && isFinite(Number(cc.timer.time)))
-                ? Number(cc.timer.time)
+            var runtimeTimer = getSiteRuntimeTimer();
+            var currentTime = (runtimeTimer && isFinite(Number(runtimeTimer.time)))
+                ? Number(runtimeTimer.time)
                 : 0;
             var baselineTime = Number(this.fixedTime);
             var elapsedHours = 0;
@@ -606,8 +618,9 @@ var BossSite = Site.extend({
     //进度
     getProgressStr: function () {
         var doneNum = 0;
+        var runtimePlayer = getSiteRuntimePlayer();
         this.bossSubSiteIds.forEach(function (siteId) {
-            var site = player.map.getSite(siteId);
+            var site = runtimePlayer.map.getSite(siteId);
             if (site) {
                 doneNum++;
             }
@@ -620,8 +633,9 @@ var BossSite = Site.extend({
     },
     getAllItemNum: function () {
         var num = 0;
+        var runtimePlayer = getSiteRuntimePlayer();
         this.bossSubSiteIds.forEach(function (siteId) {
-            var site = player.map.getSite(siteId);
+            var site = runtimePlayer.map.getSite(siteId);
             if (site) {
                 num += site.getAllItemNum();
             }
