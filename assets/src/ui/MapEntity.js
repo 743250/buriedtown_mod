@@ -1,6 +1,19 @@
 /**
  * Visualizes a map destination and its local status indicators.
  */
+var canShowPoweredWorksiteStatus = function () {
+    if (typeof player === "undefined" || !player) {
+        return false;
+    }
+    if (typeof RoleRuntimeService === "undefined"
+        || !RoleRuntimeService
+        || typeof RoleRuntimeService.getActionTags !== "function") {
+        return false;
+    }
+    var roleTags = RoleRuntimeService.getActionTags(player.roleType);
+    return Array.isArray(roleTags) && roleTags.indexOf("powered") !== -1;
+};
+
 var MapEntity = Button.extend({
     ctor: function (baseSite) {
         this.baseSite = baseSite;
@@ -92,6 +105,9 @@ var MapEntity = Button.extend({
         }
 
         if (this.baseSite instanceof WorkSite) {
+            if (!canShowPoweredWorksiteStatus()) {
+                return;
+            }
             var workIconName = this.baseSite.isActive
                 ? "icon_electric_active.png"
                 : "icon_electric_inactive.png";

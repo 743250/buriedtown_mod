@@ -10,6 +10,18 @@ var isHomeWorkSitePowered = function () {
     var workSite = player.map.getSite(workSiteId);
     return !!(workSite && workSite.isActive);
 };
+var canShowHomePowerStatus = function () {
+    if (typeof player === "undefined" || !player) {
+        return false;
+    }
+    if (typeof RoleRuntimeService === "undefined"
+        || !RoleRuntimeService
+        || typeof RoleRuntimeService.getActionTags !== "function") {
+        return false;
+    }
+    var roleTags = RoleRuntimeService.getActionTags(player.roleType);
+    return Array.isArray(roleTags) && roleTags.indexOf("powered") !== -1;
+};
 
 var HomeNode = BottomFrameNode.extend({
     ctor: function (userData) {
@@ -161,6 +173,10 @@ var HomeNode = BottomFrameNode.extend({
     refreshPowerStatusHint: function () {
         var powerHint = this.bg ? this.bg.getChildByName("power_status_hint") : null;
         if (!powerHint) {
+            return;
+        }
+        if (!canShowHomePowerStatus()) {
+            powerHint.setVisible(false);
             return;
         }
         var isPowered = isHomeWorkSitePowered();
