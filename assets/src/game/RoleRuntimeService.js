@@ -465,14 +465,17 @@ var RoleRuntimeService = {
 
     ensureSpecialItems: function (playerObj) {
         if (!playerObj || !playerObj.storage) {
-            return;
+            return false;
         }
+        var changed = false;
         this.getRuntimeConfig(playerObj.roleType).specialItems.forEach(function (itemInfo) {
             var currentNum = playerObj.storage.getNumByItemId(itemInfo.itemId) || 0;
             if (currentNum < itemInfo.num) {
                 playerObj.storage.increaseItem(itemInfo.itemId, itemInfo.num - currentNum);
+                changed = true;
             }
         });
+        return changed;
     },
 
     getHourlyStarveChange: function (roleType, changeConfig) {

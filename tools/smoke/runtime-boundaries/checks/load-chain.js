@@ -8,6 +8,7 @@ function runLoadChainSmoke() {
     const gameKernelSource = readFile("assets/src/game/GameKernel.js");
     const battleSource = readFile("assets/src/game/Battle.js");
     const battleActorsSource = readFile("assets/src/game/BattleActors.js");
+    const buildSource = readFile("assets/src/game/Build.js");
     const buildActionSource = readFile("assets/src/game/buildAction.js");
     const buildActionEffectSource = readFile("assets/src/game/BuildActionEffectService.js");
     const siteSource = readFile("assets/src/game/site.js");
@@ -19,11 +20,14 @@ function runLoadChainSmoke() {
     const purchaseUiHelperSource = readFile("assets/src/ui/PurchaseUiHelper.js");
     const chooseSceneSource = readFile("assets/src/ui/ChooseScene.js");
     const medalSceneViewSource = readFile("assets/src/ui/MedalSceneView.js");
+    const shopSceneSource = readFile("assets/src/ui/shopScene.js");
     const topFrameSource = readFile("assets/src/ui/topFrame.js");
     const homeSource = readFile("assets/src/ui/home.js");
     const deathNodeSource = readFile("assets/src/ui/deathNode.js");
+    const dialogSource = readFile("assets/src/ui/dialog.js");
     const uiUtilSource = readFile("assets/src/ui/uiUtil.js");
     const roleRuntimeSource = readFile("assets/src/game/RoleRuntimeService.js");
+    const playerPersistenceSource = readFile("assets/src/game/PlayerPersistenceService.js");
     const utilsSource = readFile("assets/src/util/utils.js");
     const getIndex = function (relativePath) {
         return jsListSource.indexOf(relativePath);
@@ -46,6 +50,7 @@ function runLoadChainSmoke() {
     [
         "src/game/BattleActors.js",
         "src/game/Battle.js",
+        "src/game/Build.js",
         "src/game/buildAction.js",
         "src/game/site.js",
         "src/game/map.js",
@@ -64,6 +69,15 @@ function runLoadChainSmoke() {
     assert(siteSource.indexOf("module.exports = {") !== -1, "site module export shape is missing");
     assert(buildActionSource.indexOf("GameKernel.require(\"BuildActionEffectService\"") !== -1,
         "buildAction.js should resolve BuildActionEffectService through GameKernel");
+    assert(buildSource.indexOf("player.costItems(") === -1
+        && buildSource.indexOf("player.validateItems(") === -1
+        && buildSource.indexOf("player.room.isBuildExist(") === -1
+        && buildSource.indexOf("cc.timer.addTimerCallback(") === -1
+        && buildSource.indexOf("cc.timer.accelerateWorkTime(") === -1
+        && buildSource.indexOf("utils.emitter.emit(GameEvents.BUILD_NODE_UPDATE)") === -1
+        && buildSource.indexOf("Record.saveAll()") === -1
+        && buildSource.indexOf("getBuildRuntimePlayer") !== -1,
+        "Build.js should delegate runtime player/timer/emitter/record access to GameRuntime");
     assert(roleRuntimeSource.indexOf("GameKernel.get(\"PurchaseService\"") !== -1,
         "RoleRuntimeService should resolve PurchaseService through GameKernel");
     assert(buildActionEffectSource.indexOf("GameKernel.register(\"BuildActionEffectService\"") !== -1,
@@ -73,7 +87,9 @@ function runLoadChainSmoke() {
     assert(purchaseUiHelperSource.indexOf("Medal.getAchievementPoints") === -1
         && purchaseUiHelperSource.indexOf("Medal.getTalentLevel") === -1
         && purchaseUiHelperSource.indexOf("PurchaseService.isUnlocked(") === -1
-        && purchaseUiHelperSource.indexOf("PurchaseService.getAchievementPriceByPurchaseId(") === -1,
+        && purchaseUiHelperSource.indexOf("PurchaseService.getAchievementPriceByPurchaseId(") === -1
+        && purchaseUiHelperSource.indexOf("shouldRequestRemotePayInfo") !== -1
+        && purchaseUiHelperSource.indexOf("getPrimaryExchangeConfigByPurchaseId") !== -1,
         "PurchaseUiHelper should not rebuild purchase UI business state outside PurchaseService");
     assert(chooseSceneSource.indexOf("PurchaseService.isUnlocked(") === -1
         && chooseSceneSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1,
@@ -88,10 +104,27 @@ function runLoadChainSmoke() {
         && homeSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1,
         "home.js should consume PurchaseUiHelper for purchase-gated build unlock UI");
     assert(deathNodeSource.indexOf("PurchaseService.isUnlocked(") === -1
-        && deathNodeSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1,
-        "deathNode.js should consume PurchaseUiHelper for revive purchase unlock UI");
+        && deathNodeSource.indexOf("PurchaseService.getPurchaseConfig(") === -1
+        && deathNodeSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1
+        && deathNodeSource.indexOf("PurchaseUiHelper.applyPayDialogState(") !== -1,
+        "deathNode.js should consume PurchaseUiHelper for revive purchase unlock and pay-dialog state");
     assert(uiUtilSource.indexOf("Medal.getTalentLevel(") === -1,
         "uiUtil talent purchase display should not read Medal talent level directly");
+    assert(dialogSource.indexOf("PurchaseService.isExchangePurchase(") === -1
+        && dialogSource.indexOf("PurchaseService.getPriceOff(") === -1
+        && dialogSource.indexOf("PurchaseUiHelper.applyPayDialogState(") !== -1,
+        "dialog.js should consume PurchaseUiHelper shop state for pay-dialog price and discount display");
+    assert(shopSceneSource.indexOf("PurchaseService.isExchangePurchase(") === -1
+        && shopSceneSource.indexOf("PurchaseUiHelper.shouldRequestRemotePayInfo(") !== -1,
+        "shopScene should consume PurchaseUiHelper when deciding which purchases need remote price refresh");
+    assert(uiUtilSource.indexOf("PurchaseService.getPriceOff(") === -1
+        && uiUtilSource.indexOf("PurchaseService.isTalentPurchase(") === -1
+        && uiUtilSource.indexOf("PurchaseService.getExchangeIdsByPurchaseId(") === -1
+        && uiUtilSource.indexOf("PurchaseService.getExchangeIdByPurchaseId(") === -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.getPurchaseUiSnapshot(") !== -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.isExchangePurchase(") !== -1
+        && uiUtilSource.indexOf("getPrimaryExchangeConfigByPurchaseId") !== -1,
+        "uiUtil should consume PurchaseUiHelper for purchase display and lock-state metadata");
     assert(buildActionSource.indexOf(": player") === -1
         && buildActionSource.indexOf(": cc.timer") === -1
         && buildActionSource.indexOf(": utils.emitter") === -1
@@ -126,6 +159,9 @@ function runLoadChainSmoke() {
         "ZiplineNetworkService should delegate runtime player access to GameRuntime");
     assert(roleRuntimeSource.indexOf("IAPPackage.isIAPUnlocked") === -1,
         "RoleRuntimeService should not read purchase lock state directly from IAPPackage");
+    assert(playerPersistenceSource.indexOf("_applyLegacyRestoreMigrations") !== -1
+        && playerPersistenceSource.indexOf("_applyRestoreReconciliations") !== -1,
+        "PlayerPersistenceService should keep restore reconciliation and legacy migration stages explicit");
     assert(utilsSource.indexOf("IAPPackage.syncIAPPurchased") === -1
         && utilsSource.indexOf("IAPPackage.onIAPPaied") === -1,
         "utils purchase sync should delegate purchased unlock handling through PurchaseService");

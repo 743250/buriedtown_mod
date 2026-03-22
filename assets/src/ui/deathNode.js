@@ -97,21 +97,9 @@ var DeathNode = BottomFrameNode.extend({
             });
         });
 
-        var priceLabel = payDialog.titleNode.getChildByName("price");
-        priceLabel.setString("");
-        utils.updatePayInfo(this, function (err) {
-            var purchaseConfig = PurchaseService.getPurchaseConfig(purchaseId);
-            if (!err) {
-                var priceStr = purchaseConfig.productPriceStr;
-                if (priceStr) {
-                    priceLabel.setString(priceStr);
-                } else {
-                    priceLabel.setString(stringUtil.getString(1191, purchaseConfig.price));
-                }
-                payDialog.updateOffIcon();
-            } else {
-                priceLabel.setString(stringUtil.getString(1191, purchaseConfig.price));
-            }
+        PurchaseUiHelper.applyPayDialogState(purchaseId, payDialog);
+        utils.updatePayInfo(this, function () {
+            PurchaseUiHelper.applyPayDialogState(purchaseId, payDialog);
         }, [purchaseId]);
 
     },

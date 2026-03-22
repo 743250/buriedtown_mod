@@ -794,11 +794,215 @@ function runBuildRegistrySmoke() {
     };
 }
 
+function runBuildRuntimeDelegationSmoke() {
+    const sandbox = createVmSandbox();
+    let runtimeCostCalls = 0;
+    let runtimeSaveCalls = 0;
+    let runtimeLogCalls = 0;
+    let processPercent = 0;
+    let upgradeFinished = 0;
+    let acceleratedTime = null;
+    let playedEffect = null;
+
+    sandbox.WORK_SITE = 900;
+    sandbox.TimerCallback = function (time, target, callbacks) {
+        this.time = time;
+        this.target = target;
+        this.process = callbacks.process;
+        this.end = callbacks.end;
+    };
+
+    const runtimeEmitter = {
+        emitted: [],
+        emit: function (name, payload) {
+            this.emitted.push([name, payload]);
+        }
+    };
+    const runtimeRecord = {
+        saveAll: function () {
+            runtimeSaveCalls++;
+        }
+    };
+    const runtimeTimer = {
+        addTimerCallback: function (timerCallback) {
+            if (typeof timerCallback.process === "function") {
+                timerCallback.process(30);
+            }
+            if (typeof timerCallback.end === "function") {
+                timerCallback.end();
+            }
+            return timerCallback;
+        },
+        accelerateWorkTime: function (time) {
+            acceleratedTime = time;
+        }
+    };
+    const runtimePlayer = {
+        storage: {
+            validateItem: function (itemId, num) {
+                return itemId === 1101011 && num === 1;
+            }
+        },
+        map: {
+            getSite: function (siteId) {
+                return siteId === sandbox.WORK_SITE ? { isActive: true } : null;
+            }
+        },
+        room: {
+            isBuildExist: function (bid, level) {
+                return bid === 1 && level === 0;
+            },
+            getBuildCurrentName: function () {
+                return "Runtime Workbench";
+            }
+        },
+        validateItems: function (cost) {
+            return Array.isArray(cost) && cost.length === 1 && cost[0].itemId === 1101011;
+        },
+        costItems: function () {
+            runtimeCostCalls++;
+        },
+        log: {
+            addMsg: function () {
+                runtimeLogCalls++;
+            }
+        }
+    };
+
+    sandbox.audioManager = {
+        sound: {
+            BUILD_UPGRADE: "build-upgrade"
+        },
+        playEffect: function (effectName) {
+            playedEffect = effectName;
+        }
+    };
+    sandbox.RoleRuntimeService = {
+        getBuildMaxLevel: function (bid, defaultMaxLevel) {
+            return defaultMaxLevel;
+        },
+        applyBuildActionRuntimeState: function () {
+            return true;
+        },
+        applyRoomBuildStates: function () {}
+    };
+    sandbox.BuildActionFactory = {
+        createBuildActions: function () {
+            return [];
+        },
+        resolveBuildActiveState: function () {
+            return null;
+        }
+    };
+    sandbox.buildConfig = {
+        "2": [
+            { produceList: [] },
+            {
+                produceList: [],
+                condition: { bid: 1, level: 0 },
+                cost: [{ itemId: 1101011, num: 1 }],
+                createTime: 1
+            }
+        ]
+    };
+    sandbox.player = runtimePlayer;
+    sandbox.cc.timer = runtimeTimer;
+    sandbox.utils.emitter = runtimeEmitter;
+    sandbox.Record = runtimeRecord;
+
+    bootstrapGameRuntime(sandbox);
+
+    sandbox.player = {
+        storage: {
+            validateItem: function () {
+                throw new Error("Build.js should not validate storage through global player");
+            }
+        },
+        map: {
+            getSite: function () {
+                throw new Error("Build.js should not read work site through global player");
+            }
+        },
+        room: {
+            isBuildExist: function () {
+                throw new Error("Build.js should not validate build condition through global player");
+            },
+            getBuildCurrentName: function () {
+                throw new Error("Build.js should not log build name through global player");
+            }
+        },
+        validateItems: function () {
+            throw new Error("Build.js should not validate upgrade cost through global player");
+        },
+        costItems: function () {
+            throw new Error("Build.js should not pay upgrade cost through global player");
+        },
+        log: {
+            addMsg: function () {
+                throw new Error("Build.js should not log through global player");
+            }
+        }
+    };
+    sandbox.cc.timer = {
+        addTimerCallback: function () {
+            throw new Error("Build.js should not schedule upgrade timer through global cc.timer");
+        },
+        accelerateWorkTime: function () {
+            throw new Error("Build.js should not accelerate upgrade time through global cc.timer");
+        }
+    };
+    sandbox.utils.emitter = {
+        emit: function () {
+            throw new Error("Build.js should not emit build updates through global utils.emitter");
+        }
+    };
+    sandbox.Record = {
+        saveAll: function () {
+            throw new Error("Build.js should not save through global Record");
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/Build.js");
+
+    const build = new sandbox.Build(2, 0);
+    assert(build._hasStorageItem(1101011) === true,
+        "Build.js should resolve storage validation through GameRuntime player");
+    assert(build._isWorkSitePowered() === true,
+        "Build.js should resolve work site power state through GameRuntime player");
+    assert(build.canUpgrade().buildUpgradeType === sandbox.BuildUpgradeType.UPGRADABLE,
+        "Build.js should resolve upgrade eligibility through GameRuntime player");
+
+    build.upgrade(function (percent) {
+        processPercent = percent;
+    }, function () {
+        upgradeFinished++;
+    });
+
+    assert(runtimeCostCalls === 1, "Build.js should pay upgrade cost through GameRuntime player");
+    assert(processPercent === 50, "Build.js should report upgrade progress through runtime timer callbacks");
+    assert(upgradeFinished === 1 && build.level === 1,
+        "Build.js should complete upgrade through runtime timer callbacks");
+    assert(acceleratedTime === 60, "Build.js should accelerate work time through GameRuntime timer");
+    assert(runtimeEmitter.emitted.length === 1
+        && runtimeEmitter.emitted[0][0] === sandbox.GameEvents.BUILD_NODE_UPDATE,
+        "Build.js should emit build refresh through GameRuntime emitter");
+    assert(runtimeSaveCalls === 1, "Build.js should save upgraded state through GameRuntime record");
+    assert(runtimeLogCalls === 1, "Build.js should log upgrade completion through GameRuntime player");
+    assert(playedEffect === "build-upgrade", "Build.js should preserve upgrade audio effect");
+
+    return {
+        name: "build-runtime-delegation",
+        ok: true,
+        detail: "validated Build.js resolves player, timer, emitter and record through GameRuntime instead of direct globals"
+    };
+}
+
 module.exports = [
     runBattleCadenceSmoke,
     runMeleeIndependentCooldownSmoke,
     runBattleHeadshotLogSmoke,
     runCraftBuildActionReuseSmoke,
     runBonfireStateSmoke,
-    runBuildRegistrySmoke
+    runBuildRegistrySmoke,
+    runBuildRuntimeDelegationSmoke
 ];

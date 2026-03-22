@@ -192,6 +192,7 @@ var PurchaseService = {
         var badgeText = "";
         var hideBadge = false;
         var disabledReason = "";
+        var priceOff = 0;
 
         if (isExchangePurchase) {
             nextAchievementPrice = this.getAchievementPriceByPurchaseId(purchaseId);
@@ -269,6 +270,10 @@ var PurchaseService = {
             }
         }
 
+        if (!isExchangePurchase) {
+            priceOff = this.getPriceOff(purchaseId);
+        }
+
         return {
             purchaseId: purchaseId,
             isExchangePurchase: isExchangePurchase,
@@ -278,6 +283,7 @@ var PurchaseService = {
             nextAchievementPrice: nextAchievementPrice,
             achievementPoints: achievementPoints,
             priceText: priceText,
+            priceOff: priceOff,
             canBuy: !!canBuy,
             canCancel: !!canCancel,
             shouldHideBuyButton: !!shouldHideBuyButton,

@@ -251,12 +251,12 @@ var TalentService = {
     },
     reconcilePlayerHpByTalentSelection: function (player) {
         if (!player || !player.hpMaxOrigin) {
-            return;
+            return false;
         }
 
         var medalHpBonus = this._getCompletedMedalHpBonus();
         if (medalHpBonus === null) {
-            return;
+            return false;
         }
 
         var baseHp = (typeof PlayerAttr !== "undefined" && PlayerAttr && PlayerAttr.HP_MAX !== undefined)
@@ -271,7 +271,7 @@ var TalentService = {
         var expectedHpMaxOrigin = baseHp + medalHpBonus + hpBonusByTalent;
         var currentHpMaxOrigin = memoryUtil.decode(player.hpMaxOrigin);
         if (currentHpMaxOrigin === expectedHpMaxOrigin) {
-            return;
+            return false;
         }
 
         player.hpMaxOrigin = memoryUtil.encode(expectedHpMaxOrigin);
@@ -284,6 +284,7 @@ var TalentService = {
                 player.hp = memoryUtil.encode(expectedHpMaxOrigin);
             }
         }
+        return true;
     },
     init: function (player) {
         var level121 = this._getActiveTalentLevel(121);

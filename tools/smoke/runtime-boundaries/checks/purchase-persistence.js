@@ -181,6 +181,22 @@ function runPurchaseUiStateProjectionSmoke() {
             throw new Error("PurchaseUiHelper should source talent level from PurchaseService shop state");
         }
     };
+    sandbox.ExchangeAchievementConfig = {
+        1001: {
+            type: "character",
+            targetId: 8,
+            name: "Bell"
+        },
+        2005: {
+            type: "talent",
+            targetId: 120
+        }
+    };
+    sandbox.role = {
+        getRoleTypeByPurchaseId: function () {
+            return null;
+        }
+    };
     sandbox.PurchaseService = {
         getPurchaseConfig: function (purchaseId) {
             return {
@@ -190,12 +206,31 @@ function runPurchaseUiStateProjectionSmoke() {
             };
         },
         getShopUiState: function (purchaseId) {
+            purchaseId = Number(purchaseId);
+            if (purchaseId === 203) {
+                return {
+                    purchaseId: purchaseId,
+                    isExchangePurchase: false,
+                    isTalentPurchase: false,
+                    isUnlocked: false,
+                    currentTalentLevel: 0,
+                    priceOff: 0,
+                    priceText: "$9.99",
+                    canBuy: true,
+                    canCancel: false,
+                    shouldHideBuyButton: false,
+                    badgeText: "",
+                    hideBadge: false,
+                    disabledReason: ""
+                };
+            }
             return {
-                purchaseId: Number(purchaseId),
+                purchaseId: purchaseId,
                 isExchangePurchase: true,
-                isTalentPurchase: true,
+                isTalentPurchase: purchaseId === 120,
                 isUnlocked: true,
-                currentTalentLevel: 2,
+                currentTalentLevel: purchaseId === 120 ? 2 : 0,
+                priceOff: 50,
                 priceText: "15 成就点",
                 canBuy: false,
                 canCancel: false,
@@ -210,6 +245,20 @@ function runPurchaseUiStateProjectionSmoke() {
         },
         getShopStateChangeEventName: function () {
             return "shop_state_change";
+        },
+        getExchangeIdsByPurchaseId: function (purchaseId) {
+            purchaseId = Number(purchaseId);
+            if (purchaseId === 108) {
+                return [1001];
+            }
+            if (purchaseId === 120) {
+                return [2005];
+            }
+            return [];
+        },
+        getExchangeIdByPurchaseId: function (purchaseId) {
+            var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
+            return exchangeIds.length > 0 ? exchangeIds[0] : null;
         },
         isUnlocked: function () {
             throw new Error("PurchaseUiHelper should not recompute unlock state in UI");
@@ -244,13 +293,71 @@ function runPurchaseUiStateProjectionSmoke() {
         && snapshot.isUnlocked === true
         && snapshot.currentTalentLevel === 2,
         "PurchaseUiHelper should project unlock and talent fields from PurchaseService shop state");
+    assert(snapshot.priceOff === 50,
+        "PurchaseUiHelper should project discount state from PurchaseService shop state");
     assert(snapshot.priceText === "15 成就点"
         && snapshot.canBuy === false
         && snapshot.canCancel === false
         && snapshot.badgeText === "已购",
         "PurchaseUiHelper should project button and badge state from PurchaseService shop state");
+    const priceLabel = {
+        value: "",
+        setString: function (value) {
+            this.value = value;
+        }
+    };
+    const offIcon = {
+        visible: false,
+        off: 0,
+        setVisible: function (value) {
+            this.visible = !!value;
+        },
+        updateOff: function (value) {
+            this.off = value;
+        }
+    };
+    const buyButton = {
+        enabled: true,
+        setEnabled: function (value) {
+            this.enabled = !!value;
+        }
+    };
+    sandbox.PurchaseUiHelper.applyPayDialogState(120, {
+        titleNode: {
+            getChildByName: function (name) {
+                if (name === "price") {
+                    return priceLabel;
+                }
+                if (name === "offIcon") {
+                    return offIcon;
+                }
+                return null;
+            }
+        },
+        actionNode: {
+            getChildByName: function (name) {
+                return name === "btn_2" ? buyButton : null;
+            }
+        }
+    });
+    assert(priceLabel.value === snapshot.priceText,
+        "PurchaseUiHelper should apply projected price text onto pay dialogs");
+    assert(buyButton.enabled === false,
+        "PurchaseUiHelper should apply projected buy-button state onto pay dialogs");
+    assert(offIcon.visible === true && offIcon.off === 50,
+        "PurchaseUiHelper should apply projected discount state onto pay dialogs");
     assert(sandbox.PurchaseUiHelper.isPurchaseUnlocked(120) === true,
         "PurchaseUiHelper unlock helper should read from PurchaseService shop state");
+    assert(sandbox.PurchaseUiHelper.isExchangePurchase(120) === true
+        && sandbox.PurchaseUiHelper.isTalentPurchase(120) === true,
+        "PurchaseUiHelper should project exchange and talent flags through snapshot helpers");
+    assert(sandbox.PurchaseUiHelper.shouldRequestRemotePayInfo(120) === false
+        && sandbox.PurchaseUiHelper.shouldRequestRemotePayInfo(203) === true,
+        "PurchaseUiHelper should expose whether a purchase still needs remote pay info");
+    assert(JSON.stringify(sandbox.PurchaseUiHelper.getExchangeIdsByPurchaseId(108)) === "[1001]"
+        && sandbox.PurchaseUiHelper.getExchangeIdByPurchaseId(108) === 1001
+        && sandbox.PurchaseUiHelper.getRoleTypeByPurchaseId(108) === 8,
+        "PurchaseUiHelper should expose exchange metadata helpers through PurchaseService");
     assert(sandbox.PurchaseUiHelper.getAchievementPointsText() === "成就点 77",
         "PurchaseUiHelper should source achievement points label text from PurchaseService");
 
@@ -451,6 +558,109 @@ function runPlayerPersistencePurchaseDelegationSmoke() {
     };
 }
 
+function runPlayerPersistenceRestoreLayeringSmoke() {
+    const sandbox = createVmSandbox();
+    let purchaseReconcileCount = 0;
+    let roomBuildEnsureCount = 0;
+    let initialUnlockEnsureCount = 0;
+    let specialItemEnsureCount = 0;
+    let talentMigrationCount = 0;
+    let talentHpReconcileCount = 0;
+    let recordSaveCount = 0;
+
+    sandbox.TalentService = {
+        migrateLegacyElitePistol: function () {
+            talentMigrationCount++;
+            return false;
+        },
+        reconcilePlayerHpByTalentSelection: function () {
+            talentHpReconcileCount++;
+            return true;
+        }
+    };
+    sandbox.PurchaseService = {
+        reconcileUnlockRewardsForPlayer: function () {
+            purchaseReconcileCount++;
+            return false;
+        }
+    };
+    sandbox.RoleRuntimeService = {
+        ensureRoomBuildStates: function () {
+            roomBuildEnsureCount++;
+            return false;
+        },
+        ensureInitialUnlocks: function () {
+            initialUnlockEnsureCount++;
+            return false;
+        },
+        ensureSpecialItems: function () {
+            specialItemEnsureCount++;
+            return true;
+        }
+    };
+    sandbox.Record = {
+        saveAll: function () {
+            recordSaveCount++;
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    sandbox.GameKernel.register("TalentService", sandbox.TalentService);
+    sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
+    sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
+
+    const restorePlayer = {
+        storage: createCountStorage(),
+        bag: createCountStorage(),
+        room: {},
+        map: {},
+        roleType: 6
+    };
+    assert(typeof sandbox.PlayerPersistenceService._applyRestoreReconciliations === "function"
+        && sandbox.PlayerPersistenceService._applyRestoreReconciliations(restorePlayer) === true,
+        "PlayerPersistenceService should expose a restore reconciliation stage for derived-state repair");
+    assert(talentHpReconcileCount === 1 && specialItemEnsureCount === 1,
+        "PlayerPersistenceService restore reconciliations should delegate hp and special-item repair only");
+    assert(talentMigrationCount === 0
+        && purchaseReconcileCount === 0
+        && roomBuildEnsureCount === 0
+        && initialUnlockEnsureCount === 0,
+        "PlayerPersistenceService restore reconciliations should stay isolated from legacy migrations");
+
+    const migrationPlayer = {
+        storage: createCountStorage(),
+        bag: createCountStorage(),
+        room: {},
+        map: {},
+        roleType: 6
+    };
+    assert(typeof sandbox.PlayerPersistenceService._applyLegacyRestoreMigrations === "function"
+        && sandbox.PlayerPersistenceService._applyLegacyRestoreMigrations(migrationPlayer) === false,
+        "PlayerPersistenceService should expose a separate legacy migration stage");
+    assert(talentMigrationCount === 1
+        && purchaseReconcileCount === 1
+        && roomBuildEnsureCount === 1
+        && initialUnlockEnsureCount === 1,
+        "PlayerPersistenceService legacy migrations should delegate compatibility repair through owned services");
+
+    sandbox.PlayerPersistenceService._applyPostRestoreFixups({
+        storage: createCountStorage(),
+        bag: createCountStorage(),
+        room: {},
+        map: {},
+        roleType: 6
+    });
+    assert(recordSaveCount === 1,
+        "PlayerPersistenceService should persist restore reconciliation mutations, not only purchase migrations");
+
+    return {
+        name: "player-persistence-restore-layering",
+        ok: true,
+        detail: "validated PlayerPersistenceService separates restore reconciliations from legacy migrations and persists derived restore repairs"
+    };
+}
+
 function runNewGameRoleSelectionFallbackSmoke() {
     const sandbox = createVmSandbox();
     sandbox.SafetyHelper = {
@@ -509,5 +719,6 @@ module.exports = [
     runSentinelPurchaseIdSnapshotSmoke,
     runTalentSelectionMigrationSmoke,
     runNewGameRoleSelectionFallbackSmoke,
-    runPlayerPersistencePurchaseDelegationSmoke
+    runPlayerPersistencePurchaseDelegationSmoke,
+    runPlayerPersistenceRestoreLayeringSmoke
 ];

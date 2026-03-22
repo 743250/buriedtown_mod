@@ -4,7 +4,7 @@ var getPurchaseUiService = function () {
 
 var PurchaseUiHelper = {
     getDisplayIconMeta: function (purchaseId, purchaseConfig) {
-        var roleType = uiUtil.getRoleTypeByPurchaseId(purchaseId);
+        var roleType = this.getRoleTypeByPurchaseId(purchaseId);
         if (roleType) {
             return {
                 type: "role",
@@ -94,6 +94,67 @@ var PurchaseUiHelper = {
     shouldShowSaleIcon: function (purchaseId) {
         return parseInt(purchaseId) === 106;
     },
+    getExchangeIdsByPurchaseId: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)) {
+            return [];
+        }
+
+        var purchaseService = getPurchaseUiService();
+        if (!purchaseService
+            || typeof purchaseService.getExchangeIdsByPurchaseId !== "function") {
+            return [];
+        }
+        return purchaseService.getExchangeIdsByPurchaseId(purchaseId) || [];
+    },
+    getExchangeIdByPurchaseId: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)) {
+            return null;
+        }
+
+        var purchaseService = getPurchaseUiService();
+        if (purchaseService
+            && typeof purchaseService.getExchangeIdByPurchaseId === "function") {
+            return purchaseService.getExchangeIdByPurchaseId(purchaseId);
+        }
+
+        var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
+        return exchangeIds.length > 0 ? exchangeIds[0] : null;
+    },
+    getPrimaryExchangeConfigByPurchaseId: function (purchaseId) {
+        if (typeof ExchangeAchievementConfig === "undefined" || !ExchangeAchievementConfig) {
+            return null;
+        }
+
+        var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
+        if (exchangeIds.length === 0) {
+            return null;
+        }
+        return ExchangeAchievementConfig[exchangeIds[0]] || null;
+    },
+    getRoleTypeByPurchaseId: function (purchaseId) {
+        var exchangeConfig = this.getPrimaryExchangeConfigByPurchaseId(purchaseId);
+        if (exchangeConfig && exchangeConfig.type === "character" && isFinite(exchangeConfig.targetId)) {
+            return parseInt(exchangeConfig.targetId);
+        }
+
+        if (typeof role !== "undefined"
+            && role
+            && typeof role.getRoleTypeByPurchaseId === "function") {
+            return role.getRoleTypeByPurchaseId(purchaseId);
+        }
+        return null;
+    },
+    isExchangePurchase: function (purchaseId, shopState) {
+        return !!this.getPurchaseUiSnapshot(purchaseId, null, shopState).isExchangePurchase;
+    },
+    isTalentPurchase: function (purchaseId, shopState) {
+        return !!this.getPurchaseUiSnapshot(purchaseId, null, shopState).isTalentPurchase;
+    },
+    shouldRequestRemotePayInfo: function (purchaseId, shopState) {
+        return !this.isExchangePurchase(purchaseId, shopState);
+    },
 
     getAchievementPoints: function () {
         return getPurchaseUiService().getAchievementPoints();
@@ -148,6 +209,7 @@ var PurchaseUiHelper = {
                 isUnlocked: false,
                 currentTalentLevel: 0,
                 priceText: "",
+                priceOff: 0,
                 canBuy: false,
                 canCancel: false,
                 shouldHideBuyButton: false,
@@ -159,6 +221,9 @@ var PurchaseUiHelper = {
         var resolvedPurchaseConfig = this.getResolvedPurchaseConfig(purchaseId, purchaseConfig);
         var resolvedShopState = this.getResolvedShopState(purchaseId, shopState);
         resolvedShopState = resolvedShopState || null;
+        var priceOff = resolvedShopState && isFinite(resolvedShopState.priceOff)
+            ? Math.max(0, parseInt(resolvedShopState.priceOff))
+            : 0;
 
         return {
             purchaseId: purchaseId,
@@ -171,6 +236,7 @@ var PurchaseUiHelper = {
                 ? resolvedShopState.currentTalentLevel
                 : 0,
             priceText: resolvedShopState && resolvedShopState.priceText ? resolvedShopState.priceText : "",
+            priceOff: priceOff,
             canBuy: !!(resolvedShopState && resolvedShopState.canBuy),
             canCancel: !!(resolvedShopState && resolvedShopState.canCancel),
             shouldHideBuyButton: !!(resolvedShopState && resolvedShopState.shouldHideBuyButton),
@@ -281,6 +347,47 @@ var PurchaseUiHelper = {
             && snapshot.priceText !== null
             && snapshot.priceText !== "") {
             payNode.updatePrice(snapshot.priceText);
+        }
+    },
+    applyPayDialogState: function (purchaseId, payDialog, shopState) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId) || !payDialog) {
+            return;
+        }
+
+        var snapshot = this.getPurchaseUiSnapshot(purchaseId, null, shopState);
+        var titleNode = payDialog.titleNode;
+        var priceLabel = titleNode && typeof titleNode.getChildByName === "function"
+            ? titleNode.getChildByName("price")
+            : null;
+        if (priceLabel && typeof priceLabel.setString === "function") {
+            priceLabel.setString(snapshot.priceText || "");
+        }
+
+        var buyButton = payDialog.actionNode && typeof payDialog.actionNode.getChildByName === "function"
+            ? payDialog.actionNode.getChildByName("btn_2")
+            : null;
+        if (buyButton && typeof buyButton.setEnabled === "function") {
+            buyButton.setEnabled(!!snapshot.canBuy);
+        }
+
+        var offIcon = titleNode && typeof titleNode.getChildByName === "function"
+            ? titleNode.getChildByName("offIcon")
+            : null;
+        if (!offIcon) {
+            return;
+        }
+
+        var priceOff = snapshot && isFinite(snapshot.priceOff)
+            ? Math.max(0, parseInt(snapshot.priceOff))
+            : 0;
+        if (!(priceOff > 0)) {
+            offIcon.setVisible(false);
+            return;
+        }
+        offIcon.setVisible(true);
+        if (typeof offIcon.updateOff === "function") {
+            offIcon.updateOff(priceOff);
         }
     },
 

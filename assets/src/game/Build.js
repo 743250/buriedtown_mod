@@ -14,6 +14,35 @@ if (typeof GameEvents === "undefined" || !GameEvents) {
     };
 }
 
+var requireBuildRuntimeDependency = function (dependencyName, getterName) {
+    if (typeof GameRuntime === "undefined"
+        || !GameRuntime
+        || typeof GameRuntime[getterName] !== "function") {
+        throw new Error("Build.js requires GameRuntime." + getterName);
+    }
+    var runtimeDependency = GameRuntime[getterName]();
+    if (!runtimeDependency) {
+        throw new Error("Build.js missing runtime dependency: " + dependencyName);
+    }
+    return runtimeDependency;
+};
+
+var getBuildRuntimePlayer = function () {
+    return requireBuildRuntimeDependency("player", "getPlayer");
+};
+
+var getBuildRuntimeTimer = function () {
+    return requireBuildRuntimeDependency("timer", "getTimer");
+};
+
+var getBuildRuntimeEmitter = function () {
+    return requireBuildRuntimeDependency("emitter", "getEmitter");
+};
+
+var getBuildRuntimeRecord = function () {
+    return requireBuildRuntimeDependency("record", "getRecord");
+};
+
 var Build = cc.Class.extend({
     ctor: function (bid, level, saveObj) {
         this.id = bid;
@@ -155,10 +184,10 @@ var Build = cc.Class.extend({
         return this.level < 0;
     },
     _hasStorageItem: function (itemId) {
-        return player.storage.validateItem(itemId, 1);
+        return getBuildRuntimePlayer().storage.validateItem(itemId, 1);
     },
     _isWorkSitePowered: function () {
-        var workSite = player.map.getSite(WORK_SITE);
+        var workSite = getBuildRuntimePlayer().map.getSite(WORK_SITE);
         return !!(workSite && workSite.isActive);
     },
     _buildActionFilterContext: function () {
@@ -178,6 +207,7 @@ var Build = cc.Class.extend({
         return this.level >= this._getMaxLevel();
     },
     canUpgrade: function () {
+        var runtimePlayer = getBuildRuntimePlayer();
         var res = {buildUpgradeType: BuildUpgradeType.UPGRADABLE};
         //1. 是否有下一级可升级
         if (this.level >= this._getMaxLevel()) {
@@ -187,14 +217,14 @@ var Build = cc.Class.extend({
         //2. 前置条件是否满足
         var nextLevel = this.level + 1;
         var condition = this.configs[nextLevel]["condition"];
-        if (!player.room.isBuildExist(condition["bid"], condition["level"])) {
+        if (!runtimePlayer.room.isBuildExist(condition["bid"], condition["level"])) {
             res.buildUpgradeType = BuildUpgradeType.CONDITION;
             res.condition = condition;
             return res;
         }
         //3. cost是否满足
         var cost = this.configs[nextLevel]["cost"];
-        if (!player.validateItems(cost)) {
+        if (!runtimePlayer.validateItems(cost)) {
             res.buildUpgradeType = BuildUpgradeType.COST;
             res.cost = cost;
             return res;
@@ -202,10 +232,13 @@ var Build = cc.Class.extend({
         return res;
     },
     upgrade: function (processCb, endCb) {
+        var runtimePlayer = getBuildRuntimePlayer();
+        var runtimeTimer = getBuildRuntimeTimer();
+        var runtimeEmitter = getBuildRuntimeEmitter();
         //1. cost成功
         var nextLevel = this.level + 1;
         var cost = this.configs[nextLevel]["cost"];
-        player.costItems(cost);
+        runtimePlayer.costItems(cost);
 
         //2. 升级
         this.isUpgrading = true;
@@ -213,7 +246,7 @@ var Build = cc.Class.extend({
         createTime *= 60;
         var pastTime = 0;
         var self = this;
-        cc.timer.addTimerCallback(new TimerCallback(createTime, this, {
+        runtimeTimer.addTimerCallback(new TimerCallback(createTime, this, {
             process: function (dt) {
                 pastTime += dt;
                 processCb(pastTime / createTime * 100);
@@ -222,12 +255,12 @@ var Build = cc.Class.extend({
                 self.isUpgrading = false;
                 self.afterUpgrade();
                 endCb();
-                player.log.addMsg(1089, player.room.getBuildCurrentName(self.id));
+                runtimePlayer.log.addMsg(1089, runtimePlayer.room.getBuildCurrentName(self.id));
             }
         }));
-        cc.timer.accelerateWorkTime(createTime);
+        runtimeTimer.accelerateWorkTime(createTime);
         this.setActiveBtnIndex(-1);
-        utils.emitter.emit(GameEvents.BUILD_NODE_UPDATE);
+        runtimeEmitter.emit(GameEvents.BUILD_NODE_UPDATE);
 
         audioManager.playEffect(audioManager.sound.BUILD_UPGRADE);
     },
@@ -235,7 +268,7 @@ var Build = cc.Class.extend({
         this.level++;
         this.currentConfig = this.configs[this.level];
         this.resetActiveBtnIndex();
-        Record.saveAll();
+        getBuildRuntimeRecord().saveAll();
     },
     getUpgradeConfig: function () {
         var nextLevel = this.level + 1;

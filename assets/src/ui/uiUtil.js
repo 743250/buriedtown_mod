@@ -1598,6 +1598,9 @@ uiUtil.createSaleOffIcon = function () {
 uiUtil.getPurchaseStringConfig = function (purchaseId) {
     purchaseId = parseInt(purchaseId);
     var strConfig = stringUtil.getString("p_" + purchaseId);
+    var purchaseUiHelper = (typeof PurchaseUiHelper !== "undefined" && PurchaseUiHelper)
+        ? PurchaseUiHelper
+        : null;
     if (!strConfig || typeof strConfig !== "object") {
         strConfig = {};
     } else {
@@ -1618,15 +1621,12 @@ uiUtil.getPurchaseStringConfig = function (purchaseId) {
         && typeof ConfigValidator !== "undefined"
         && ConfigValidator
         && typeof ConfigValidator.warnIfInvalid === "function") {
-        if (typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && typeof PurchaseService.isTalentPurchase === "function"
-            && PurchaseService.isTalentPurchase(purchaseId)) {
+        if (purchaseUiHelper
+            && typeof purchaseUiHelper.isTalentPurchase === "function"
+            && purchaseUiHelper.isTalentPurchase(purchaseId)) {
             ConfigValidator.warnIfInvalid("talent", purchaseId, "uiUtil.getPurchaseStringConfig");
-        } else if (typeof role !== "undefined"
-            && role
-            && typeof role.getRoleTypeByPurchaseId === "function") {
-            var roleType = role.getRoleTypeByPurchaseId(purchaseId);
+        } else {
+            var roleType = uiUtil.getRoleTypeByPurchaseId(purchaseId);
             if (roleType !== null && roleType !== undefined) {
                 ConfigValidator.warnIfInvalid("role", roleType, "uiUtil.getPurchaseStringConfig");
             }
@@ -1635,28 +1635,25 @@ uiUtil.getPurchaseStringConfig = function (purchaseId) {
 
     // For exchange-only character purchase ids without p_xxx string entries,
     // fallback to role metadata so shop titles/descriptions remain meaningful.
-    if (/^ID\s+\d+$/.test(strConfig.name)
-        && typeof PurchaseService !== "undefined"
-        && PurchaseService) {
-        var exchangeIds = PurchaseService.getExchangeIdsByPurchaseId(purchaseId);
-        if (exchangeIds.length > 0 && typeof ExchangeAchievementConfig !== "undefined" && ExchangeAchievementConfig) {
-            var exchangeConfig = ExchangeAchievementConfig[exchangeIds[0]];
-            if (exchangeConfig && exchangeConfig.type === "character") {
-                var roleInfo = null;
-                if (typeof role !== "undefined" && role && typeof role.getRoleInfo === "function") {
-                    roleInfo = role.getRoleInfo(exchangeConfig.targetId);
+    if (/^ID\s+\d+$/.test(strConfig.name) && purchaseUiHelper) {
+        var exchangeConfig = typeof purchaseUiHelper.getPrimaryExchangeConfigByPurchaseId === "function"
+            ? purchaseUiHelper.getPrimaryExchangeConfigByPurchaseId(purchaseId)
+            : null;
+        if (exchangeConfig && exchangeConfig.type === "character") {
+            var roleInfo = null;
+            if (typeof role !== "undefined" && role && typeof role.getRoleInfo === "function") {
+                roleInfo = role.getRoleInfo(exchangeConfig.targetId);
+            }
+            if (roleInfo) {
+                strConfig.name = roleInfo.name || strConfig.name;
+                if (!strConfig.des) {
+                    strConfig.des = roleInfo.des || "";
                 }
-                if (roleInfo) {
-                    strConfig.name = roleInfo.name || strConfig.name;
-                    if (!strConfig.des) {
-                        strConfig.des = roleInfo.des || "";
-                    }
-                    if (!strConfig.effect) {
-                        strConfig.effect = roleInfo.effect || "";
-                    }
-                } else if (exchangeConfig.name) {
-                    strConfig.name = exchangeConfig.name;
+                if (!strConfig.effect) {
+                    strConfig.effect = roleInfo.effect || "";
                 }
+            } else if (exchangeConfig.name) {
+                strConfig.name = exchangeConfig.name;
             }
         }
     }
@@ -1664,24 +1661,18 @@ uiUtil.getPurchaseStringConfig = function (purchaseId) {
 };
 
 uiUtil.getRoleTypeByPurchaseId = function (purchaseId) {
-    if (typeof PurchaseService === "undefined"
-        || !PurchaseService
-        || typeof ExchangeAchievementConfig === "undefined"
-        || !ExchangeAchievementConfig) {
-        return null;
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.getRoleTypeByPurchaseId === "function") {
+        return PurchaseUiHelper.getRoleTypeByPurchaseId(purchaseId);
     }
 
-    var exchangeIds = PurchaseService.getExchangeIdsByPurchaseId(purchaseId);
-    if (exchangeIds.length === 0) {
-        return null;
+    if (typeof role !== "undefined"
+        && role
+        && typeof role.getRoleTypeByPurchaseId === "function") {
+        return role.getRoleTypeByPurchaseId(purchaseId);
     }
-
-    var exchangeConfig = ExchangeAchievementConfig[exchangeIds[0]];
-    if (!exchangeConfig || exchangeConfig.type !== "character") {
-        return null;
-    }
-
-    return exchangeConfig.targetId;
+    return null;
 };
 
 uiUtil.getCharacterPortraitByPurchaseId = function (purchaseId) {
@@ -1968,9 +1959,7 @@ uiUtil.createPayItemNode = function (purchaseId, target, cb) {
         unlock.setString(badgeText || unlockName);
         unlock.setVisible(!!(badgeText && !snapshot.hideBadge));
         price.setString(snapshot.priceText || "");
-        var off = typeof PurchaseService !== "undefined" && PurchaseService
-            ? PurchaseService.getPriceOff(purchaseId)
-            : 0;
+        var off = snapshot.priceOff || 0;
         if (off > 0) {
             offIcon.setVisible(true);
             offIcon.updateOff(off);
@@ -2018,9 +2007,10 @@ uiUtil.createLockNode = function (size, purchaseId, cb, isWhite) {
 
 
     n.setClickListener(this, function () {
-        if (typeof PurchaseService !== "undefined"
-            && PurchaseService
-            && PurchaseService.getExchangeIdByPurchaseId(purchaseId)) {
+        if (typeof PurchaseUiHelper !== "undefined"
+            && PurchaseUiHelper
+            && typeof PurchaseUiHelper.isExchangePurchase === "function"
+            && PurchaseUiHelper.isExchangePurchase(purchaseId)) {
             uiUtil.showPayDialog(purchaseId, function () {
                 utils.pay(purchaseId, this, cb);
             });

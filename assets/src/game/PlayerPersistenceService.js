@@ -324,7 +324,7 @@ var PlayerPersistenceService = {
 
         playerInstance.navigationState.syncMapEntityIdFromMap(playerInstance.map);
     },
-    _applyPostRestoreFixups: function (playerInstance) {
+    _applyLegacyRestoreMigrations: function (playerInstance) {
         var hasPostRestoreMutation = !!(playerInstance && playerInstance._selectionStateNeedsSave);
         var talentService = getPlayerPersistenceTalentService();
         if (talentService
@@ -333,11 +333,6 @@ var PlayerPersistenceService = {
             if (migratedLegacyElitePistol) {
                 hasPostRestoreMutation = true;
             }
-        }
-
-        if (talentService
-            && typeof talentService.reconcilePlayerHpByTalentSelection === "function") {
-            talentService.reconcilePlayerHpByTalentSelection(playerInstance);
         }
 
         var purchaseService = getPlayerPersistencePurchaseService();
@@ -359,19 +354,46 @@ var PlayerPersistenceService = {
             hasPostRestoreMutation = true;
         }
 
-        if (typeof roleRuntimeService.ensureSpecialItems === "function") {
-            roleRuntimeService.ensureSpecialItems(playerInstance);
+        return hasPostRestoreMutation;
+    },
+    _applyRestoreReconciliations: function (playerInstance) {
+        var hasRestoreMutation = false;
+        var talentService = getPlayerPersistenceTalentService();
+        if (talentService
+            && typeof talentService.reconcilePlayerHpByTalentSelection === "function"
+            && talentService.reconcilePlayerHpByTalentSelection(playerInstance)) {
+            hasRestoreMutation = true;
         }
 
+        var roleRuntimeService = getPlayerPersistenceRoleRuntimeService();
+        if (typeof roleRuntimeService.ensureSpecialItems === "function") {
+            if (roleRuntimeService.ensureSpecialItems(playerInstance)) {
+                hasRestoreMutation = true;
+            }
+        }
+        return hasRestoreMutation;
+    },
+    _persistPostRestoreMutations: function (hasPostRestoreMutation) {
         if (hasPostRestoreMutation
             && typeof Record !== "undefined"
             && Record
             && typeof Record.saveAll === "function") {
             Record.saveAll();
         }
+    },
+    _clearPostRestoreTransientState: function (playerInstance) {
         if (playerInstance) {
             delete playerInstance._selectionStateNeedsSave;
         }
+    },
+    _applyPostRestoreFixups: function (playerInstance) {
+        var hasPostRestoreMutation = this._applyLegacyRestoreMigrations(playerInstance);
+        if (this._applyRestoreReconciliations(playerInstance)) {
+            hasPostRestoreMutation = true;
+        }
+
+        this._persistPostRestoreMutations(hasPostRestoreMutation);
+        this._clearPostRestoreTransientState(playerInstance);
     }
 };
 

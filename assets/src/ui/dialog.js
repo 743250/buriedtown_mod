@@ -1169,20 +1169,15 @@ var PayDialog = DialogBig.extend({
             titleLabel.updateView();
         }
 
-        var priceStr = purchaseDisplayContext.priceText || "";
-        var price = new cc.LabelTTF(priceStr, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
+        var price = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
         price.anchorX = 1;
         price.setPosition(this.rightEdge, 20);
         this.titleNode.addChild(price);
         price.setName("price");
         price.setColor(UITheme.colors.TEXT_TITLE);
 
-        var canPurchase = purchaseUiState.canBuy;
         var shouldHideBuyButton = purchaseUiState.shouldHideBuyButton;
         var btn2Node = this.actionNode.getChildByName("btn_2");
-        if (btn2Node) {
-            btn2Node.setEnabled(canPurchase);
-        }
 
         var btn1Node = this.actionNode.getChildByName("btn_1");
         var btn3Node = this.actionNode.getChildByName("btn_3");
@@ -1208,7 +1203,7 @@ var PayDialog = DialogBig.extend({
         this.titleNode.addChild(offIcon);
         offIcon.setVisible(false);
         offIcon.setName('offIcon');
-        this.updateOffIcon();
+        this.refreshShopState(purchaseUiState);
 
         if (PurchaseUiHelper.shouldShowSaleIcon(purchaseId)) {
             var saleIcon = autoSpriteFrameController.getSpriteFromSpriteName('icon_sale.png');
@@ -1217,19 +1212,11 @@ var PayDialog = DialogBig.extend({
             this.titleNode.addChild(saleIcon);
         }
     },
+    refreshShopState: function (shopState) {
+        PurchaseUiHelper.applyPayDialogState(this.purchaseId, this, shopState);
+    },
     updateOffIcon: function () {
-        var offIcon = this.titleNode.getChildByName('offIcon');
-        if (PurchaseService.isExchangePurchase(this.purchaseId)) {
-            offIcon.setVisible(false);
-            return;
-        }
-        var off = PurchaseService.getPriceOff(this.purchaseId);
-        if (off > 0) {
-            offIcon.setVisible(true);
-            offIcon.updateOff(off);
-        } else {
-            offIcon.setVisible(false);
-        }
+        this.refreshShopState();
     },
     show: function () {
         this._super();

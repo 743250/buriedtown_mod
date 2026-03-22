@@ -219,7 +219,7 @@ var ShopLayer = cc.Layer.extend({
         };
 
         var nonExchangeData = data.filter(function (purchaseId) {
-            return !PurchaseService.isExchangePurchase(purchaseId);
+            return PurchaseUiHelper.shouldRequestRemotePayInfo(purchaseId);
         });
         var hasSdkPurchases = nonExchangeData.length > 0;
         if (!hasSdkPurchases) {
