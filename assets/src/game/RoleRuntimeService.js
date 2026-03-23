@@ -4,6 +4,8 @@ var getRoleRuntimePurchaseService = function () {
 
 var RoleRuntimeService = {
     _buildActionVisibilityGroups: [],
+    VISITOR_NPC_NEW_WEIGHT: 3,
+    VISITOR_NPC_UNLOCKED_WEIGHT: 1,
 
     _defaultConfig: {
         roomBuilds: [
@@ -590,6 +592,48 @@ var RoleRuntimeService = {
             return this._defaultConfig.visitorNpcIds.slice();
         }
         return npcPool;
+    },
+    getVisitorNpcWeight: function (npcId, npcManager) {
+        var npc = npcManager && typeof npcManager.getNPC === "function"
+            ? npcManager.getNPC(npcId)
+            : null;
+        return npc && npc.isUnlocked
+            ? this.VISITOR_NPC_UNLOCKED_WEIGHT
+            : this.VISITOR_NPC_NEW_WEIGHT;
+    },
+    pickVisitorNpcId: function (roleType, npcManager) {
+        var npcPool = this.getVisitorNpcPool(roleType, npcManager);
+        if (!Array.isArray(npcPool) || npcPool.length === 0) {
+            return null;
+        }
+
+        var weightedNpcPool = [];
+        var totalWeight = 0;
+        var self = this;
+        npcPool.forEach(function (npcId) {
+            var weight = Number(self.getVisitorNpcWeight(npcId, npcManager));
+            if (!(weight > 0)) {
+                return;
+            }
+            totalWeight += weight;
+            weightedNpcPool.push({
+                npcId: npcId,
+                totalWeight: totalWeight
+            });
+        });
+
+        if (!(totalWeight > 0) || weightedNpcPool.length === 0) {
+            return npcPool[utils.getRandomInt(0, npcPool.length - 1)];
+        }
+
+        var roll = utils.getRandomInt(1, totalWeight);
+        for (var i = 0; i < weightedNpcPool.length; i++) {
+            if (roll <= weightedNpcPool[i].totalWeight) {
+                return weightedNpcPool[i].npcId;
+            }
+        }
+
+        return weightedNpcPool[weightedNpcPool.length - 1].npcId;
     },
     canUnlockNpcsFromSite: function (roleType) {
         return this.getRuntimeConfig(roleType).siteNpcUnlocksEnabled !== false;

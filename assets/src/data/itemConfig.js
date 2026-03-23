@@ -95,6 +95,13 @@ var itemConfig = {
         "price": 70,
         "value": 70
     },
+    "1102071": {
+        "id": "1102071",
+        "displayItemId": "1102011",
+        "weight": 2,
+        "price": 2,
+        "value": 2
+    },
     "1103011": {
         "id": "1103011",
         "weight": 1,
@@ -353,6 +360,8 @@ var itemConfig = {
         "weight": 1,
         "price": 15,
         "value": 9.999,
+        "brokenResultItemId": 1102011,
+        "durableItemId": 1301111,
         "effect_weapon": {
             "id": "1301011",
             "atk": 0,
@@ -374,6 +383,8 @@ var itemConfig = {
         "weight": 6,
         "price": 25.5,
         "value": 16.968,
+        "brokenResultItemId": 1102022,
+        "durableItemId": 1301122,
         "effect_weapon": {
             "id": "1301022",
             "atk": 0,
@@ -395,6 +406,8 @@ var itemConfig = {
         "weight": 10,
         "price": 50,
         "value": 32.825,
+        "brokenResultItemId": 1102033,
+        "durableItemId": 1301133,
         "effect_weapon": {
             "id": "1301033",
             "atk": 0,
@@ -416,6 +429,8 @@ var itemConfig = {
         "weight": 2,
         "price": 17,
         "value": 12,
+        "brokenResultItemId": 1102011,
+        "durableItemId": 1301141,
         "effect_weapon": {
             "id": "1301041",
             "atk": 0,
@@ -437,6 +452,8 @@ var itemConfig = {
         "weight": 7,
         "price": 28,
         "value": 18,
+        "brokenResultItemId": 1102022,
+        "durableItemId": 1301152,
         "effect_weapon": {
             "id": "1301052",
             "atk": 0,
@@ -458,6 +475,8 @@ var itemConfig = {
         "weight": 9,
         "price": 55,
         "value": 35,
+        "brokenResultItemId": 1102033,
+        "durableItemId": 1301163,
         "effect_weapon": {
             "id": "1301063",
             "atk": 0,
@@ -479,6 +498,8 @@ var itemConfig = {
         "weight": 3,
         "price": 30,
         "value": 30,
+        "brokenResultItemId": 1102011,
+        "durableItemId": 1301171,
         "effect_weapon": {
             "id": "1301071",
             "atk": 60,
@@ -500,6 +521,8 @@ var itemConfig = {
         "weight": 12,
         "price": 60,
         "value": 60,
+        "brokenResultItemId": 1102033,
+        "durableItemId": 1301182,
         "effect_weapon": {
             "id": "1301082",
             "atk": 110,
@@ -521,6 +544,7 @@ var itemConfig = {
         "weight": 1,
         "price": 15,
         "value": 9.999,
+        "brokenResultItemId": 1102011,
         "effect_weapon": {
             "id": "1301091",
             "atk": 0,
@@ -542,6 +566,7 @@ var itemConfig = {
         "weight": 2,
         "price": 3.5,
         "value": 3.3165,
+        "durableItemId": 1302111,
         "effect_tool": {
             "id": "1302011",
             "workingTime": 10
@@ -567,6 +592,7 @@ var itemConfig = {
         "weight": 2,
         "price": 2.25,
         "value": 2.211,
+        "durableItemId": 1302121,
         "effect_tool": {
             "id": "1302021",
             "workingTime": 20
@@ -592,6 +618,8 @@ var itemConfig = {
         "weight": 3,
         "price": 11,
         "value": 10.908,
+        "brokenResultItemId": 1102042,
+        "durableItemId": 1302132,
         "effect_weapon": {
             "id": "1302032",
             "atk": 50,
@@ -613,6 +641,7 @@ var itemConfig = {
         "weight": 6,
         "price": 50,
         "value": 50,
+        "durableItemId": 1302143,
         "effect_weapon": {
             "id": "1302043",
             "atk": 100,
@@ -764,13 +793,15 @@ var itemConfig = {
         "id": "1305023",
         "weight": 0,
         "price": 13,
-        "value": 13.13
+        "value": 13.13,
+        "bagWeightBonus": 10
     },
     "1305024": {
         "id": "1305024",
         "weight": 0,
         "price": 38,
-        "value": 36.763999999999996
+        "value": 36.763999999999996,
+        "bagWeightBonus": 25
     },
     "1305034": {
         "id": 1305034,
@@ -782,7 +813,8 @@ var itemConfig = {
         "id": 1305044,
         "weight": 0,
         "price": 65,
-        "value": 65
+        "value": 65,
+        "bagWeightBonus": 15
     },
     "1305053": {
         "id": "1305053",

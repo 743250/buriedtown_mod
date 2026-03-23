@@ -164,7 +164,15 @@ var NPC = BaseSite.extend({
         var ratio = typeof npcGiftConfig !== "undefined" && npcGiftConfig
             ? Number(npcGiftConfig.favorGiftRatio)
             : NaN;
-        return ratio > 0 ? ratio : 0.5;
+        var defaultRatio = ratio > 0 ? ratio : 0.5;
+        if (typeof TalentService === "undefined"
+            || !TalentService
+            || typeof TalentService.getSocialFavorGiftRatio !== "function") {
+            return defaultRatio;
+        }
+
+        var socialFavorGiftRatio = Number(TalentService.getSocialFavorGiftRatio());
+        return socialFavorGiftRatio > 0 ? socialFavorGiftRatio : defaultRatio;
     },
     _getFavorGiftProduceList: function () {
         if (Array.isArray(this._favorGiftProduceListCache)) {
@@ -598,8 +606,10 @@ var NPCManager = cc.Class.extend({
         cc.i("visitPlayer " + rand);
         if (rand <= 25) {
             player.log.addMsg(1100);
-            var npcPool = RoleRuntimeService.getVisitorNpcPool(player.roleType, this);
-            var npcId = npcPool[utils.getRandomInt(0, npcPool.length - 1)];
+            var npcId = RoleRuntimeService.pickVisitorNpcId(player.roleType, this);
+            if (!npcId) {
+                return;
+            }
             this.unlockNpc(npcId);
             var npc = this.npcList[npcId];
             if (npc.needSendGift()) {

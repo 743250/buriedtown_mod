@@ -2,6 +2,22 @@
  * Created by lancelot on 15/4/7.
  */
 
+var getStorageRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getStorageRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getStorageRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getStorageRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var StorageCell = cc.Class.extend({
     ctor: function (item, num) {
         this.item = item;
@@ -218,30 +234,10 @@ var Bag = Storage.extend({
     },
     getTotalWeight: function () {
         var weight = 35;
-        var getOwnedNum = function (itemId) {
-            if (typeof player === "undefined" || !player) {
-                return 0;
-            }
-            if (typeof player.getItemNumInPlayer === "function") {
-                return player.getItemNumInPlayer(itemId);
-            }
-            var total = 0;
-            if (player.storage && typeof player.storage.getNumByItemId === "function") {
-                total += player.storage.getNumByItemId(itemId);
-            }
-            if (player.bag && typeof player.bag.getNumByItemId === "function") {
-                total += player.bag.getNumByItemId(itemId);
-            }
-            return total;
-        };
-        if (getOwnedNum(1305023) > 0) {
-            weight += 10;
-        }
-        if (getOwnedNum(1305024) > 0) {
-            weight += 25;
-        }
-        if (getOwnedNum(1305044) > 0) {
-            weight += 15;
+        if (typeof ItemRuntimeService !== "undefined"
+            && ItemRuntimeService
+            && typeof ItemRuntimeService.getBagWeightBonus === "function") {
+            weight += ItemRuntimeService.getBagWeightBonus(getStorageRuntimePlayer());
         }
         if (typeof TalentService !== "undefined" && TalentService && TalentService.getBagWeightBonus)  {
             weight += TalentService.getBagWeightBonus();
@@ -250,9 +246,13 @@ var Bag = Storage.extend({
     },
     decreaseItem: function (itemId, num) {
         this._super(itemId, num);
-        if (this.getNumByItemId(itemId) == 0 && player.equip.isEquiped(itemId)) {
-            player.equip.unequipByItemId(itemId);
-            utils.emitter.emit("equiped_item_decrease_in_bag");
+        var runtimePlayer = getStorageRuntimePlayer();
+        if (this.getNumByItemId(itemId) == 0
+            && runtimePlayer
+            && runtimePlayer.equip
+            && runtimePlayer.equip.isEquiped(itemId)) {
+            runtimePlayer.equip.unequipByItemId(itemId);
+            getStorageRuntimeEmitter().emit("equiped_item_decrease_in_bag");
         }
     },
     clone: function () {
@@ -263,8 +263,15 @@ var Bag = Storage.extend({
         return newBag;
     },
     testWeaponBroken: function (itemId) {
+        var runtimeTimer = getStorageRuntimeTimer();
+        var runtimePlayer = getStorageRuntimePlayer();
+        if (!runtimeTimer
+            || typeof runtimeTimer.formatTime !== "function"
+            || !runtimePlayer) {
+            return false;
+        }
         //新手保护, 3天内不会损坏武器
-        if (cc.timer.formatTime().d < 3) {
+        if (runtimeTimer.formatTime().d < 3) {
             return false;
         }
         if (typeof TalentService !== "undefined" && TalentService && TalentService.isElitePistolItem && TalentService.isElitePistolItem(itemId)) {
@@ -272,24 +279,35 @@ var Bag = Storage.extend({
         }
         if (itemConfig[itemId]) {
             var weaponBrokenProbability = itemConfig[itemId].effect_weapon.brokenProbability;
+            var brokenResultItemId = (typeof ItemRuntimeService !== "undefined"
+                && ItemRuntimeService
+                && typeof ItemRuntimeService.getBrokenResultItemId === "function")
+                ? ItemRuntimeService.getBrokenResultItemId(itemId)
+                : 0;
             weaponBrokenProbability = TalentService.getWeaponBrokenProbability(weaponBrokenProbability);
             var rand = Math.random();
             cc.log("testWeaponBroken " + itemId + " " + weaponBrokenProbability + ":" + rand);
             var isBroken = (rand <= weaponBrokenProbability);
             if (isBroken) {
-                player.equip.unequipByItemId(itemId);
+                runtimePlayer.equip.unequipByItemId(itemId);
                 this.decreaseItem(itemId, 1);
+                if (brokenResultItemId) {
+                    this.increaseItem(brokenResultItemId, 1);
+                }
                 cc.log("itemId=" + itemId + " is broken");
-                player.log.addMsg(1205, stringUtil.getString(itemId).title);
+                runtimePlayer.log.addMsg(1205, stringUtil.getString(itemId).title);
                 if (typeof Medal !== "undefined"
                     && Medal
                     && typeof Medal.trackWeaponBroken === "function") {
                     Medal.trackWeaponBroken(itemId, 1);
                 }
 
-                Record.saveAll();
+                getStorageRuntimeRecord().saveAll();
             }
-            return isBroken;
+            return isBroken ? {
+                itemId: itemId,
+                brokenResultItemId: brokenResultItemId
+            } : false;
         }
         return false;
     }

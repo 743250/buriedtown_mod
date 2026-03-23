@@ -2,6 +2,18 @@
  * Extracts player attribute mutation and hourly status updates out of player.js
  * so future balance/content work does not need to keep growing the Player class.
  */
+var getPlayerAttrRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getPlayerAttrRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getPlayerAttrRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var PlayerAttrService = {
     CHANGE_DIRECTION: {
         hp: 1,
@@ -50,6 +62,15 @@ var PlayerAttrService = {
     isAttrChangeBlockedByBuff: function (playerInstance, key, value) {
         if (this.isAttrChangeGood(key, value)) {
             return false;
+        }
+        if (playerInstance
+            && playerInstance.buffManager
+            && typeof playerInstance.buffManager.blocksAttrChange === "function") {
+            if (!playerInstance.buffManager.blocksAttrChange(key)) {
+                return false;
+            }
+            cc.d("buff blocks attr change " + key);
+            return true;
         }
         var blockedBuffInfo = this.getBlockedBuffInfoByAttr(key);
         if (!blockedBuffInfo) {
@@ -114,10 +135,11 @@ var PlayerAttrService = {
         if (key === "injury") {
             playerInstance.updateHpMax();
         }
+        var runtimePlayer = getPlayerAttrRuntimePlayer();
         if (key === "hp"
             && memoryUtil.decode(playerInstance.hp) === 0
-            && typeof player !== "undefined"
-            && playerInstance === player) {
+            && runtimePlayer
+            && playerInstance === runtimePlayer) {
             playerInstance.die();
         }
     },
@@ -130,15 +152,20 @@ var PlayerAttrService = {
         var changeInfo = this.applyAttrChangeValue(playerInstance, key, value);
 
         cc.i("changeAttr " + key + " value:" + value + " after:" + changeInfo.currentVal);
-        if (typeof player !== "undefined" && playerInstance === player) {
-            utils.emitter.emit(key + "_change", value);
+        var runtimePlayer = getPlayerAttrRuntimePlayer();
+        if (runtimePlayer && playerInstance === runtimePlayer) {
+            getPlayerAttrRuntimeEmitter().emit(key + "_change", value);
         }
         this.emitAttrRangeTransition(playerInstance, key, changeInfo.beforeRangeInfo, changeInfo.afterRangeInfo);
         this.onAttrChanged(playerInstance, key);
     },
     updateHpMax: function (playerInstance) {
         var hpBuffEffect = 0;
-        if (playerInstance.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107012)) {
+        if (playerInstance
+            && playerInstance.buffManager
+            && typeof playerInstance.buffManager.getStatBonus === "function") {
+            hpBuffEffect = playerInstance.buffManager.getStatBonus("hpMax");
+        } else if (playerInstance.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107012)) {
             hpBuffEffect = playerInstance.buffManager.getBuffValue();
         }
         var newHpMax = memoryUtil.decode(playerInstance.hpMaxOrigin) + hpBuffEffect - memoryUtil.decode(playerInstance.injury);
@@ -149,7 +176,7 @@ var PlayerAttrService = {
         return RoleRuntimeService.getHourlyStarveChange(playerInstance.roleType, changeConfig);
     },
     getHourlyVigourChange: function (playerInstance, changeConfig) {
-        if (cc.timer.getStage() === "day") {
+        if (getPlayerAttrRuntimeTimer().getStage() === "day") {
             return playerInstance.isAtHome() ? changeConfig[2][0] : changeConfig[3][0];
         }
         return playerInstance.isAtHome() ? changeConfig[4][0] : changeConfig[5][0];
@@ -217,16 +244,16 @@ var PlayerAttrService = {
         }
     },
     updateStarve: function (playerInstance) {
-        if (playerInstance.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107042)) {
-            cc.d("ITEM_1107042 updateStarve");
+        if (playerInstance.buffManager.blocksAttrEffect("starve")) {
+            cc.d("buff blocks starve update");
             return;
         }
 
         this.applyEffectMap(playerInstance, this.getRangeEffect(playerInstance, "starve", playerInstance.starve));
     },
     updateInfect: function (playerInstance) {
-        if (playerInstance.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107022)) {
-            cc.d("ITEM_1107022 updateInfect");
+        if (playerInstance.buffManager.blocksAttrEffect("infect")) {
+            cc.d("buff blocks infect update");
             return;
         }
 
@@ -241,7 +268,7 @@ var PlayerAttrService = {
             },
             canApply: function (attr) {
                 if (attr === "infect" || attr === "spirit") {
-                    return !this.isInCure();
+                    return !playerInstance.buffManager.blocksAttrEffectTarget("infect", attr);
                 }
                 return true;
             }
@@ -254,8 +281,8 @@ var PlayerAttrService = {
         }
     },
     updateVigour: function (playerInstance) {
-        if (playerInstance.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107032)) {
-            cc.d("ITEM_1107032 updateVigour ");
+        if (playerInstance.buffManager.blocksAttrEffect("vigour")) {
+            cc.d("buff blocks vigour update ");
             return;
         }
 
@@ -265,7 +292,7 @@ var PlayerAttrService = {
         this.applyEffectMap(playerInstance, this.getRangeEffect(playerInstance, "injury", playerInstance.injury), {
             canApply: function (attr) {
                 if (attr === "infect" || attr === "spirit") {
-                    return !this.isInBind();
+                    return !playerInstance.buffManager.blocksAttrEffectTarget("injury", attr);
                 }
                 return true;
             }
@@ -292,8 +319,9 @@ var PlayerAttrService = {
             return 0;
         }
         var cycleLength = seasonCount * this.TEMPERATURE_SEASON_LENGTH_DAYS;
-        var timeObj = cc.timer && typeof cc.timer.formatTime === "function"
-            ? (cc.timer.formatTime() || {})
+        var runtimeTimer = getPlayerAttrRuntimeTimer();
+        var timeObj = runtimeTimer && typeof runtimeTimer.formatTime === "function"
+            ? (runtimeTimer.formatTime() || {})
             : {};
         var cycleDay = Number(timeObj.d) || 0;
         return ((cycleDay % cycleLength) + cycleLength) % cycleLength;
@@ -397,7 +425,7 @@ var PlayerAttrService = {
     getWorldTemperature: function (playerInstance) {
         var interpolatedConfig = this.getInterpolatedTemperatureConfig(playerInstance);
         var worldTemperature = interpolatedConfig.average;
-        if (cc.timer.getStage() === "day") {
+        if (getPlayerAttrRuntimeTimer().getStage() === "day") {
             worldTemperature += interpolatedConfig.day;
         } else {
             worldTemperature += interpolatedConfig.night;
@@ -452,25 +480,75 @@ var PlayerAttrService = {
             severeInfect: effectConfig.severeInfect
         };
     },
-    getTemperatureInfectIncrease: function (playerInstance) {
+    getTemperatureInfectBuffState: function (playerInstance) {
         var thresholdInfo = this.getLowTemperatureThresholdInfo(playerInstance);
         var temperature = playerInstance && playerInstance.temperature !== undefined
             ? memoryUtil.decode(playerInstance.temperature)
             : this.initTemperature(playerInstance);
 
         if (temperature < thresholdInfo.severeThreshold) {
-            return thresholdInfo.severeInfect;
+            return {
+                value: thresholdInfo.severeInfect,
+                title: stringUtil.getString("buff_extreme_cold_title") || "严寒",
+                description: stringUtil.getString("buff_extreme_cold_effect", thresholdInfo.severeInfect),
+                isDebuff: true
+            };
         }
         if (temperature < thresholdInfo.mildThreshold) {
-            return thresholdInfo.mildInfect;
+            return {
+                value: thresholdInfo.mildInfect,
+                title: stringUtil.getString("buff_low_temperature_title") || "低温",
+                description: stringUtil.getString("buff_low_temperature_effect", thresholdInfo.mildInfect),
+                isDebuff: true
+            };
         }
-        return 0;
+        return null;
+    },
+    syncTemperatureInfectBuff: function (playerInstance) {
+        if (!playerInstance
+            || !playerInstance.buffManager
+            || typeof playerInstance.buffManager.upsertRuntimeBuff !== "function") {
+            return;
+        }
+
+        var buffState = this.getTemperatureInfectBuffState(playerInstance);
+        if (!buffState) {
+            playerInstance.buffManager.upsertRuntimeBuff(RuntimeBuffType.LOW_TEMPERATURE_INFECT, null);
+            return;
+        }
+
+        playerInstance.buffManager.upsertRuntimeBuff(RuntimeBuffType.LOW_TEMPERATURE_INFECT, {
+            slot: BuffSlotType.ENVIRONMENT,
+            attrList: ["temperature", "infect"],
+            periodicChangeMap: {
+                infect: buffState.value
+            },
+            periodType: BuffPeriodType.HOURLY,
+            title: buffState.title,
+            description: buffState.description,
+            isDebuff: buffState.isDebuff
+        });
+    },
+    syncRuntimeBuffs: function (playerInstance) {
+        this.syncTemperatureInfectBuff(playerInstance);
+    },
+    getTemperatureInfectIncrease: function (playerInstance) {
+        this.syncTemperatureInfectBuff(playerInstance);
+        if (playerInstance
+            && playerInstance.buffManager
+            && typeof playerInstance.buffManager.getPeriodicAttrChange === "function") {
+            return playerInstance.buffManager.getPeriodicAttrChange("infect", BuffPeriodType.HOURLY);
+        }
+        var buffState = this.getTemperatureInfectBuffState(playerInstance);
+        return buffState ? buffState.value : 0;
     },
     updateTemperature: function (playerInstance) {
         var temperature = this.initTemperature(playerInstance);
         playerInstance.changeTemperature(temperature - memoryUtil.decode(playerInstance.temperature));
+        this.syncRuntimeBuffs(playerInstance);
     },
     updateTemperatureEffect: function (playerInstance) {
+        this.syncRuntimeBuffs(playerInstance);
         var infectIncrease = this.getTemperatureInfectIncrease(playerInstance);
         if (infectIncrease > 0) {
             playerInstance.changeInfect(infectIncrease);

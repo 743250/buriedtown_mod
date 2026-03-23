@@ -352,60 +352,12 @@ var ZiplineNetworkService = cc.Class.extend({
         return false;
     },
     _appendRawLinks: function (rawLinks, saveObj) {
-        if (!saveObj) {
+        if (!saveObj || !(saveObj.links instanceof Array)) {
             return;
         }
 
-        var links = saveObj.links || saveObj.linkList;
-        if (links instanceof Array) {
-            for (var i = 0; i < links.length; i++) {
-                this._appendRawLink(rawLinks, links[i]);
-            }
-        }
-
-        if (saveObj.map && typeof saveObj.map === "object") {
-            this._appendLegacyMapLinks(rawLinks, saveObj.map);
-        }
-    },
-    _appendLegacyMapLinks: function (rawLinks, legacyMap) {
-        for (var startSiteId in legacyMap) {
-            if (!legacyMap.hasOwnProperty(startSiteId)) {
-                continue;
-            }
-
-            var targets = legacyMap[startSiteId];
-            if (targets instanceof Array) {
-                for (var i = 0; i < targets.length; i++) {
-                    this._appendRawLink(rawLinks, {
-                        startSiteId: startSiteId,
-                        endSiteId: targets[i]
-                    });
-                }
-                continue;
-            }
-
-            if (!targets || typeof targets !== "object") {
-                continue;
-            }
-
-            if (targets.endSiteId || targets.targetSiteId || targets.siteId) {
-                this._appendRawLink(rawLinks, {
-                    startSiteId: startSiteId,
-                    endSiteId: targets.endSiteId || targets.targetSiteId || targets.siteId,
-                    id: targets.id
-                });
-            }
-
-            for (var endSiteId in targets) {
-                if (!targets.hasOwnProperty(endSiteId)) {
-                    continue;
-                }
-                this._appendRawLink(rawLinks, {
-                    startSiteId: startSiteId,
-                    endSiteId: endSiteId,
-                    enabled: targets[endSiteId]
-                });
-            }
+        for (var i = 0; i < saveObj.links.length; i++) {
+            this._appendRawLink(rawLinks, saveObj.links[i]);
         }
     },
     _appendRawLink: function (rawLinks, rawLink) {

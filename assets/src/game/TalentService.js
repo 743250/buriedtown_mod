@@ -23,9 +23,6 @@ var TalentService = {
     _getChosenTalentsStorageKey: function () {
         return "chosenTalents_slot_" + this._getCurrentSlotKey();
     },
-    _getLegacyChosenTalentStorageKey: function () {
-        return "chosenTalent_slot_" + this._getCurrentSlotKey();
-    },
     _readStorageValue: function (key) {
         if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
             return null;
@@ -44,34 +41,6 @@ var TalentService = {
         }
         cc.sys.localStorage.removeItem(key);
     },
-    _currentSlotHasRecord: function () {
-        if (typeof Record !== "undefined"
-            && Record
-            && typeof Record.hasRecord === "function"
-            && typeof Record.getCurrentSlot === "function") {
-            return !!Record.hasRecord(Record.getCurrentSlot());
-        }
-        return false;
-    },
-    _canUseLegacySelectionFallback: function () {
-        if (!this._currentSlotHasRecord()) {
-            return false;
-        }
-        if (typeof Record === "undefined"
-            || !Record
-            || typeof Record.getAllRecordNames !== "function"
-            || typeof Record.hasRecord !== "function") {
-            return true;
-        }
-
-        var recordCount = 0;
-        Record.getAllRecordNames().forEach(function (_, index) {
-            if (Record.hasRecord(index + 1)) {
-                recordCount++;
-            }
-        });
-        return recordCount <= 1;
-    },
     _parseChosenTalentStorageValue: function (rawValue) {
         if (rawValue === undefined || rawValue === null || rawValue === "") {
             return [];
@@ -88,31 +57,6 @@ var TalentService = {
     },
     _readChosenTalentPurchaseIdsFromStorageKey: function (key) {
         return this._parseChosenTalentStorageValue(this._readStorageValue(key));
-    },
-    _getLegacyChosenTalentPurchaseIds: function () {
-        if (!this._canUseLegacySelectionFallback()) {
-            return [];
-        }
-
-        var purchaseIdList = this._readChosenTalentPurchaseIdsFromStorageKey("chosenTalents");
-        if (purchaseIdList.length > 0) {
-            return purchaseIdList;
-        }
-        return this._readChosenTalentPurchaseIdsFromStorageKey("chosenTalent");
-    },
-    _migrateLegacyChosenTalentPurchaseIds: function () {
-        var purchaseIdList = this._readChosenTalentPurchaseIdsFromStorageKey(this._getLegacyChosenTalentStorageKey());
-        if (purchaseIdList.length > 0) {
-            this._removeStorageValue(this._getLegacyChosenTalentStorageKey());
-            return purchaseIdList;
-        }
-
-        purchaseIdList = this._getLegacyChosenTalentPurchaseIds();
-        if (purchaseIdList.length > 0) {
-            this._removeStorageValue("chosenTalents");
-            this._removeStorageValue("chosenTalent");
-        }
-        return purchaseIdList;
     },
     _isCurrentSlotCacheValid: function () {
         return this._chosenTalentIds && this._chosenTalentIds.length > 0
@@ -326,6 +270,31 @@ var TalentService = {
         }
         return produceValue;
     },
+    _isHomeProduceBonusApplicableItem: function (itemId) {
+        var normalizedItemId = parseInt(itemId, 10);
+        if (isNaN(normalizedItemId)) {
+            return false;
+        }
+
+        var itemIdStr = String(normalizedItemId);
+        var mainType = itemIdStr.substr(0, 2);
+        var subType = itemIdStr.substr(2, 2);
+        var equipType = (typeof ItemType !== "undefined" && ItemType && ItemType.EQUIP) ? ItemType.EQUIP : "13";
+
+        if (mainType !== equipType) {
+            return true;
+        }
+
+        var gunType = (typeof ItemType !== "undefined" && ItemType && ItemType.GUN) ? ItemType.GUN : "01";
+        var weaponType = (typeof ItemType !== "undefined" && ItemType && ItemType.WEAPON) ? ItemType.WEAPON : "02";
+        var toolType = (typeof ItemType !== "undefined" && ItemType && ItemType.WEAPON_TOOL) ? ItemType.WEAPON_TOOL : "03";
+        var defendType = (typeof ItemType !== "undefined" && ItemType && ItemType.DEFEND) ? ItemType.DEFEND : "04";
+
+        return subType !== gunType
+            && subType !== weaponType
+            && subType !== toolType
+            && subType !== defendType;
+    },
     applyHomeProduceEffect: function (produceList) {
         var level103 = this._getActiveTalentLevel(103);
         if (!Array.isArray(produceList) || level103 < 1) {
@@ -333,7 +302,7 @@ var TalentService = {
         }
         var multiplier = this._getTalentValueByLevel(103, "homeProduceMultiplierValues", level103, 1);
         return produceList.map(function (item) {
-            if (item && item.num > 0) {
+            if (item && item.num > 0 && TalentService._isHomeProduceBonusApplicableItem(item.itemId)) {
                 var boostedNum = Math.floor(item.num * multiplier);
                 item.num = Math.max(item.num, boostedNum);
             }
@@ -425,6 +394,10 @@ var TalentService = {
     getSocialTradeQuantityMultiplier: function () {
         var level104 = this._getActiveTalentLevel(104);
         return this._getTalentValueByLevel(104, "socialTradeQuantityMultiplierValues", level104, 1);
+    },
+    getSocialFavorGiftRatio: function () {
+        var level104 = this._getActiveTalentLevel(104);
+        return this._getTalentValueByLevel(104, "socialFavorGiftRatioValues", level104, 0);
     },
     getTalentPurchaseIdList: function () {
         var talentIds = this._getSortedTalentIds();
@@ -526,7 +499,6 @@ var TalentService = {
         this._chosenTalentIds = chosenTalents.slice();
         this._chosenTalentSlotKey = this._getCurrentSlotKey();
         this._writeStorageValue(this._getChosenTalentsStorageKey(), JSON.stringify(chosenTalents));
-        this._removeStorageValue(this._getLegacyChosenTalentStorageKey());
     },
     chooseTalent: function (purchaseId) {
         this.chooseTalents([purchaseId]);
@@ -538,10 +510,6 @@ var TalentService = {
 
         var purchaseIdList = [];
         purchaseIdList = this._readChosenTalentPurchaseIdsFromStorageKey(this._getChosenTalentsStorageKey());
-
-        if (purchaseIdList.length === 0) {
-            purchaseIdList = this._migrateLegacyChosenTalentPurchaseIds();
-        }
 
         this._chosenTalentIds = this._normalizeChosenTalentPurchaseIds(purchaseIdList);
         this._chosenTalentSlotKey = this._getCurrentSlotKey();

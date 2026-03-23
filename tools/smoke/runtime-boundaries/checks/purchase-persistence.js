@@ -8,6 +8,23 @@ const {
     createPurchaseRewardPlayer
 } = require("../../lib/fixtures/runtime-boundaries");
 
+function bootstrapRuntimeSandbox(sandbox, runtimeOptions) {
+    runtimeOptions = runtimeOptions || {};
+    loadIntoSandbox(sandbox, "assets/src/game/GameRuntime.js");
+    sandbox.GameRuntime.bootstrap({
+        player: runtimeOptions.player || null,
+        timer: runtimeOptions.timer || {
+            pause: function () {},
+            resume: function () {},
+            formatTime: function () {
+                return { d: 0 };
+            }
+        },
+        emitter: runtimeOptions.emitter || sandbox.utils.emitter,
+        record: runtimeOptions.record || sandbox.Record
+    });
+}
+
 function runPurchaseUnlockRewardSmoke() {
     const sandbox = createVmSandbox();
     sandbox.IAPPackage = {
@@ -15,16 +32,20 @@ function runPurchaseUnlockRewardSmoke() {
             return purchaseId === 105 || purchaseId === 106 || purchaseId === 107;
         }
     };
-    sandbox.player = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
+    const runtimeRewardPlayer = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
 
+    bootstrapRuntimeSandbox(sandbox, {
+        player: runtimeRewardPlayer
+    });
+    sandbox.player = null;
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
     loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
 
     assert(sandbox.PurchaseService._grantUnlockReward(105) === false,
         "PurchaseService should not duplicate unlock reward items already owned in bag");
-    assert(sandbox.player.storage.getNumByItemId(1305024) === 0,
-        "PurchaseService should not backfill storage when bag already owns the unlock reward item");
+    assert(runtimeRewardPlayer.storage.getNumByItemId(1305024) === 0,
+        "PurchaseService should grant unlock rewards against GameRuntime player state");
 
     const reconcilePlayer = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
     assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [105, 106, 107]) === true,
@@ -58,6 +79,7 @@ function runPurchaseRecordBoundarySmoke() {
         }
     };
 
+    bootstrapRuntimeSandbox(sandbox);
     loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
 
@@ -107,6 +129,7 @@ function runPurchaseExchangeConfigSmoke() {
             return false;
         }
     };
+    bootstrapRuntimeSandbox(sandbox);
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
     loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
     loadIntoSandbox(sandbox, "assets/src/game/role.js");
@@ -194,7 +217,7 @@ function runPurchaseUiStateProjectionSmoke() {
     };
     sandbox.role = {
         getRoleTypeByPurchaseId: function () {
-            return null;
+            return 8;
         }
     };
     sandbox.PurchaseService = {
@@ -257,7 +280,7 @@ function runPurchaseUiStateProjectionSmoke() {
             return [];
         },
         getExchangeIdByPurchaseId: function (purchaseId) {
-            var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
+            const exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
             return exchangeIds.length > 0 ? exchangeIds[0] : null;
         },
         isUnlocked: function () {
@@ -300,6 +323,7 @@ function runPurchaseUiStateProjectionSmoke() {
         && snapshot.canCancel === false
         && snapshot.badgeText === "已购",
         "PurchaseUiHelper should project button and badge state from PurchaseService shop state");
+
     const priceLabel = {
         value: "",
         setString: function (value) {
@@ -322,6 +346,7 @@ function runPurchaseUiStateProjectionSmoke() {
             this.enabled = !!value;
         }
     };
+
     sandbox.PurchaseUiHelper.applyPayDialogState(120, {
         titleNode: {
             getChildByName: function (name) {
@@ -340,6 +365,7 @@ function runPurchaseUiStateProjectionSmoke() {
             }
         }
     });
+
     assert(priceLabel.value === snapshot.priceText,
         "PurchaseUiHelper should apply projected price text onto pay dialogs");
     assert(buyButton.enabled === false,
@@ -400,6 +426,7 @@ function runSentinelPurchaseIdSnapshotSmoke() {
         }
     };
 
+    bootstrapRuntimeSandbox(sandbox);
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
     loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
@@ -424,17 +451,11 @@ function runSentinelPurchaseIdSnapshotSmoke() {
     };
 }
 
-function runTalentSelectionMigrationSmoke() {
+function runTalentSelectionScopedStorageSmoke() {
     const sandbox = createVmSandbox();
     sandbox.Record = {
         getCurrentSlot: function () {
             return 2;
-        },
-        hasRecord: function (slot) {
-            return Number(slot) === 2;
-        },
-        getAllRecordNames: function () {
-            return ["record", "record_2", "record_3"];
         }
     };
     sandbox.Medal = {
@@ -448,67 +469,322 @@ function runTalentSelectionMigrationSmoke() {
     loadIntoSandbox(sandbox, "assets/src/data/talentConfigTable.js");
     loadIntoSandbox(sandbox, "assets/src/game/TalentService.js");
 
-    sandbox.cc.sys.localStorage.setItem("chosenTalent_slot_2", "120");
+    sandbox.cc.sys.localStorage.setItem("chosenTalents_slot_2", "[120]");
+    sandbox.cc.sys.localStorage.setItem("chosenTalent_slot_2", "121");
+    sandbox.cc.sys.localStorage.setItem("chosenTalents", "[122]");
+
     assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[120]",
-        "TalentService should migrate legacy slot single-choice keys into chosenTalents_slot storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === "[120]",
-        "TalentService should persist migrated slot talent selection in chosenTalents_slot storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === null,
-        "TalentService should remove legacy chosenTalent_slot storage after migration");
-
-    sandbox.TalentService.resetChosenTalentCache();
-    sandbox.Record.getCurrentSlot = function () {
-        return 1;
-    };
-    sandbox.Record.hasRecord = function (slot) {
-        return Number(slot) === 1;
-    };
-    sandbox.cc.sys.localStorage.setItem("chosenTalents", "[121,122]");
-    assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[121,122]",
-        "TalentService should migrate legacy global chosenTalents storage for single-record saves");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_1") === "[121,122]",
-        "TalentService should rewrite migrated global talent selections into slot-scoped storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents") === null,
-        "TalentService should remove legacy global chosenTalents storage after migration");
-
+        "TalentService should only restore current slot talent selections from chosenTalents_slot storage");
     sandbox.TalentService.chooseTalents([120, 121]);
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_1") === "[120,121]",
-        "TalentService should keep chosenTalents_slot as the only live talent selection storage");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_1") === null,
-        "TalentService should stop writing legacy chosenTalent_slot mirror keys");
+    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === "[120,121]",
+        "TalentService should write the normalized slot-scoped talent selection only to chosenTalents_slot");
+    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === "121"
+        && sandbox.cc.sys.localStorage.getItem("chosenTalents") === "[122]",
+        "TalentService should ignore legacy talent-selection keys instead of migrating them");
 
     return {
-        name: "talent-selection-migration",
+        name: "talent-selection-scoped-storage",
         ok: true,
-        detail: "validated TalentService migrates legacy talent selection keys into chosenTalents_slot storage and stops writing mirror keys"
+        detail: "validated TalentService only reads and writes slot-scoped chosenTalents storage"
     };
 }
 
-function runPlayerPersistencePurchaseDelegationSmoke() {
+function runRoleSelectionScopedStorageSmoke() {
     const sandbox = createVmSandbox();
+    let roleUnlocked = false;
+
+    sandbox.Record = {
+        getCurrentSlot: function () {
+            return 2;
+        },
+        hasRecord: function () {
+            return false;
+        }
+    };
+    sandbox.PurchaseService = {
+        isRoleUnlocked: function (roleType) {
+            return roleUnlocked && Number(roleType) === 8;
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
+    loadIntoSandbox(sandbox, "assets/src/game/role.js");
+
+    sandbox.cc.sys.localStorage.setItem("roleType", String(sandbox.RoleType.BELL));
+    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.STRANGER,
+        "role.getChoosenRoleType should ignore legacy global roleType storage for the current slot");
+    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
+    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.STRANGER,
+        "role.getChoosenRoleType should fall back to stranger when the slot-scoped role is locked on a fresh run");
+    assert(sandbox.cc.sys.localStorage.getItem("roleType_slot_2") === String(sandbox.RoleType.STRANGER),
+        "role.getChoosenRoleType should rewrite fresh-run slot selection to stranger when the stored role is locked");
+
+    roleUnlocked = true;
+    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
+    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.BELL,
+        "role.getChoosenRoleType should keep unlocked slot-scoped role selections");
+
+    return {
+        name: "role-selection-scoped-storage",
+        ok: true,
+        detail: "validated role selection only uses slot-scoped storage and ignores legacy global role keys"
+    };
+}
+
+function capturePurchaseResult(sandbox, purchaseId) {
+    let captured = null;
+    sandbox.PurchaseService.purchase(purchaseId, null, function (result) {
+        captured = result;
+    });
+    return captured;
+}
+
+function runPurchaseStructuredResultSmoke() {
+    const sandbox = createVmSandbox();
+    let exchangeCost = 30;
+    let achievementPoints = 100;
+    let paidPurchaseIds = [];
+    const runtimePlayer = createPurchaseRewardPlayer();
+
+    sandbox.TalentService = {
+        isTalentPurchaseId: function () {
+            return false;
+        },
+        getTalentLevel: function () {
+            return 0;
+        }
+    };
+    sandbox.Medal = {
+        getAchievementPoints: function () {
+            return achievementPoints;
+        },
+        exchangeAchievement: function () {
+            achievementPoints -= exchangeCost;
+            return true;
+        }
+    };
+    sandbox.ExchangeAchievementConfig = {
+        3001: {
+            type: "item",
+            targetId: 105,
+            cost: exchangeCost
+        }
+    };
+    sandbox.IAPPackage = {
+        getExchangeIdsByPurchaseId: function (purchaseId) {
+            return Number(purchaseId) === 105 ? [3001] : [];
+        },
+        getExchangeIdByPurchaseId: function (purchaseId) {
+            return Number(purchaseId) === 105 ? 3001 : null;
+        },
+        isIAPUnlocked: function () {
+            return false;
+        },
+        syncIAPPurchased: function () {
+            return true;
+        },
+        onIAPPaied: function (purchaseId) {
+            paidPurchaseIds.push(Number(purchaseId));
+        },
+        isPaySdkBypassedForTest: function () {
+            return true;
+        },
+        getPurchaseConfig: function (purchaseId) {
+            return {
+                price: Number(purchaseId) === 203 ? 6 : 12,
+                productPriceStr: "$9.99",
+                priceIndex: 0
+            };
+        },
+        payConsumeIAP: function (purchaseId) {
+            paidPurchaseIds.push(Number(purchaseId));
+            return true;
+        }
+    };
+
+    bootstrapRuntimeSandbox(sandbox, {
+        player: runtimePlayer
+    });
+    loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
+
+    const exchangeResult = capturePurchaseResult(sandbox, 105);
+    assert(exchangeResult && exchangeResult.isSuccess === true
+        && exchangeResult.isExchangePurchase === true
+        && exchangeResult.unlockRewardGranted === true,
+        "PurchaseService should return a structured success result for exchange purchases");
+    assert(runtimePlayer.storage.getNumByItemId(1305024) === 1,
+        "PurchaseService exchange purchases should still grant unlock rewards through the runtime player");
+
+    achievementPoints = 0;
+    const consumableResult = capturePurchaseResult(sandbox, 203);
+    assert(consumableResult && consumableResult.isFailure === true
+        && consumableResult.failedReason === sandbox.PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS,
+        "PurchaseService should return a structured insufficient-points failure for consumable purchases");
+
+    achievementPoints = 100;
+    const bypassResult = capturePurchaseResult(sandbox, 101);
+    assert(bypassResult && bypassResult.isSuccess === true
+        && bypassResult.isExchangePurchase === false
+        && bypassResult.unlockRecorded === true
+        && bypassResult.failedReason === null,
+        "PurchaseService should return a structured unlock result for bypassed direct purchases");
+    assert(JSON.stringify(paidPurchaseIds) === "[105]",
+        "PurchaseService should only invoke exchange payment side effects for the exchange path under this smoke");
+
+    return {
+        name: "purchase-structured-result",
+        ok: true,
+        detail: "validated PurchaseService purchase callbacks now return a structured result contract"
+    };
+}
+
+function createPersistenceComponent(name, calls) {
+    return {
+        save: function () {
+            calls.push(name + ".save");
+            return { id: name };
+        },
+        restore: function (saveObj) {
+            calls.push(name + ".restore");
+            this.lastRestore = saveObj;
+        }
+    };
+}
+
+function createPersistencePlayer(calls) {
+    const player = {
+        hp: 0,
+        hpMaxOrigin: 0,
+        hpMax: 0,
+        spirit: 0,
+        starve: 0,
+        vigour: 0,
+        injury: 0,
+        infect: 0,
+        temperature: 0,
+        roleType: 6,
+        deathCausedInfect: false,
+        setting: {},
+        isBombActive: false,
+        bag: createPersistenceComponent("bag", calls),
+        storage: Object.assign(createPersistenceComponent("storage", calls), {
+            increaseItem: function () {}
+        }),
+        dog: createPersistenceComponent("dog", calls),
+        room: createPersistenceComponent("room", calls),
+        equip: createPersistenceComponent("equip", calls),
+        map: createPersistenceComponent("map", calls),
+        npcManager: createPersistenceComponent("npcManager", calls),
+        weather: createPersistenceComponent("weather", calls),
+        buffManager: createPersistenceComponent("buffManager", calls),
+        ziplineNetwork: {
+            save: function () {
+                calls.push("zipline.save");
+                return { links: [] };
+            },
+            restore: function (saveObj, mapObj) {
+                calls.push("zipline.restore");
+                this.lastRestore = saveObj;
+                this.lastMap = mapObj;
+            }
+        },
+        navigationState: {
+            save: function () {
+                calls.push("navigation.save");
+                return {
+                    locationType: "home",
+                    mapEntityId: 1,
+                    mapEntityKey: "site:1",
+                    activeSiteId: 0
+                };
+            },
+            restore: function (saveObj) {
+                calls.push("navigation.restore");
+                this.lastRestore = saveObj;
+            },
+            syncMapEntityIdFromMap: function (mapObj) {
+                calls.push("navigation.sync");
+                this.lastMap = mapObj;
+            }
+        }
+    };
+    return player;
+}
+
+function runPlayerPersistenceContractSmoke() {
+    const sandbox = createVmSandbox();
+    loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
+
+    assert(sandbox.PlayerPersistenceService.SAVE_SCHEMA_VERSION === 3,
+        "PlayerPersistenceService should expose the v3 save schema version");
+    assert(sandbox.PlayerPersistenceService.MIN_SUPPORTED_SCHEMA_VERSION === 2,
+        "PlayerPersistenceService should declare the minimum supported save schema");
+    assert(typeof sandbox.PlayerPersistenceService._applyRestoreMigrations === "undefined"
+        && typeof sandbox.PlayerPersistenceService._applyLegacyRestoreMigrations === "undefined"
+        && typeof sandbox.PlayerPersistenceService._applySelectionStateMigration === "undefined"
+        && typeof sandbox.PlayerPersistenceService._applyRestoreStateSyncs === "undefined"
+        && typeof sandbox.PlayerPersistenceService._persistPostRestoreMutations === "undefined",
+        "PlayerPersistenceService should no longer expose legacy restore layering helpers");
+
+    return {
+        name: "player-persistence-contract",
+        ok: true,
+        detail: "validated PlayerPersistenceService only exposes the current save schema contract and restore pipeline"
+    };
+}
+
+function runPlayerPersistenceUnsupportedSaveSmoke() {
+    const sandbox = createVmSandbox();
+    const calls = [];
+    let deleteRecordCount = 0;
+    let clearCompatibilityCount = 0;
+    let resetChosenTalentCount = 0;
+    let talentInitCount = 0;
+    let improveCount = 0;
     let purchaseReconcileCount = 0;
     let recordSaveCount = 0;
-    let talentMigrationCount = 0;
-    let talentHpReconcileCount = 0;
+    let chosenRoleType = null;
 
-    sandbox.IAPPackage = {
-        isBigBagUnlocked: function () {
-            throw new Error("PlayerPersistenceService should prefer PurchaseService unlock reconciliation");
+    sandbox.ErrorHandler = {
+        safeExecute: function (fn, context, fallbackValue) {
+            try {
+                return fn();
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+    };
+    sandbox.ShareType = {
+        NO_SHARED: 0,
+        SHARED_CAN_REWARD: 1,
+        SHARED_AND_REWARD: 2
+    };
+    sandbox.role = {
+        getRoleConfig: function (roleType) {
+            roleType = Number(roleType);
+            return roleType === 6 ? { id: 6 } : null;
         },
-        isBootUnlocked: function () {
-            throw new Error("PlayerPersistenceService should prefer PurchaseService unlock reconciliation");
+        getChoosenRoleType: function () {
+            return 6;
         },
-        isDogHouseUnlocked: function () {
-            throw new Error("PlayerPersistenceService should prefer PurchaseService unlock reconciliation");
+        chooseRoleType: function (roleType) {
+            chosenRoleType = Number(roleType);
         }
     };
     sandbox.TalentService = {
-        migrateLegacyElitePistol: function () {
-            talentMigrationCount++;
-            return false;
+        init: function () {
+            talentInitCount++;
         },
-        reconcilePlayerHpByTalentSelection: function () {
-            talentHpReconcileCount++;
+        resetChosenTalentCache: function () {
+            resetChosenTalentCount++;
+        }
+    };
+    sandbox.Medal = {
+        improve: function () {
+            improveCount++;
         }
     };
     sandbox.PurchaseService = {
@@ -518,75 +794,126 @@ function runPlayerPersistencePurchaseDelegationSmoke() {
         }
     };
     sandbox.RoleRuntimeService = {
-        ensureRoomBuildStates: function () { return false; },
-        ensureInitialUnlocks: function () { return false; },
-        ensureSpecialItems: function () {}
+        ensureRoomBuildStates: function () {
+            return false;
+        },
+        ensureInitialUnlocks: function () {
+            return false;
+        },
+        ensureSpecialItems: function () {
+            return false;
+        }
     };
     sandbox.Record = {
+        restore: function () {
+            return { schemaVersion: 1 };
+        },
+        deleteRecord: function () {
+            deleteRecordCount++;
+        },
+        clearCurrentSlotCompatibilityState: function () {
+            clearCompatibilityCount++;
+        },
+        getShareFlag: function () {
+            return sandbox.ShareType.NO_SHARED;
+        },
+        setShareFlag: function () {},
         saveAll: function () {
             recordSaveCount++;
         }
     };
 
+    bootstrapRuntimeSandbox(sandbox, {
+        record: sandbox.Record
+    });
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
     sandbox.GameKernel.register("TalentService", sandbox.TalentService);
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
     sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
     loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
-    sandbox.PlayerPersistenceService._applyPostRestoreFixups({
-        storage: createCountStorage(),
-        bag: createCountStorage(),
-        room: {},
-        map: {},
-        roleType: 6
+    const playerObj = createPersistencePlayer(calls);
+    sandbox.PlayerPersistenceService.restore(playerObj, {
+        restoreAttrs: function () {
+            throw new Error("unsupported saves should not enter supported restore attr flow");
+        }
     });
 
-    assert(purchaseReconcileCount === 1,
-        "PlayerPersistenceService should delegate unlock reward reconciliation to PurchaseService when available");
-    assert(talentMigrationCount === 1,
-        "PlayerPersistenceService should delegate legacy elite pistol migration to TalentService");
-    assert(talentHpReconcileCount === 1,
-        "PlayerPersistenceService should delegate talent hp reconciliation to TalentService");
-    assert(recordSaveCount === 1,
-        "PlayerPersistenceService should persist post-restore mutations after PurchaseService reconciliation");
+    assert(deleteRecordCount === 1 && clearCompatibilityCount === 1,
+        "PlayerPersistenceService should auto-delete unsupported saves and clear current-slot compatibility keys");
+    assert(resetChosenTalentCount === 1 && talentInitCount === 1 && improveCount === 1,
+        "PlayerPersistenceService should rebuild new-game derived state after clearing an unsupported save");
+    assert(playerObj.roleType === 6 && chosenRoleType === 6,
+        "PlayerPersistenceService should reset role selection through the current slot role flow after unsupported saves");
+    assert(calls.indexOf("zipline.restore") !== -1 && calls.indexOf("navigation.sync") !== -1,
+        "PlayerPersistenceService should still restore deferred runtime components on the new-game path");
+    assert(purchaseReconcileCount === 1 && recordSaveCount === 1,
+        "PlayerPersistenceService should still run unlock reward reconciliation and persist rebuilt state after unsupported saves");
 
     return {
-        name: "player-persistence-purchase-delegation",
+        name: "player-persistence-unsupported-save",
         ok: true,
-        detail: "validated PlayerPersistenceService delegates talent restore fixups to TalentService and unlock reward reconciliation to PurchaseService"
+        detail: "validated unsupported saves are auto-cleared and restarted without legacy migration branches"
     };
 }
 
-function runPlayerPersistenceRestoreLayeringSmoke() {
+function runPlayerPersistenceNewGameUnlockRewardSmoke() {
     const sandbox = createVmSandbox();
+    const calls = [];
+    let talentInitCount = 0;
+    let improveCount = 0;
     let purchaseReconcileCount = 0;
-    let roomBuildEnsureCount = 0;
+    let roomEnsureCount = 0;
     let initialUnlockEnsureCount = 0;
-    let specialItemEnsureCount = 0;
-    let talentMigrationCount = 0;
-    let talentHpReconcileCount = 0;
+    let specialItemsEnsureCount = 0;
     let recordSaveCount = 0;
 
+    sandbox.ErrorHandler = {
+        safeExecute: function (fn, context, fallbackValue) {
+            try {
+                return fn();
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+    };
+    sandbox.ShareType = {
+        NO_SHARED: 0,
+        SHARED_CAN_REWARD: 1,
+        SHARED_AND_REWARD: 2
+    };
+    sandbox.role = {
+        getRoleConfig: function (roleType) {
+            roleType = Number(roleType);
+            return roleType === 6 ? { id: 6 } : null;
+        },
+        getChoosenRoleType: function () {
+            return 6;
+        },
+        chooseRoleType: function () {}
+    };
     sandbox.TalentService = {
-        migrateLegacyElitePistol: function () {
-            talentMigrationCount++;
-            return false;
+        init: function () {
+            talentInitCount++;
         },
         reconcilePlayerHpByTalentSelection: function () {
-            talentHpReconcileCount++;
-            return true;
+            return false;
+        }
+    };
+    sandbox.Medal = {
+        improve: function () {
+            improveCount++;
         }
     };
     sandbox.PurchaseService = {
-        reconcileUnlockRewardsForPlayer: function () {
+        reconcileUnlockRewardsForPlayer: function (playerObj, purchaseIds) {
             purchaseReconcileCount++;
-            return false;
+            return !!(playerObj && JSON.stringify(purchaseIds) === "[105,106,107]");
         }
     };
     sandbox.RoleRuntimeService = {
         ensureRoomBuildStates: function () {
-            roomBuildEnsureCount++;
+            roomEnsureCount++;
             return false;
         },
         ensureInitialUnlocks: function () {
@@ -594,120 +921,195 @@ function runPlayerPersistenceRestoreLayeringSmoke() {
             return false;
         },
         ensureSpecialItems: function () {
-            specialItemEnsureCount++;
-            return true;
+            specialItemsEnsureCount++;
+            return false;
         }
     };
     sandbox.Record = {
+        restore: function () {
+            return null;
+        },
+        getShareFlag: function () {
+            return sandbox.ShareType.NO_SHARED;
+        },
+        setShareFlag: function () {},
         saveAll: function () {
             recordSaveCount++;
         }
     };
 
+    bootstrapRuntimeSandbox(sandbox, {
+        record: sandbox.Record
+    });
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
     sandbox.GameKernel.register("TalentService", sandbox.TalentService);
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
     sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
     loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
-    const restorePlayer = {
-        storage: createCountStorage(),
-        bag: createCountStorage(),
-        room: {},
-        map: {},
-        roleType: 6
-    };
-    assert(typeof sandbox.PlayerPersistenceService._applyRestoreReconciliations === "function"
-        && sandbox.PlayerPersistenceService._applyRestoreReconciliations(restorePlayer) === true,
-        "PlayerPersistenceService should expose a restore reconciliation stage for derived-state repair");
-    assert(talentHpReconcileCount === 1 && specialItemEnsureCount === 1,
-        "PlayerPersistenceService restore reconciliations should delegate hp and special-item repair only");
-    assert(talentMigrationCount === 0
-        && purchaseReconcileCount === 0
-        && roomBuildEnsureCount === 0
-        && initialUnlockEnsureCount === 0,
-        "PlayerPersistenceService restore reconciliations should stay isolated from legacy migrations");
-
-    const migrationPlayer = {
-        storage: createCountStorage(),
-        bag: createCountStorage(),
-        room: {},
-        map: {},
-        roleType: 6
-    };
-    assert(typeof sandbox.PlayerPersistenceService._applyLegacyRestoreMigrations === "function"
-        && sandbox.PlayerPersistenceService._applyLegacyRestoreMigrations(migrationPlayer) === false,
-        "PlayerPersistenceService should expose a separate legacy migration stage");
-    assert(talentMigrationCount === 1
-        && purchaseReconcileCount === 1
-        && roomBuildEnsureCount === 1
-        && initialUnlockEnsureCount === 1,
-        "PlayerPersistenceService legacy migrations should delegate compatibility repair through owned services");
-
-    sandbox.PlayerPersistenceService._applyPostRestoreFixups({
-        storage: createCountStorage(),
-        bag: createCountStorage(),
-        room: {},
-        map: {},
-        roleType: 6
+    const playerObj = createPersistencePlayer(calls);
+    sandbox.PlayerPersistenceService.restore(playerObj, {
+        restoreAttrs: function () {
+            throw new Error("new game path should not call restoreAttrs");
+        }
     });
+
+    assert(talentInitCount === 1 && improveCount === 1,
+        "PlayerPersistenceService should initialize new-game talent and medal effects before reconciliation");
+    assert(purchaseReconcileCount === 1,
+        "PlayerPersistenceService should validate unlock reward entitlements even on a fresh new game");
+    assert(roomEnsureCount === 1 && initialUnlockEnsureCount === 1 && specialItemsEnsureCount === 1,
+        "PlayerPersistenceService should run role-derived reconciliation on the new-game path");
     assert(recordSaveCount === 1,
-        "PlayerPersistenceService should persist restore reconciliation mutations, not only purchase migrations");
+        "PlayerPersistenceService should persist fresh-run reconciliation mutations when unlock rewards are granted");
+    assert(calls.indexOf("zipline.restore") !== -1 && calls.indexOf("navigation.sync") !== -1,
+        "PlayerPersistenceService should keep deferred component restore on the new-game path");
 
     return {
-        name: "player-persistence-restore-layering",
+        name: "player-persistence-new-game-unlock-reward",
         ok: true,
-        detail: "validated PlayerPersistenceService separates restore reconciliations from legacy migrations and persists derived restore repairs"
+        detail: "validated fresh new games also reconcile purchased unlock rewards such as backpack and boots"
     };
 }
 
-function runNewGameRoleSelectionFallbackSmoke() {
+function runPlayerPersistenceSupportedRestoreSmoke() {
     const sandbox = createVmSandbox();
-    sandbox.SafetyHelper = {
-        isEmpty: function (value) {
-            return value === undefined || value === null || value === "";
+    const calls = [];
+    let chooseTalentsArgs = null;
+    let chosenRoleType = null;
+    let recordSaveCount = 0;
+    let restoreAttrsKeys = null;
+
+    sandbox.ErrorHandler = {
+        safeExecute: function (fn, context, fallbackValue) {
+            try {
+                return fn();
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+    };
+    sandbox.RoleType = {
+        STRANGER: 6
+    };
+    sandbox.role = {
+        getRoleConfig: function (roleType) {
+            roleType = Number(roleType);
+            return (roleType === 6 || roleType === 8) ? { id: roleType } : null;
+        },
+        getChoosenRoleType: function () {
+            return 6;
+        },
+        chooseRoleType: function (roleType) {
+            chosenRoleType = Number(roleType);
+        }
+    };
+    sandbox.TalentService = {
+        chooseTalents: function (purchaseIds) {
+            chooseTalentsArgs = purchaseIds.slice();
+        },
+        reconcilePlayerHpByTalentSelection: function () {
+            return true;
+        }
+    };
+    sandbox.PurchaseService = {
+        reconcileUnlockRewardsForPlayer: function () {
+            return false;
+        }
+    };
+    sandbox.RoleRuntimeService = {
+        ensureRoomBuildStates: function () {
+            return false;
+        },
+        ensureInitialUnlocks: function () {
+            return true;
+        },
+        ensureSpecialItems: function () {
+            return false;
         }
     };
     sandbox.Record = {
-        getCurrentSlot: function () {
-            return 2;
+        restore: function () {
+            return {
+                schemaVersion: 3,
+                hp: 200,
+                hpMaxOrigin: 240,
+                hpMax: 240,
+                spirit: 90,
+                starve: 60,
+                vigour: 80,
+                injury: 5,
+                infect: 10,
+                temperature: 30,
+                navigationState: {
+                    locationType: "map",
+                    mapEntityId: 3,
+                    mapEntityKey: "site:3",
+                    activeSiteId: 0
+                },
+                deathCausedInfect: true,
+                setting: {
+                    activeTalentStartGiftsApplied: true
+                },
+                isBombActive: true,
+                roleType: 8,
+                chosenTalentIds: [120],
+                bag: { id: "bag" },
+                storage: { id: "storage" },
+                dog: { id: "dog" },
+                room: { id: "room" },
+                equip: { id: "equip" },
+                map: { id: "map" },
+                npcManager: { id: "npc" },
+                weather: { id: "weather" },
+                buffManager: { id: "buff" },
+                ziplineNetwork: {
+                    links: [{ startEntityKey: "site:1", endEntityKey: "site:3" }]
+                }
+            };
         },
-        hasRecord: function () {
-            return false;
-        },
-        getAllRecordNames: function () {
-            return ["record", "record_2", "record_3"];
-        }
-    };
-    sandbox.IAPPackage = {
-        isIAPUnlocked: function () {
-            return false;
+        saveAll: function () {
+            recordSaveCount++;
         }
     };
 
+    bootstrapRuntimeSandbox(sandbox, {
+        record: sandbox.Record
+    });
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
-    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
-    loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
-    loadIntoSandbox(sandbox, "assets/src/game/role.js");
+    sandbox.GameKernel.register("TalentService", sandbox.TalentService);
+    sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
+    sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
-    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
-    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.STRANGER,
-        "role.getChoosenRoleType should fall back to stranger for fresh runs when the stored slot role is locked");
-    assert(sandbox.cc.sys.localStorage.getItem("roleType_slot_2") === String(sandbox.RoleType.STRANGER),
-        "role.getChoosenRoleType should rewrite stale locked new-game slot selections to stranger");
+    const playerObj = createPersistencePlayer(calls);
+    sandbox.PlayerPersistenceService.restore(playerObj, {
+        restoreAttrs: function (playerInstance, data, keys) {
+            restoreAttrsKeys = keys.slice();
+            playerInstance.hp = data.hp;
+        }
+    });
 
-    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
-    sandbox.IAPPackage.isIAPUnlocked = function (purchaseId) {
-        return Number(purchaseId) === 114;
-    };
-    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.BELL,
-        "role.getChoosenRoleType should preserve unlocked stored slot roles for fresh runs");
+    assert(playerObj.roleType === 8 && chosenRoleType === 8,
+        "PlayerPersistenceService should restore and persist the supported save role selection");
+    assert(JSON.stringify(chooseTalentsArgs) === "[120]",
+        "PlayerPersistenceService should restore supported save talent selections through TalentService");
+    assert(JSON.stringify(restoreAttrsKeys) === JSON.stringify(sandbox.PlayerPersistenceService.RESTORE_ATTR_KEYS),
+        "PlayerPersistenceService should restore the supported attribute set through the attr helper");
+    assert(playerObj.navigationState.lastRestore
+        && playerObj.navigationState.lastRestore.locationType === "map",
+        "PlayerPersistenceService should restore navigation only from the normalized navigationState object");
+    assert(playerObj.ziplineNetwork.lastRestore
+        && Array.isArray(playerObj.ziplineNetwork.lastRestore.links)
+        && calls.indexOf("zipline.restore") > calls.indexOf("map.restore"),
+        "PlayerPersistenceService should restore ziplineNetwork in the deferred restore stage");
+    assert(recordSaveCount === 1,
+        "PlayerPersistenceService should persist restore reconciliations when they mutate supported saves");
 
     return {
-        name: "new-game-role-selection-fallback",
+        name: "player-persistence-supported-restore",
         ok: true,
-        detail: "validated fresh-run role selection falls back from stale locked slot roles while preserving unlocked ones"
+        detail: "validated supported saves restore through the current navigation, zipline, and reconciliation pipeline"
     };
 }
 
@@ -717,8 +1119,11 @@ module.exports = [
     runPurchaseExchangeConfigSmoke,
     runPurchaseUiStateProjectionSmoke,
     runSentinelPurchaseIdSnapshotSmoke,
-    runTalentSelectionMigrationSmoke,
-    runNewGameRoleSelectionFallbackSmoke,
-    runPlayerPersistencePurchaseDelegationSmoke,
-    runPlayerPersistenceRestoreLayeringSmoke
+    runTalentSelectionScopedStorageSmoke,
+    runRoleSelectionScopedStorageSmoke,
+    runPurchaseStructuredResultSmoke,
+    runPlayerPersistenceContractSmoke,
+    runPlayerPersistenceUnsupportedSaveSmoke,
+    runPlayerPersistenceNewGameUnlockRewardSmoke,
+    runPlayerPersistenceSupportedRestoreSmoke
 ];

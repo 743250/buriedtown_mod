@@ -31,8 +31,14 @@ var MapEntity = Button.extend({
         this.addChild(highlightBg);
 
         var icon = this.baseSite instanceof Site
-            ? uiUtil.getSpriteByNameSafe("#site_" + this.baseSite.id + ".png")
-            : uiUtil.getSpriteByNameSafe(uiUtil.getNpcMapFrameName(this.baseSite.id, true), "#npc_1.png");
+            ? uiUtil.getSpriteByNameSafe(
+                uiUtil.getSiteIconFrameName(this.baseSite.id, true),
+                uiUtil.getDefaultSpriteName("site", true)
+            )
+            : uiUtil.getSpriteByNameSafe(
+                uiUtil.getNpcMapFrameName(this.baseSite.id, true),
+                uiUtil.getDefaultSpriteName("npcMap", true)
+            );
         icon.setPosition(this.getContentSize().width / 2, this.getContentSize().height / 2);
         this.addChild(icon);
 

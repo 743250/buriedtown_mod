@@ -413,13 +413,10 @@ utils.pay = function (purchaseId, target, cb) {
         if (cb) {
             cb.call(target, {
                 purchaseId: purchaseId,
-                rawResult: 2,
-                legacyResultCode: 2,
                 isExchangePurchase: false,
+                isConsumablePurchase: Number(purchaseId) >= 200,
                 isSuccess: false,
                 isFailure: true,
-                isAlreadyUnlocked: false,
-                isAchievementPointFailure: false,
                 failedReason: "PURCHASE_FAILED",
                 unlockRecorded: false,
                 unlockRewardGranted: false,

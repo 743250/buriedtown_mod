@@ -2,6 +2,18 @@
  * 滑索管理器 - 管理贝尔角色的滑索系统
  */
 
+var getZiplineRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getZiplineRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getZiplineRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var ZiplineManager = cc.Class.extend({
     ctor: function () {
         this.map = {};
@@ -19,18 +31,19 @@ var ZiplineManager = cc.Class.extend({
 
     _resolveSite: function (siteId) {
         var normalizedSiteId = this._normalizeSiteId(siteId);
-        if (typeof player === "undefined" || !player || !player.map || !player.map.siteMap) {
+        var runtimePlayer = getZiplineRuntimePlayer();
+        if (!runtimePlayer || !runtimePlayer.map || !runtimePlayer.map.siteMap) {
             return null;
         }
-        return player.map.siteMap[normalizedSiteId] || null;
+        return runtimePlayer.map.siteMap[normalizedSiteId] || null;
     },
 
     _canValidateSites: function () {
-        return !!(typeof player !== "undefined" &&
-            player &&
-            player.map &&
-            player.map.siteMap &&
-            Object.keys(player.map.siteMap).length > 0);
+        var runtimePlayer = getZiplineRuntimePlayer();
+        return !!(runtimePlayer &&
+            runtimePlayer.map &&
+            runtimePlayer.map.siteMap &&
+            Object.keys(runtimePlayer.map.siteMap).length > 0);
     },
 
     _isValidZiplineSite: function (siteId) {
@@ -108,7 +121,8 @@ var ZiplineManager = cc.Class.extend({
         if (!this.isEnabled()) {
             return null;
         }
-        if (typeof player !== "undefined" && player.roleType !== RoleType.BELL) {
+        var runtimePlayer = getZiplineRuntimePlayer();
+        if (runtimePlayer && runtimePlayer.roleType !== RoleType.BELL) {
             return null;
         }
         startSiteId = this._normalizeSiteId(startSiteId);
@@ -124,15 +138,15 @@ var ZiplineManager = cc.Class.extend({
             id: id,
             startSiteId: startSiteId,
             endSiteId: endSiteId,
-            createdDay: cc.timer.formatTime().d
+            createdDay: getZiplineRuntimeTimer().formatTime().d
         };
-        Record.saveAll();
+        getZiplineRuntimeRecord().saveAll();
         return id;
     },
 
     removeZipline: function (ziplineId) {
         delete this.map[ziplineId];
-        Record.saveAll();
+        getZiplineRuntimeRecord().saveAll();
     },
 
     hasZipline: function (startSiteId, endSiteId) {

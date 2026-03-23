@@ -82,10 +82,6 @@ var Dialog = cc.Layer.extend({
         });
         cc.eventManager.addListener(keyboardListener, this);
 
-        // 验证影子函数重构
-        if (typeof CC_DEBUG !== 'undefined' && CC_DEBUG) {
-            this._verifyLoadTitleIcon();
-        }
     },
     onClickLayer: function (pos) {
         if (!this.autoDismiss)
@@ -97,47 +93,12 @@ var Dialog = cc.Layer.extend({
             this.dismiss();
         }
     },
-
-    // === 影子函数重构：安全加载标题图标 ===
-
     _loadTitleIcon: function(iconName, fallbackName) {
         return SafetyHelper.safeLoadSprite(iconName, fallbackName || null);
     },
 
     _loadContentSprite: function(spriteName, fallbackName) {
         return SafetyHelper.safeLoadSprite(spriteName, fallbackName || null);
-    },
-
-    _loadTitleIcon_old: function(iconName) {
-        return autoSpriteFrameController.getSpriteFromSpriteName(iconName);
-    },
-
-    _verifyLoadTitleIcon: function() {
-        var testCases = ["npc_dig_1.png", "npc_dig_7.png", "icon_iap_101.png"];
-        var allPassed = true;
-
-        for (var i = 0; i < testCases.length; i++) {
-            var iconName = testCases[i];
-            try {
-                var oldResult = this._loadTitleIcon_old(iconName);
-                var newResult = this._loadTitleIcon(iconName);
-
-                var oldExists = !!oldResult;
-                var newExists = !!newResult;
-
-                if (oldExists !== newExists) {
-                    cc.error("[Dialog验证失败] iconName=" + iconName);
-                    allPassed = false;
-                }
-            } catch (e) {
-                cc.log("[Dialog验证] 旧函数抛异常（预期）: " + iconName);
-            }
-        }
-
-        if (allPassed) {
-            cc.log("[Dialog验证通过] _loadTitleIcon 重构成功");
-        }
-        return allPassed;
     },
     initContentSize: function () {
         return cc.size(100, 100);
@@ -957,7 +918,10 @@ var ItemListDialog = DialogBig.extend({
         var rowHeight;
         for (var i = 0; i < this.items.length; i++) {
             var itemInfo = this.items[i];
-            var icon = uiUtil.getSpriteByNameSafe("#icon_item_" + uiUtil.getDisplayItemId(itemInfo.itemId) + ".png", "#icon_item_1101051.png");
+            var icon = uiUtil.getSpriteByNameSafe(
+                uiUtil.getItemIconFrameName(itemInfo.itemId, true),
+                uiUtil.getDefaultSpriteName("item", true)
+            );
             icon.setScale(0.5);
             this.contentNode.addChild(icon);
             if (!rowHeight) {

@@ -559,7 +559,10 @@ var showRoleTalentDialog = function () {
             rowBg.setContentSize(row.getContentSize());
             row.addChild(rowBg);
 
-            var talentIcon = uiUtil.getSpriteByNameSafe("icon_iap_" + rowData.purchaseId + ".png", "icon_iap_101.png");
+            var talentIcon = uiUtil.getSpriteByNameSafe(
+                uiUtil.getTalentIconFrameName(rowData.purchaseId, false),
+                uiUtil.getDefaultSpriteName("talent", false)
+            );
             fitSpriteToSize(talentIcon, layout.talentIconSize, layout.talentIconSize);
             talentIcon.setPosition(layout.talentIconX, rowData.rowHeight / 2);
             row.addChild(talentIcon);
@@ -610,39 +613,54 @@ var showAttrStatusDialog = function (stringId, attr) {
 
     var des = dialog.contentNode.getChildByName('des');
 
-    var buffEffect = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(dialog.rightEdge - dialog.leftEdge, 0));
-    buffEffect.anchorX = 0;
-    buffEffect.anchorY = 1;
-    buffEffect.x = dialog.leftEdge;
-    buffEffect.y = des.y - des.height - 10;
-    dialog.contentNode.addChild(buffEffect);
-    buffEffect.setColor(cc.color(0, 162, 53));
-    buffEffect.setVisible(false);
+    var buffNodeList = [];
 
-    var buffLastTime = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(dialog.rightEdge - dialog.leftEdge, 0));
-    buffLastTime.anchorX = 0;
-    buffLastTime.anchorY = 1;
-    buffLastTime.x = dialog.leftEdge;
-    dialog.contentNode.addChild(buffLastTime);
-    buffLastTime.setColor(cc.color(0, 162, 53));
-    buffLastTime.setVisible(false);
+    var clearBuffRows = function () {
+        while (buffNodeList.length > 0) {
+            var buffNode = buffNodeList.pop();
+            if (buffNode && typeof buffNode.removeFromParent === "function") {
+                buffNode.removeFromParent();
+            }
+        }
+    };
+
+    var addBuffRow = function (text, y, color) {
+        var label = new cc.LabelTTF(text, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(dialog.rightEdge - dialog.leftEdge, 0));
+        label.anchorX = 0;
+        label.anchorY = 1;
+        label.x = dialog.leftEdge;
+        label.y = y;
+        label.setColor(color);
+        dialog.contentNode.addChild(label);
+        buffNodeList.push(label);
+        return label;
+    };
 
     var updateBuff = function () {
-        if ((attr === 'hp' && player.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107012))
-            || (attr === 'infect' && player.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107022))
-            || (attr === 'vigour' && player.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107032))
-            || (attr === 'starve' && player.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107042))) {
-            buffEffect.setVisible(true);
-            buffLastTime.setVisible(true);
+        clearBuffRows();
 
-            var buff = player.buffManager.getBuff();
-            buffEffect.setString(stringUtil.getString(1296, stringUtil.getString(buff.itemId).title) + stringUtil.getString('b_' + buff.itemId));
-            buffLastTime.setString(stringUtil.getString(1297) + utils.getBuffTimeStr(buff.lastTime));
-            buffLastTime.y = buffEffect.y - buffEffect.height - 6;
-        } else {
-            buffEffect.setVisible(false);
-            buffLastTime.setVisible(false);
+        var displayBuffs = [];
+        if (player.buffManager && typeof player.buffManager.getDisplayBuffsByAttr === "function") {
+            displayBuffs = player.buffManager.getDisplayBuffsByAttr(attr);
         }
+        if (!displayBuffs || displayBuffs.length === 0) {
+            return;
+        }
+
+        var currentY = des.y - des.height - 10;
+        displayBuffs.forEach(function (buffInfo) {
+            var color = buffInfo.isDebuff ? UITheme.colors.TEXT_ERROR : UITheme.colors.TEXT_BUFF;
+            var effectText = buffInfo.title
+                ? (stringUtil.getString(1296, buffInfo.title) + buffInfo.description)
+                : buffInfo.description;
+            var effectLabel = addBuffRow(effectText, currentY, color);
+            currentY = effectLabel.y - effectLabel.height - 6;
+
+            if (buffInfo.durationText) {
+                var durationLabel = addBuffRow(buffInfo.durationText, currentY, color);
+                currentY = durationLabel.y - durationLabel.height - 8;
+            }
+        });
     };
 
     updateBuff();
@@ -702,6 +720,7 @@ var showAttrStatusDialog = function (stringId, attr) {
             if (res.result) {
                 itemTableView.updateData();
                 itemTableView.reloadData();
+                updateBuff();
                 Record.saveAll();
             } else {
                 cc.e("useItem fail " + res.msg);

@@ -1,6 +1,18 @@
 /**
  * Created by lancelot on 15/6/11.
  */
+var getIapRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getIapRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
+var getIapRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var IAPPackage = {
     _map: {},
     _record: {},
@@ -32,7 +44,8 @@ var IAPPackage = {
         this.initIAPRecord();
     },
     _emitShopStateChanged: function (purchaseId, reason, payload) {
-        if (typeof utils === "undefined" || !utils || !utils.emitter || typeof utils.emitter.emit !== "function") {
+        var runtimeEmitter = getIapRuntimeEmitter();
+        if (!runtimeEmitter || typeof runtimeEmitter.emit !== "function") {
             return;
         }
 
@@ -46,7 +59,7 @@ var IAPPackage = {
             achievementPoints = Medal.getAchievementPoints();
         }
 
-        utils.emitter.emit(this.SHOP_STATE_CHANGE_EVENT, {
+        runtimeEmitter.emit(this.SHOP_STATE_CHANGE_EVENT, {
             purchaseId: normalizedPurchaseId,
             reason: reason || "",
             payload: payload || null,
@@ -314,18 +327,6 @@ var IAPPackage = {
         return !!this._bypassPaySdkForTest;
     },
 
-    isBigBagUnlocked: function () {
-        return this.isIAPUnlocked(105);
-    },
-
-    isBootUnlocked: function () {
-        return this.isIAPUnlocked(106);
-    },
-
-    isDogHouseUnlocked: function () {
-        return this.isIAPUnlocked(107);
-    },
-
     initIAPRecord: function () {
         var record = cc.sys.localStorage.getItem("IAPRecord");
         var forceLockedRecord = cc.sys.localStorage.getItem("IAPForceLockedRecord");
@@ -434,20 +435,20 @@ var IAPPackage = {
         if (!reward) {
             return false;
         }
+        var runtimeRecord = getIapRuntimeRecord();
         if (!recordName) {
             recordName = "record";
-            if (typeof Record !== "undefined" && Record && Record.recordName) {
-                recordName = Record.recordName;
+            if (runtimeRecord && runtimeRecord.recordName) {
+                recordName = runtimeRecord.recordName;
             }
         }
 
         var recordObj = null;
-        var canUseRecordCache = typeof Record !== "undefined"
-            && Record
-            && Record.recordObj
-            && Record.recordName === recordName;
+        var canUseRecordCache = runtimeRecord
+            && runtimeRecord.recordObj
+            && runtimeRecord.recordName === recordName;
         if (canUseRecordCache) {
-            recordObj = Record.recordObj;
+            recordObj = runtimeRecord.recordObj;
         } else {
             var recordStr = cc.sys.localStorage.getItem(recordName);
             if (!recordStr) {
@@ -483,11 +484,11 @@ var IAPPackage = {
         }
 
         if (canUseRecordCache) {
-            Record.recordObj.player = playerSave;
-            if (typeof Record.flush === "function") {
-                Record.flush();
+            runtimeRecord.recordObj.player = playerSave;
+            if (typeof runtimeRecord.flush === "function") {
+                runtimeRecord.flush();
             } else {
-                cc.sys.localStorage.setItem(recordName, JSON.stringify(Record.recordObj));
+                cc.sys.localStorage.setItem(recordName, JSON.stringify(runtimeRecord.recordObj));
             }
         } else {
             recordObj.player = playerSave;
@@ -497,8 +498,9 @@ var IAPPackage = {
     },
     _removeSingleUnlockRewardFromAllSavedRecords: function (purchaseId) {
         var recordNameList = ["record", "record_2", "record_3"];
-        if (typeof Record !== "undefined" && Record && typeof Record.getAllRecordNames === "function") {
-            recordNameList = Record.getAllRecordNames();
+        var runtimeRecord = getIapRuntimeRecord();
+        if (runtimeRecord && typeof runtimeRecord.getAllRecordNames === "function") {
+            recordNameList = runtimeRecord.getAllRecordNames();
         }
         var changed = false;
         var self = this;
@@ -506,18 +508,6 @@ var IAPPackage = {
             changed = self._removeSingleUnlockRewardFromSavedRecord(purchaseId, recordName) || changed;
         });
         return changed;
-    },
-    _syncChosenRoleAfterReset: function () {
-        if (typeof role === "undefined" || !role || typeof role.getChoosenRoleType !== "function" || typeof role.isRoleUnlocked !== "function") {
-            return;
-        }
-        if (typeof RoleType === "undefined" || !RoleType) {
-            return;
-        }
-        var chosenRoleType = role.getChoosenRoleType();
-        if (chosenRoleType !== RoleType.STRANGER && !role.isRoleUnlocked(chosenRoleType)) {
-            role.chooseRoleType(RoleType.STRANGER);
-        }
     },
     _decreaseItemCountFromStorageLike: function (storageObj, itemId, num) {
         num = Number(num);
@@ -545,21 +535,22 @@ var IAPPackage = {
         if (!reward) {
             return;
         }
-        if (typeof player === "undefined" || !player) {
+        var runtimePlayer = getIapRuntimePlayer();
+        if (!runtimePlayer) {
             this._removeSingleUnlockRewardFromAllSavedRecords(purchaseId);
             return;
         }
 
         if (reward.type === "item") {
             var remainingNum = reward.num;
-            remainingNum = this._decreaseItemCountFromStorageLike(player.storage, reward.itemId, remainingNum);
-            this._decreaseItemCountFromStorageLike(player.bag, reward.itemId, remainingNum);
+            remainingNum = this._decreaseItemCountFromStorageLike(runtimePlayer.storage, reward.itemId, remainingNum);
+            this._decreaseItemCountFromStorageLike(runtimePlayer.bag, reward.itemId, remainingNum);
             return;
         }
 
         if (reward.type === "build") {
-            if (player.room && typeof player.room.createBuild === "function") {
-                player.room.createBuild(reward.bid, -1);
+            if (runtimePlayer.room && typeof runtimePlayer.room.createBuild === "function") {
+                runtimePlayer.room.createBuild(reward.bid, -1);
             }
             return;
         }
@@ -570,6 +561,11 @@ var IAPPackage = {
     payConsumeIAP: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
         if (!PurchaseList[purchaseId]) {
+            return false;
+        }
+        var runtimePlayer = getIapRuntimePlayer();
+        var runtimeRecord = getIapRuntimeRecord();
+        if (!runtimePlayer || !runtimePlayer.storage) {
             return false;
         }
 
@@ -593,9 +589,11 @@ var IAPPackage = {
             return false;
         }
         effect.forEach(function (obj) {
-            player.storage.increaseItem(obj.itemId, obj.num);
+            runtimePlayer.storage.increaseItem(obj.itemId, obj.num);
         });
-        Record.saveAll();
+        if (runtimeRecord && typeof runtimeRecord.saveAll === "function") {
+            runtimeRecord.saveAll();
+        }
         this.onIAPPaied(purchaseId);
         return true;
     },

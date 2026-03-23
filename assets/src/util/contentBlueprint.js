@@ -391,38 +391,20 @@ var ContentBlueprint = {
         }
         return true;
     },
-    _legacyPurchaseLockPurchaseIdMap: {
-        isBigBagUnlocked: 105,
-        isBootUnlocked: 106,
-        isDogHouseUnlocked: 107
-    },
-    _getLegacyPurchaseLockPurchaseId: function (checkFn) {
-        return typeof checkFn === "string"
-            && ContentBlueprint._legacyPurchaseLockPurchaseIdMap.hasOwnProperty(checkFn)
-            ? ContentBlueprint._legacyPurchaseLockPurchaseIdMap[checkFn]
-            : null;
-    },
     _hasValidPurchaseLock: function (purchaseLock) {
         if (!purchaseLock
             || typeof purchaseLock !== "object"
             || Array.isArray(purchaseLock)
-            || !ContentBlueprint._hasOnlyKnownKeys(purchaseLock, ["purchaseId", "checkFn"])) {
-            return false;
-        }
-        var legacyPurchaseLockPurchaseId = ContentBlueprint._getLegacyPurchaseLockPurchaseId(purchaseLock.checkFn);
-        if (purchaseLock.checkFn !== undefined && legacyPurchaseLockPurchaseId === null) {
+            || !ContentBlueprint._hasOnlyKnownKeys(purchaseLock, ["purchaseId"])) {
             return false;
         }
         if (purchaseLock.purchaseId === undefined) {
-            return true;
+            return false;
         }
         if (!ContentBlueprint._hasPurchaseConfig(purchaseLock.purchaseId)) {
             return false;
         }
-        if (legacyPurchaseLockPurchaseId === null) {
-            return true;
-        }
-        return parseInt(purchaseLock.purchaseId) === legacyPurchaseLockPurchaseId;
+        return true;
     },
     _hasValidRuntimeRule: function (runtimeRule) {
         if (!runtimeRule

@@ -86,11 +86,6 @@ var Player = cc.Class.extend({
 
         //睡眠状态
         this.isInSleep = false;
-        //服药状态
-        this.cured = false;
-        //包扎状态
-        this.binded = false;
-
         //是否因为感染死亡
         this.deathCausedInfect = false;
 
@@ -108,7 +103,7 @@ var Player = cc.Class.extend({
         this.ziplineNetwork = new ZiplineNetworkService();
         this.log = new Log();
         this.weather = new WeatherSystem();
-        this.buffManager = new BuffManager();
+        this.buffManager = new BuffManager(this);
 
         this.setting = {};
         this._attrRangeCache = {};
@@ -134,7 +129,7 @@ var Player = cc.Class.extend({
         if (runtime && typeof runtime.getTimer === "function") {
             return runtime.getTimer();
         }
-        return cc.timer;
+        return null;
     },
 
     getRecord: function () {
@@ -142,7 +137,7 @@ var Player = cc.Class.extend({
         if (runtime && typeof runtime.getRecord === "function") {
             return runtime.getRecord();
         }
-        return Record;
+        return null;
     },
 
     getEmitter: function () {
@@ -150,28 +145,48 @@ var Player = cc.Class.extend({
         if (runtime && typeof runtime.getEmitter === "function") {
             return runtime.getEmitter();
         }
-        return utils.emitter;
+        return null;
+    },
+
+    getTimedTreatmentDurationSeconds: function () {
+        return 24 * 60 * 60;
+    },
+    _applyTimedTreatmentBuff: function (buffKey, lastTime) {
+        if (!this.buffManager || typeof this.buffManager.upsertRuntimeBuff !== "function") {
+            return;
+        }
+        this.buffManager.upsertRuntimeBuff(buffKey, {
+            slot: BuffSlotType.TREATMENT,
+            lastTime: lastTime === undefined || lastTime === null
+                ? this.getTimedTreatmentDurationSeconds()
+                : lastTime,
+            saveEnabled: true
+        });
     },
 
     //包扎
     bindUp: function () {
-        this.binded = true;
-        this.bindTime = this.getTimer().now();
+        this._applyTimedTreatmentBuff(RuntimeBuffType.BIND_TREATMENT);
     },
     //包扎状态不可以再包扎
     isInBind: function () {
-        return this.binded;
+        if (this.buffManager && typeof this.buffManager.hasBuffKey === "function") {
+            return this.buffManager.hasBuffKey(RuntimeBuffType.BIND_TREATMENT);
+        }
+        return false;
     },
 
     //服药
     cure: function () {
-        this.cured = true;
-        this.cureTime = this.getTimer().now();
+        this._applyTimedTreatmentBuff(RuntimeBuffType.CURE_TREATMENT);
     },
 
     //服药状态可以再服药
     isInCure: function () {
-        return this.cured;
+        if (this.buffManager && typeof this.buffManager.hasBuffKey === "function") {
+            return this.buffManager.hasBuffKey(RuntimeBuffType.CURE_TREATMENT);
+        }
+        return false;
     },
 
     goHome: function () {
@@ -345,6 +360,10 @@ var Player = cc.Class.extend({
 
     updateTemperatureEffect: function () {
         return PlayerAttrService.updateTemperatureEffect(this);
+    },
+
+    syncRuntimeBuffs: function () {
+        return PlayerAttrService.syncRuntimeBuffs(this);
     },
 
     initTemperature: function () {
@@ -765,19 +784,6 @@ var Player = cc.Class.extend({
         }
     },
 
-    _updateTimedTreatmentState: function () {
-        var now = this.getTimer().now();
-        var oneDaySeconds = 24 * 60 * 60;
-        if (this.bindTime && (now - this.bindTime >= oneDaySeconds)) {
-            this.binded = false;
-            cc.i("binded false");
-        }
-        if (this.cureTime && (now - this.cureTime >= oneDaySeconds)) {
-            this.cured = false;
-            cc.i("cured false");
-        }
-    },
-
     _runHourlyUpdatePipeline: function () {
         this.updateByTime();
         this.updateTemperature();
@@ -787,13 +793,13 @@ var Player = cc.Class.extend({
         this.updateInfect();
         this.updateVigour();
         this._refreshWorkSiteStateByHour();
-        this._updateTimedTreatmentState();
     },
 
     start: function () {
         cc.i("player start...");
         var self = this;
         var timer = this.getTimer();
+        this.syncRuntimeBuffs();
         timer.addTimerCallbackDayAndNight(null, function (flag) {
             if (flag === 'day') {
                 self.npcManager.visitPlayer();
@@ -831,7 +837,11 @@ var Player = cc.Class.extend({
         return num;
     },
     die: function () {
-        this.buffManager.abortBuff();
+        if (typeof this.buffManager.abortAllBuffs === "function") {
+            this.buffManager.abortAllBuffs();
+        } else {
+            this.buffManager.abortBuff();
+        }
 
         game.stop();
 
@@ -855,8 +865,12 @@ var Player = cc.Class.extend({
         this.changeInfect(0 - AttrHelperRuntime.get(this, 'infect'));
         this.changeAttr("hp", AttrHelperRuntime.get(this, 'hpMax'));
         this.isInSleep = false;
-        this.cured = false;
-        this.binded = false;
+        if (typeof this.buffManager.abortAllBuffs === "function") {
+            this.buffManager.abortAllBuffs();
+        } else {
+            this.buffManager.abortBuff();
+        }
+        this.syncRuntimeBuffs();
         //所有建筑需要复原
         this.room.forEach(function (build) {
             build.resetActiveBtnIndex();
@@ -865,7 +879,7 @@ var Player = cc.Class.extend({
     },
 
     isLowVigour: function () {
-        if (this.buffManager.isBuffEffect(BuffItemEffectType.ITEM_1107032)) {
+        if (this.buffManager.blocksAttrEffect("vigour")) {
             return false;
         } else {
             var attrRangeInfo = this.getAttrRangeInfo("vigour", this.vigour);

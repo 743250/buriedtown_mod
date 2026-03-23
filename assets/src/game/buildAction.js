@@ -593,6 +593,11 @@ var Formula = BuildAction.extend({
     _grantImmediateMakeProduce: function (makeCount, itemInfo) {
         var self = this;
         var produce = self._buildMakeProduce(makeCount);
+        if (typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.applyHomeProduceEffect === "function") {
+            produce = TalentService.applyHomeProduceEffect(produce);
+        }
         return getBuildActionEffectService().grantProducedItems(self, produce, {
             achievementMethod: "checkMake",
             logMessageId: 1090,

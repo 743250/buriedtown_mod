@@ -218,6 +218,25 @@ uiUtil.getDisplayItemId = function (itemId) {
     return itemId;
 };
 
+uiUtil._normalizeSpriteName = function (name, withHash) {
+    if (name === undefined || name === null || name === "") {
+        return "";
+    }
+    var hasHash = name.charAt(0) === "#";
+    if (withHash) {
+        return hasHash ? name : "#" + name;
+    }
+    return hasHash ? name.substring(1) : name;
+};
+
+uiUtil._buildSpriteName = function (prefix, id, withHash, defaultType) {
+    var numericId = parseInt(id, 10);
+    if (!isFinite(numericId)) {
+        return uiUtil.getDefaultSpriteName(defaultType, withHash);
+    }
+    return uiUtil._normalizeSpriteName(prefix + numericId + ".png", withHash);
+};
+
 uiUtil.getDefaultSpriteName = function (type, withHash) {
     var name = null;
     if (typeof ResourceFallback !== "undefined" && ResourceFallback && ResourceFallback.DEFAULT_SPRITES) {
@@ -230,22 +249,20 @@ uiUtil.getDefaultSpriteName = function (type, withHash) {
             purchase: "icon_iap_101.png",
             item: "icon_item_1101051.png",
             itemDetail: "dig_item_1101051.png",
+            npcMap: "npc_1.png",
             site: "site_1.png"
         };
         name = defaultMap[type] || "";
     }
-    if (withHash && name && name.charAt(0) !== "#") {
-        return "#" + name;
-    }
-    if (!withHash && name && name.charAt(0) === "#") {
-        return name.substring(1);
-    }
-    return name;
+    return uiUtil._normalizeSpriteName(name, withHash);
 };
 
 uiUtil.getRolePortraitFrameName = function (roleType, withHash) {
     if (typeof IconHelper !== "undefined" && IconHelper && typeof IconHelper.getRolePortraitFrameName === "function") {
-        return IconHelper.getRolePortraitFrameName(roleType, withHash, uiUtil.getDefaultSpriteName("character", withHash));
+        return uiUtil._normalizeSpriteName(
+            IconHelper.getRolePortraitFrameName(roleType, withHash, uiUtil.getDefaultSpriteName("character", withHash)),
+            withHash
+        );
     }
     roleType = parseInt(roleType);
     if (isNaN(roleType)) {
@@ -254,25 +271,22 @@ uiUtil.getRolePortraitFrameName = function (roleType, withHash) {
     if (typeof role !== "undefined" && role && typeof role.getAvatarFallbackByRoleType === "function") {
         var avatarFallback = role.getAvatarFallbackByRoleType(roleType);
         if (avatarFallback) {
-            if (withHash && avatarFallback.charAt(0) !== "#") {
-                return "#" + avatarFallback;
-            }
-            if (!withHash && avatarFallback.charAt(0) === "#") {
-                return avatarFallback.substring(1);
-            }
-            return avatarFallback;
+            return uiUtil._normalizeSpriteName(avatarFallback, withHash);
         }
     }
-    return (withHash ? "#npc_dig_" : "npc_dig_") + roleType + ".png";
+    return uiUtil._buildSpriteName("npc_dig_", roleType, withHash, "character");
 };
 
 uiUtil.getNpcMapFrameName = function (npcId, withHash) {
     if (typeof IconHelper !== "undefined" && IconHelper && typeof IconHelper.getRoleMapFrameName === "function") {
-        return IconHelper.getRoleMapFrameName(npcId, withHash, withHash ? "#npc_1.png" : "npc_1.png");
+        return uiUtil._normalizeSpriteName(
+            IconHelper.getRoleMapFrameName(npcId, withHash, uiUtil.getDefaultSpriteName("npcMap", withHash)),
+            withHash
+        );
     }
     npcId = parseInt(npcId);
     if (isNaN(npcId)) {
-        return withHash ? "#npc_1.png" : "npc_1.png";
+        return uiUtil.getDefaultSpriteName("npcMap", withHash);
     }
     if (typeof role !== "undefined" && role && typeof role.getMapRoleTypeByRoleType === "function") {
         var mapRoleType = role.getMapRoleTypeByRoleType(npcId);
@@ -280,35 +294,29 @@ uiUtil.getNpcMapFrameName = function (npcId, withHash) {
             npcId = parseInt(mapRoleType);
         }
     }
-    return (withHash ? "#npc_" : "npc_") + npcId + ".png";
+    return uiUtil._buildSpriteName("npc_", npcId, withHash, "npcMap");
 };
 
 uiUtil.getTalentIconFrameName = function (purchaseId, withHash) {
-    purchaseId = parseInt(purchaseId);
-    if (isNaN(purchaseId)) {
-        return uiUtil.getDefaultSpriteName("talent", withHash);
-    }
-    return (withHash ? "#icon_iap_" : "icon_iap_") + purchaseId + ".png";
+    return uiUtil._buildSpriteName("icon_iap_", purchaseId, withHash, "talent");
 };
 
 uiUtil.getPurchaseIconFrameName = function (purchaseId, withHash) {
-    return uiUtil.getTalentIconFrameName(purchaseId, withHash);
+    return uiUtil._buildSpriteName("icon_iap_", purchaseId, withHash, "purchase");
 };
 
 uiUtil.getItemIconFrameName = function (itemId, withHash) {
     var displayItemId = uiUtil.getDisplayItemId(itemId);
-    if (!isFinite(displayItemId)) {
-        return uiUtil.getDefaultSpriteName("item", withHash);
-    }
-    return (withHash ? "#icon_item_" : "icon_item_") + displayItemId + ".png";
+    return uiUtil._buildSpriteName("icon_item_", displayItemId, withHash, "item");
 };
 
 uiUtil.getItemDetailFrameName = function (itemId, withHash) {
     var displayItemId = uiUtil.getDisplayItemId(itemId);
-    if (!isFinite(displayItemId)) {
-        return uiUtil.getDefaultSpriteName("itemDetail", withHash);
-    }
-    return (withHash ? "#dig_item_" : "dig_item_") + displayItemId + ".png";
+    return uiUtil._buildSpriteName("dig_item_", displayItemId, withHash, "itemDetail");
+};
+
+uiUtil.getSiteIconFrameName = function (siteId, withHash) {
+    return uiUtil._buildSpriteName("site_", siteId, withHash, "site");
 };
 
 uiUtil.getCharacterPortraitSpriteByRoleType = function (roleType, fallbackName) {
@@ -1683,10 +1691,10 @@ uiUtil.getCharacterPortraitByPurchaseId = function (purchaseId) {
     return uiUtil.getRolePortraitFrameName(roleType, false);
 };
 
-uiUtil.getSpriteByNameSafe = function (spriteFrameName, fallbackName) {
+uiUtil.getSpriteByNameSafe = function (spriteFrameName, fallbackName, context) {
     var sprite = null;
     if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getSpriteByName === "function") {
-        sprite = ResourceFallback.getSpriteByName(spriteFrameName, fallbackName || null);
+        sprite = ResourceFallback.getSpriteByName(spriteFrameName, fallbackName || null, context);
     } else {
         sprite = SafetyHelper.safeLoadSprite(spriteFrameName, fallbackName || null);
     }

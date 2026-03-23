@@ -36,40 +36,18 @@ var PlayerNavigationState = cc.Class.extend({
         };
     },
     restore: function (saveObj) {
-        if (saveObj && saveObj.locationType) {
-            this.locationType = saveObj.locationType;
-            this.mapEntityId = this._normalizeId(saveObj.mapEntityId, HOME_SITE);
-            this.mapEntityKey = this._normalizeEntityKey(
-                saveObj.mapEntityKey,
-                this._buildEntityKey("site", this.mapEntityId)
-            );
-            this.activeSiteId = this._normalizeId(saveObj.activeSiteId, 0);
-            this.needsMapSync = !saveObj.mapEntityKey && this.locationType === PlayerNavigationStateType.MAP;
-            return;
-        }
-        this.restoreLegacy(saveObj);
-    },
-    restoreLegacy: function (saveObj) {
         this.reset();
-        if (!saveObj) {
+        if (!saveObj || !saveObj.locationType) {
             return;
         }
-
-        var legacyActiveSiteId = this._normalizeId(saveObj.nowSiteId, 0);
-        if (saveObj.isAtHome) {
-            this.goHome();
-            return;
-        }
-        if (saveObj.isAtSite && legacyActiveSiteId > 0) {
-            this.enterSite(legacyActiveSiteId);
-            return;
-        }
-
-        this.locationType = PlayerNavigationStateType.MAP;
-        this.activeSiteId = 0;
-        this.mapEntityId = legacyActiveSiteId;
-        this.mapEntityKey = this._buildEntityKey("site", this.mapEntityId || HOME_SITE);
-        this.needsMapSync = true;
+        this.locationType = saveObj.locationType;
+        this.mapEntityId = this._normalizeId(saveObj.mapEntityId, HOME_SITE);
+        this.mapEntityKey = this._normalizeEntityKey(
+            saveObj.mapEntityKey,
+            this._buildEntityKey("site", this.mapEntityId)
+        );
+        this.activeSiteId = this._normalizeId(saveObj.activeSiteId, 0);
+        this.needsMapSync = !saveObj.mapEntityKey && this.locationType === PlayerNavigationStateType.MAP;
     },
     _buildEntityKey: function (entityType, entityId) {
         var normalizedEntityId = this._normalizeId(entityId, 0);

@@ -997,6 +997,102 @@ function runBuildRuntimeDelegationSmoke() {
     };
 }
 
+function runBuildActionRuntimeRoleSmoke() {
+    const sandbox = createVmSandbox();
+    const runtimePlayer = {
+        roleType: 1,
+        storage: {
+            validateItem: function () {
+                return true;
+            }
+        },
+        map: {
+            getSite: function () {
+                return { isActive: true };
+            }
+        }
+    };
+
+    sandbox.role = {
+        getRoleConfig: function (roleType) {
+            roleType = Number(roleType);
+            if (roleType === 1) {
+                return { actionTags: ["luo"] };
+            }
+            if (roleType === 6) {
+                return { actionTags: [] };
+            }
+            return null;
+        },
+        getChoosenRoleType: function () {
+            return 6;
+        }
+    };
+    sandbox.RoleType = {
+        STRANGER: 6
+    };
+    sandbox.IAPPackage = {
+        isIAPUnlocked: function () {
+            return false;
+        }
+    };
+    sandbox.npcConfig = {};
+    sandbox.WORK_SITE = 99;
+    sandbox.buildConfig = {
+        "15": [{
+            produceList: [1201071]
+        }]
+    };
+    sandbox.BuildActionFactory = {
+        createBuildActions: function () {
+            return [{
+                id: 1201071,
+                config: sandbox.formulaConfig["1201071"],
+                save: function () {
+                    return {};
+                },
+                restore: function () {}
+            }];
+        },
+        resolveBuildActiveState: function () {
+            return null;
+        }
+    };
+    sandbox.player = runtimePlayer;
+    sandbox.cc.timer = {
+        addTimerCallback: function () {},
+        accelerateWorkTime: function () {}
+    };
+    sandbox.Record = {
+        saveAll: function () {}
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/GameRuntime.js");
+    loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    loadIntoSandbox(sandbox, "assets/src/data/formulaConfig.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
+    loadIntoSandbox(sandbox, "assets/src/game/RoleRuntimeService.js");
+    sandbox.GameRuntime.bootstrap({
+        player: sandbox.player,
+        timer: sandbox.cc.timer,
+        emitter: sandbox.utils.emitter,
+        record: sandbox.Record
+    });
+    sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
+    loadIntoSandbox(sandbox, "assets/src/game/Build.js");
+
+    const build = new sandbox.Build(15, 0);
+    const actions = build.getBuildActions();
+    assert(actions.length === 1 && actions[0].id === 1201071,
+        "Build.getBuildActions should filter role-tagged formulas by runtime player roleType, not chosen-role storage");
+
+    return {
+        name: "build-action-runtime-role",
+        ok: true,
+        detail: "validated role-tagged build actions stay visible for the active runtime role even if chosen-role storage is stale"
+    };
+}
+
 module.exports = [
     runBattleCadenceSmoke,
     runMeleeIndependentCooldownSmoke,
@@ -1004,5 +1100,6 @@ module.exports = [
     runCraftBuildActionReuseSmoke,
     runBonfireStateSmoke,
     runBuildRegistrySmoke,
-    runBuildRuntimeDelegationSmoke
+    runBuildRuntimeDelegationSmoke,
+    runBuildActionRuntimeRoleSmoke
 ];

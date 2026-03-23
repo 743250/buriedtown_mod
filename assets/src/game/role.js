@@ -23,7 +23,6 @@ var _defaultRoleInfo = {
 };
 
 var role = {
-    LEGACY_STORAGE_KEY: "roleType",
     SLOT_STORAGE_KEY_PREFIX: "roleType_slot_",
     _getRoleConfigTable: function () {
         if (typeof RoleConfigTable !== "undefined" && RoleConfigTable) {
@@ -67,46 +66,10 @@ var role = {
         }
         return false;
     },
-    _canUseLegacySelectionFallback: function () {
-        if (!this._currentSlotHasRecord()) {
-            return false;
-        }
-        if (typeof Record === "undefined"
-            || !Record
-            || typeof Record.getAllRecordNames !== "function"
-            || typeof Record.hasRecord !== "function") {
-            return true;
-        }
-
-        var recordCount = 0;
-        Record.getAllRecordNames().forEach(function (_, index) {
-            if (Record.hasRecord(index + 1)) {
-                recordCount++;
-            }
-        });
-        return recordCount <= 1;
-    },
     _normalizeStoredRoleType: function (roleType, fallbackRoleType) {
         roleType = Number(roleType);
         fallbackRoleType = fallbackRoleType === undefined ? RoleType.STRANGER : fallbackRoleType;
         return this.getRoleConfig(roleType) ? roleType : fallbackRoleType;
-    },
-    _getLegacyStoredRoleType: function () {
-        if (!this._canUseLegacySelectionFallback()) {
-            return null;
-        }
-        return this._readStorageValue(this.LEGACY_STORAGE_KEY);
-    },
-    _migrateLegacyStoredRoleType: function () {
-        var legacyRoleType = this._getLegacyStoredRoleType();
-        if (SafetyHelper.isEmpty(legacyRoleType)) {
-            return null;
-        }
-
-        var normalizedRoleType = this._normalizeStoredRoleType(legacyRoleType);
-        this._writeStorageValue(this._getScopedStorageKey(), normalizedRoleType);
-        this._removeStorageValue(this.LEGACY_STORAGE_KEY);
-        return normalizedRoleType;
     },
     _resolveRoleTypeForCurrentSlot: function (roleType) {
         roleType = this._normalizeStoredRoleType(roleType);
@@ -247,9 +210,6 @@ var role = {
     },
     getChoosenRoleType: function () {
         var roleType = this._readStorageValue(this._getScopedStorageKey());
-        if (SafetyHelper.isEmpty(roleType)) {
-            roleType = this._migrateLegacyStoredRoleType();
-        }
         return this._resolveRoleTypeForCurrentSlot(roleType);
     },
     isRoleUnlocked: function (roleType) {

@@ -134,9 +134,6 @@ var Build = cc.Class.extend({
     },
     _restoreActiveBtnKeys: function (opt) {
         var restoredKeys = opt.activeBtnKeys;
-        if (!Array.isArray(restoredKeys) && Array.isArray(opt.activeBtnIndices)) {
-            restoredKeys = opt.activeBtnIndices;
-        }
         if (Array.isArray(restoredKeys)) {
             this._applyActiveBtnKeys(restoredKeys);
             return;
@@ -286,9 +283,10 @@ var Build = cc.Class.extend({
         }
     },
     getBuildActions: function () {
+        var runtimePlayer = getBuildRuntimePlayer();
         var context = this._buildActionFilterContext();
         return this.actions.filter(function (action) {
-            return RoleRuntimeService.applyBuildActionRuntimeState(action, undefined, context);
+            return RoleRuntimeService.applyBuildActionRuntimeState(action, runtimePlayer.roleType, context);
         });
     },
     isActive: function () {

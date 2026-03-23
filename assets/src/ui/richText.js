@@ -33,7 +33,10 @@ var ItemRichText = cc.Node.extend({
             var rowHeight = 0;
             for (var i = 0; i < this.items.length; i++) {
                 var itemInfo = this.items[i];
-                var icon = uiUtil.getSpriteByNameSafe("#icon_item_" + uiUtil.getDisplayItemId(itemInfo.itemId) + ".png", "#icon_item_1101051.png");
+                var icon = uiUtil.getSpriteByNameSafe(
+                    uiUtil.getItemIconFrameName(itemInfo.itemId, true),
+                    uiUtil.getDefaultSpriteName("item", true)
+                );
                 icon.setScale(this.itemIconScale);
                 this.addChild(icon);
                 var txt = new cc.LabelTTF(itemInfo.txt, uiUtil.fontFamily.normal, this.txtSize);

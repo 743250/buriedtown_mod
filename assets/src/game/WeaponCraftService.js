@@ -1,20 +1,7 @@
 var WeaponCraftService = {
     DURABLE_CRAFT_CHANCE: 0.25,
     DURABLE_BROKEN_MULTIPLIER: 0.5,
-    BASE_TO_DURABLE_ITEM_ID: {
-        1301011: 1301111,
-        1301022: 1301122,
-        1301033: 1301133,
-        1301041: 1301141,
-        1301052: 1301152,
-        1301063: 1301163,
-        1301071: 1301171,
-        1301082: 1301182,
-        1302011: 1302111,
-        1302021: 1302121,
-        1302032: 1302132,
-        1302043: 1302143
-    },
+    BASE_TO_DURABLE_ITEM_ID: null,
     DURABLE_TO_BASE_ITEM_ID: null,
     _initialized: false,
 
@@ -25,20 +12,51 @@ var WeaponCraftService = {
         if (typeof itemConfig === "undefined" || !itemConfig || typeof string === "undefined" || !string) {
             return;
         }
+        this.BASE_TO_DURABLE_ITEM_ID = this._getConfiguredDurableMap();
         this._buildReverseMap();
         this._registerDurableItemConfigs();
         this._registerDurableStrings();
         this._initialized = true;
     },
 
-    _buildReverseMap: function () {
-        var reverseMap = {};
-        for (var baseItemId in this.BASE_TO_DURABLE_ITEM_ID) {
-            if (!this.BASE_TO_DURABLE_ITEM_ID.hasOwnProperty(baseItemId)) {
+    _getConfiguredDurableMap: function () {
+        var durableMap = {};
+        if (typeof itemConfig === "undefined" || !itemConfig) {
+            return durableMap;
+        }
+
+        Object.keys(itemConfig).forEach(function (itemId) {
+            var baseItemId = parseInt(itemId);
+            var config = itemConfig[itemId];
+            var durableItemId = Number(config && config.durableItemId);
+            if (isNaN(baseItemId)
+                || !config
+                || !config.effect_weapon
+                || !isFinite(durableItemId)
+                || durableItemId <= 0) {
+                return;
+            }
+            durableMap[baseItemId] = parseInt(durableItemId);
+        });
+
+        return durableMap;
+    },
+
+    _forEachDurablePair: function (callback, scope) {
+        var durableMap = this.BASE_TO_DURABLE_ITEM_ID || {};
+        for (var baseItemId in durableMap) {
+            if (!durableMap.hasOwnProperty(baseItemId)) {
                 continue;
             }
-            reverseMap[this.BASE_TO_DURABLE_ITEM_ID[baseItemId]] = parseInt(baseItemId);
+            callback.call(scope || this, parseInt(baseItemId), parseInt(durableMap[baseItemId]));
         }
+    },
+
+    _buildReverseMap: function () {
+        var reverseMap = {};
+        this._forEachDurablePair(function (baseItemId, durableItemId) {
+            reverseMap[durableItemId] = baseItemId;
+        });
         this.DURABLE_TO_BASE_ITEM_ID = reverseMap;
     },
 
@@ -65,23 +83,19 @@ var WeaponCraftService = {
             return;
         }
 
-        for (var baseItemId in this.BASE_TO_DURABLE_ITEM_ID) {
-            if (!this.BASE_TO_DURABLE_ITEM_ID.hasOwnProperty(baseItemId)) {
-                continue;
-            }
-
-            var durableItemId = this.BASE_TO_DURABLE_ITEM_ID[baseItemId];
+        this._forEachDurablePair(function (baseItemId, durableItemId) {
             if (itemConfig[durableItemId]) {
-                continue;
+                return;
             }
 
             var baseConfig = itemConfig[baseItemId];
             if (!baseConfig || !baseConfig.effect_weapon) {
-                continue;
+                return;
             }
 
             var durableConfig = utils.clone(baseConfig);
             durableConfig.id = String(durableItemId);
+            durableConfig.baseItemId = baseItemId;
             durableConfig.effect_weapon = utils.clone(baseConfig.effect_weapon);
             durableConfig.effect_weapon.id = String(durableItemId);
             durableConfig.effect_weapon.brokenProbability = Number((baseConfig.effect_weapon.brokenProbability * this.DURABLE_BROKEN_MULTIPLIER).toFixed(4));
@@ -89,8 +103,9 @@ var WeaponCraftService = {
                 durableConfig.effect_tool = utils.clone(durableConfig.effect_tool);
                 durableConfig.effect_tool.id = String(durableItemId);
             }
+            delete durableConfig.durableItemId;
             itemConfig[durableItemId] = durableConfig;
-        }
+        }, this);
     },
 
     _registerDurableStrings: function () {
@@ -98,26 +113,21 @@ var WeaponCraftService = {
             return;
         }
 
-        for (var baseItemId in this.BASE_TO_DURABLE_ITEM_ID) {
-            if (!this.BASE_TO_DURABLE_ITEM_ID.hasOwnProperty(baseItemId)) {
-                continue;
-            }
-
-            var durableItemId = this.BASE_TO_DURABLE_ITEM_ID[baseItemId];
+        this._forEachDurablePair(function (baseItemId, durableItemId) {
             if (string[durableItemId]) {
-                continue;
+                return;
             }
 
             var baseString = string[baseItemId];
             if (!baseString || typeof baseString !== "object") {
-                continue;
+                return;
             }
 
             string[durableItemId] = {
                 title: this._buildDurableTitle(baseString.title || "", baseString.des || ""),
                 des: this._buildDurableDes(baseString.des || "")
             };
-        }
+        }, this);
     },
 
     getBaseItemId: function (itemId) {

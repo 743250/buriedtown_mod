@@ -11,7 +11,7 @@ if (typeof cc === "undefined" || !cc) {
 
 var BattleConfig = {
     LINE_LENGTH: 6,
-    FRONT_LINE_CAPACITY: 2,
+    LINE_CAPACITY: 1,
     //现实距离,m
     MAX_REAL_DISTANCE: 1000,
     REAL_DISTANCE_PER_LINE: 100,
@@ -190,7 +190,7 @@ var Battle = cc.Class.extend({
         if (!line) {
             return 0;
         }
-        return line.index === 0 ? BattleConfig.FRONT_LINE_CAPACITY : 1;
+        return BattleConfig.LINE_CAPACITY;
     },
     getLineMonsterList: function (line) {
         if (!line) {

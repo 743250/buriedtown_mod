@@ -153,7 +153,7 @@ var formulaConfig = {
             "num": 6
         }],
         "makeTime": 90,
-        "runtimeRule": {"includeAnyTags": ["stranger"]}
+        "runtimeRule": {"includeAnyTags": ["luo"]}
     },
     "1202053": {
         "id": "1202053",
@@ -1096,6 +1096,25 @@ var formulaConfig = {
         }],
         "makeTime": 30
     },
+    "1403033": {
+        "id": 1403033,
+        "produce": [{
+            "itemId": 1102071,
+            "randomItemIds": [1102011, 1102022, 1102033],
+            "num": 1
+        }],
+        "cost": [{
+            "itemId": 1101021,
+            "num": 8
+        }, {
+            "itemId": 1101041,
+            "num": 6
+        }, {
+            "itemId": 1101051,
+            "num": 3
+        }],
+        "makeTime": 45
+    },
     "1403044": {
         "id": "1403044",
         "produce": [{
@@ -1168,8 +1187,7 @@ var formulaConfig = {
         "runtimeRule": {
             "hideWhenOwnedItems": [1304024],
             "purchaseLock": {
-                "purchaseId": 106,
-                "checkFn": "isBootUnlocked"
+                "purchaseId": 106
             }
         }
     },
@@ -1233,8 +1251,7 @@ var formulaConfig = {
             "hideWhenOwnedItems": [1305024],
             "requireOwnedItems": [1305023],
             "purchaseLock": {
-                "purchaseId": 105,
-                "checkFn": "isBigBagUnlocked"
+                "purchaseId": 105
             }
         }
     },

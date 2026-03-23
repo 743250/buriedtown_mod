@@ -17,6 +17,7 @@ var UITheme = {
         TEXT_NORMAL: cc.color.WHITE,
         TEXT_ERROR: cc.color.RED,
         TEXT_SUCCESS: cc.color.GREEN,
+        TEXT_BUFF: cc.color(0, 0, 0, 255),
         TEXT_TITLE: cc.color(0, 0, 0, 255),
 
         MASK_DARK: cc.color(0, 0, 0, 155),

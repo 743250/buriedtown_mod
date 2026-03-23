@@ -541,28 +541,29 @@ function medalDebugLog(msg) {
 }
 
 var Medal = {
+    STORAGE_KEY: "medal",
+    ACCOUNT_PROGRESS_STORAGE_KEY: "medalProgressAccount_v3",
+    RUN_PROGRESS_STORAGE_KEY_PREFIX: "medalProgressRun_slot_",
+    COMPLETED_RUN_STORAGE_KEY_PREFIX: "medalCompleteRun_slot_",
+    LEGACY_PROGRESS_STORAGE_KEY: "medalProgress",
+    LEGACY_SLOT_PROGRESS_STORAGE_KEY_PREFIX: "medalProgress_slot_",
+    LEGACY_COMPLETED_RUN_STORAGE_KEY: "medalForOneGame",
     _map: null,
     _progress: null,
+    _slotProgress: null,
+    _currentSlot: null,
     _achievementPoints: 0,
     _exchangeMap: null,
+    _completeForOneGame: null,
+    _completeForOneGameSlot: null,
 
     init: function () {
-        var savedMap = null;
-        var savedProgress = null;
-        if (!this._map) {
-            var medalStr = cc.sys.localStorage.getItem("medal");
-            if (medalStr) {
-                savedMap = SafetyHelper.safeJSONParse(medalStr, null, "Medal.init.medal");
-            }
-            if (!savedMap) {
-                savedMap = {};
-            }
+        this._migrateLegacyStorageIfNeeded();
+        this._rebuildAggregatedProgress();
 
-            var progressStr = cc.sys.localStorage.getItem("medalProgress");
-            if (progressStr) {
-                savedProgress = SafetyHelper.safeJSONParse(progressStr, null, "Medal.init.progress");
-            }
-            this._progress = this._normalizeProgressMap(savedProgress);
+        var savedMap = null;
+        if (!this._map) {
+            savedMap = this._readStorageJson(this.STORAGE_KEY, {}, "Medal.init.medal");
             this._migrateLegacyProgress(savedMap);
 
             this._map = {};
@@ -597,29 +598,47 @@ var Medal = {
                     this.checkCompleted(this._map[medalId], medalId, {silent: true});
                 }
             }
+        } else {
+            this._syncAllProgressForMedals({silent: true});
         }
 
-        // 初始化成就点
         var pointsStr = cc.sys.localStorage.getItem("achievementPoints");
         this._achievementPoints = pointsStr ? Number(pointsStr) : 0;
-
-        // 初始化兑换成就
-        var exchangeStr = cc.sys.localStorage.getItem("exchangeAchievements");
-        if (exchangeStr) {
-            this._exchangeMap = SafetyHelper.safeJSONParse(exchangeStr, null, "Medal.init.exchange");
-        } else {
-            this._exchangeMap = {};
+        if (!isFinite(this._achievementPoints) || this._achievementPoints < 0) {
+            this._achievementPoints = 0;
         }
+
+        var exchangeStr = cc.sys.localStorage.getItem("exchangeAchievements");
+        this._exchangeMap = exchangeStr
+            ? SafetyHelper.safeJSONParse(exchangeStr, null, "Medal.init.exchange")
+            : {};
         if (!this._exchangeMap) {
             this._exchangeMap = {};
         }
 
+        this._completeForOneGame = null;
+        this._completeForOneGameSlot = null;
         this.save();
         medalDebugLog(JSON.stringify(this._map));
     },
     _ensureState: function () {
         if (!this._map) {
             this.init();
+        }
+    },
+    _ensureCurrentSlotState: function () {
+        this._ensureState();
+
+        var slot = this._getCurrentSlot();
+        if (this._currentSlot === slot && this._slotProgress) {
+            return;
+        }
+
+        this._currentSlot = slot;
+        this._slotProgress = this._createProgressMap();
+        this._slotProgress.run = this._readRunProgress(slot);
+        if (this._completeForOneGameSlot !== slot) {
+            this._completeForOneGame = null;
         }
     },
     _ensureExchangeState: function () {
@@ -642,47 +661,334 @@ var Medal = {
             }
         }
     },
-    _normalizeProgressMap: function (savedProgress) {
-        savedProgress = savedProgress || {};
+    _ensureCompletedForOneGameState: function () {
+        this._ensureCurrentSlotState();
+        if (this._completeForOneGameSlot === this._currentSlot
+            && Array.isArray(this._completeForOneGame)) {
+            return;
+        }
+        this._completeForOneGame = this._readCompletedForOneGame(this._currentSlot);
+        this._completeForOneGameSlot = this._currentSlot;
+    },
+    _createProgressMap: function () {
         return {
-            account: savedProgress.account || {},
-            run: savedProgress.run || {}
+            account: {},
+            run: {}
         };
     },
-    _getProgressBucket: function (scope) {
-        this._progress = this._progress || {account: {}, run: {}};
-        if (scope === MedalProgressScope.RUN) {
-            this._progress.run = this._progress.run || {};
-            return this._progress.run;
-        }
-        this._progress.account = this._progress.account || {};
-        return this._progress.account;
+    _cloneProgressMap: function (savedProgress) {
+        return this._normalizeProgressMap(savedProgress);
     },
-    _getProgressValue: function (progressKey, scope) {
+    _normalizeProgressBucket: function (savedBucket) {
+        savedBucket = savedBucket || {};
+        var normalized = {};
+        Object.keys(savedBucket).forEach(function (progressKey) {
+            var value = Math.max(0, Number(savedBucket[progressKey]) || 0);
+            if (value > 0) {
+                normalized[progressKey] = value;
+            }
+        });
+        return normalized;
+    },
+    _normalizeProgressMap: function (savedProgress) {
+        savedProgress = savedProgress || {};
+        var normalized = this._createProgressMap();
+        var self = this;
+        [MedalProgressScope.ACCOUNT, MedalProgressScope.RUN].forEach(function (scope) {
+            var bucket = self._normalizeProgressBucket(self._getProgressBucketFromMap(savedProgress, scope));
+            var normalizedBucket = self._getProgressBucketFromMap(normalized, scope);
+            Object.keys(bucket).forEach(function (progressKey) {
+                normalizedBucket[progressKey] = bucket[progressKey];
+            });
+        });
+        return normalized;
+    },
+    _normalizeCompletedForOneGame: function (savedList) {
+        if (!Array.isArray(savedList)) {
+            savedList = [savedList];
+        }
+
+        var normalized = [];
+        savedList.forEach(function (medalId) {
+            medalId = parseInt(medalId, 10);
+            if (isNaN(medalId) || normalized.indexOf(medalId) !== -1) {
+                return;
+            }
+            normalized.push(medalId);
+        });
+        return normalized;
+    },
+    _getProgressBucketFromMap: function (progressMap, scope) {
+        if (!progressMap) {
+            return {};
+        }
+        if (scope === MedalProgressScope.RUN) {
+            progressMap.run = progressMap.run || {};
+            return progressMap.run;
+        }
+        progressMap.account = progressMap.account || {};
+        return progressMap.account;
+    },
+    _getProgressValueFromMap: function (progressMap, progressKey, scope) {
         if (!progressKey) {
             return 0;
         }
-        var bucket = this._getProgressBucket(scope);
+        var bucket = this._getProgressBucketFromMap(progressMap, scope);
         return Math.max(0, Number(bucket[progressKey]) || 0);
     },
-    _setProgressValue: function (progressKey, scope, value) {
-        if (!progressKey) {
+    _getProgressValue: function (progressKey, scope) {
+        return this._getProgressValueFromMap(this._progress, progressKey, scope);
+    },
+    _setProgressValueInMap: function (progressMap, progressKey, scope, value) {
+        if (!progressMap || !progressKey) {
             return;
         }
-        var bucket = this._getProgressBucket(scope);
-        bucket[progressKey] = Math.max(0, Number(value) || 0);
+        var bucket = this._getProgressBucketFromMap(progressMap, scope);
+        value = Math.max(0, Number(value) || 0);
+        if (value > 0) {
+            bucket[progressKey] = value;
+        } else {
+            delete bucket[progressKey];
+        }
     },
-    _hasStoredProgressValue: function (progressKey, scope) {
+    _setProgressValue: function (progressKey, scope, value) {
+        this._progress = this._progress || this._createProgressMap();
+        this._setProgressValueInMap(this._progress, progressKey, scope, value);
+    },
+    _hasStoredProgressValue: function (progressKey, scope, progressMap) {
         if (!progressKey) {
             return false;
         }
-        var bucket = this._getProgressBucket(scope);
+        var bucket = this._getProgressBucketFromMap(progressMap || this._progress, scope);
         return bucket.hasOwnProperty(progressKey);
+    },
+    _hasProgressData: function (progressMap, scope) {
+        if (!progressMap) {
+            return false;
+        }
+        if (scope) {
+            return Object.keys(this._getProgressBucketFromMap(progressMap, scope)).length > 0;
+        }
+        return this._hasProgressData(progressMap, MedalProgressScope.ACCOUNT)
+            || this._hasProgressData(progressMap, MedalProgressScope.RUN);
+    },
+    _hasProgressBucketData: function (bucket) {
+        return !!bucket && Object.keys(bucket).length > 0;
+    },
+    _getSlotCount: function () {
+        var slotCount = 3;
+        if (typeof Record !== "undefined" && Record && Record.SLOT_COUNT !== undefined) {
+            slotCount = Number(Record.SLOT_COUNT) || 3;
+        }
+        slotCount = parseInt(slotCount, 10);
+        return isNaN(slotCount) || slotCount < 1 ? 3 : slotCount;
+    },
+    _normalizeSlot: function (slot) {
+        slot = parseInt(slot, 10);
+        if (isNaN(slot) || slot < 1) {
+            slot = 1;
+        }
+        return Math.min(slot, this._getSlotCount());
+    },
+    _getCurrentSlot: function () {
+        if (typeof Record !== "undefined" && Record && typeof Record.getCurrentSlot === "function") {
+            return this._normalizeSlot(Record.getCurrentSlot());
+        }
+        return 1;
+    },
+    _getRunProgressStorageKey: function (slot) {
+        return this.RUN_PROGRESS_STORAGE_KEY_PREFIX + this._normalizeSlot(slot) + "_v3";
+    },
+    _getCompletedRunStorageKey: function (slot) {
+        return this.COMPLETED_RUN_STORAGE_KEY_PREFIX + this._normalizeSlot(slot) + "_v3";
+    },
+    _getLegacySlotProgressStorageKey: function (slot) {
+        return this.LEGACY_SLOT_PROGRESS_STORAGE_KEY_PREFIX + this._normalizeSlot(slot);
+    },
+    _readStorageJson: function (key, fallbackValue, context) {
+        var rawValue = cc.sys.localStorage.getItem(key);
+        if (!rawValue) {
+            return fallbackValue;
+        }
+        return SafetyHelper.safeJSONParse(rawValue, fallbackValue, context);
+    },
+    _writeStorageJson: function (key, value) {
+        cc.sys.localStorage.setItem(key, JSON.stringify(value));
+    },
+    _removeStorageKey: function (key) {
+        cc.sys.localStorage.removeItem(key);
+    },
+    _readAccountProgress: function () {
+        return this._normalizeProgressBucket(
+            this._readStorageJson(this.ACCOUNT_PROGRESS_STORAGE_KEY, {}, "Medal.readAccountProgress")
+        );
+    },
+    _writeAccountProgress: function (accountProgress) {
+        accountProgress = this._normalizeProgressBucket(accountProgress);
+        if (this._hasProgressBucketData(accountProgress)) {
+            this._writeStorageJson(this.ACCOUNT_PROGRESS_STORAGE_KEY, accountProgress);
+        } else {
+            this._removeStorageKey(this.ACCOUNT_PROGRESS_STORAGE_KEY);
+        }
+        return accountProgress;
+    },
+    _readRunProgress: function (slot) {
+        return this._normalizeProgressBucket(
+            this._readStorageJson(this._getRunProgressStorageKey(slot), {}, "Medal.readRunProgress")
+        );
+    },
+    _writeRunProgress: function (slot, runProgress) {
+        runProgress = this._normalizeProgressBucket(runProgress);
+        var storageKey = this._getRunProgressStorageKey(slot);
+        if (this._hasProgressBucketData(runProgress)) {
+            this._writeStorageJson(storageKey, runProgress);
+        } else {
+            this._removeStorageKey(storageKey);
+        }
+        return runProgress;
+    },
+    _readCompletedForOneGame: function (slot) {
+        return this._normalizeCompletedForOneGame(
+            this._readStorageJson(this._getCompletedRunStorageKey(slot), [], "Medal.readCompletedForOneGame")
+        );
+    },
+    _writeCompletedForOneGame: function (slot, medalIdList) {
+        medalIdList = this._normalizeCompletedForOneGame(medalIdList);
+        this._writeStorageJson(this._getCompletedRunStorageKey(slot), medalIdList);
+        return medalIdList;
+    },
+    _clearDeprecatedStorage: function () {
+        this._removeStorageKey("medalProgress");
+        this._removeStorageKey("medalProgressLegacy");
+        this._removeStorageKey("medalProgressMode");
+        this._removeStorageKey("medalProgressLegacyAccountSeedSlot");
+        this._removeStorageKey("medalForOneGame");
+        for (var slot = 1; slot <= this._getSlotCount(); slot++) {
+            this._removeStorageKey(this._getLegacySlotProgressStorageKey(slot));
+        }
+    },
+    _hasAnyV3Storage: function () {
+        if (cc.sys.localStorage.getItem(this.ACCOUNT_PROGRESS_STORAGE_KEY) !== null) {
+            return true;
+        }
+        for (var slot = 1; slot <= this._getSlotCount(); slot++) {
+            if (cc.sys.localStorage.getItem(this._getRunProgressStorageKey(slot)) !== null
+                || cc.sys.localStorage.getItem(this._getCompletedRunStorageKey(slot)) !== null) {
+                return true;
+            }
+        }
+        return false;
+    },
+    _mergeProgressBucketByMax: function (targetBucket, sourceBucket) {
+        targetBucket = this._normalizeProgressBucket(targetBucket);
+        sourceBucket = this._normalizeProgressBucket(sourceBucket);
+        Object.keys(sourceBucket).forEach(function (progressKey) {
+            targetBucket[progressKey] = Math.max(
+                Math.max(0, Number(targetBucket[progressKey]) || 0),
+                Math.max(0, Number(sourceBucket[progressKey]) || 0)
+            );
+        });
+        return targetBucket;
+    },
+    _sumProgressBuckets: function (targetBucket, sourceBucket) {
+        targetBucket = this._normalizeProgressBucket(targetBucket);
+        sourceBucket = this._normalizeProgressBucket(sourceBucket);
+        Object.keys(sourceBucket).forEach(function (progressKey) {
+            targetBucket[progressKey] = Math.max(0, Number(targetBucket[progressKey]) || 0)
+                + Math.max(0, Number(sourceBucket[progressKey]) || 0);
+        });
+        return targetBucket;
+    },
+    _migrateLegacyStorageIfNeeded: function () {
+        if (this._hasAnyV3Storage()) {
+            this._clearDeprecatedStorage();
+            return;
+        }
+
+        var legacyGlobalProgress = this._normalizeProgressMap(
+            this._readStorageJson(this.LEGACY_PROGRESS_STORAGE_KEY, null, "Medal.migrateLegacyStorage.global")
+        );
+        var summedSlotAccountProgress = {};
+        var currentSlot = this._getCurrentSlot();
+        var currentSlotRunProgress = {};
+
+        for (var slot = 1; slot <= this._getSlotCount(); slot++) {
+            var slotProgress = this._normalizeProgressMap(
+                this._readStorageJson(this._getLegacySlotProgressStorageKey(slot), null, "Medal.migrateLegacyStorage.slot")
+            );
+            if (!this._hasProgressData(slotProgress)) {
+                continue;
+            }
+
+            summedSlotAccountProgress = this._sumProgressBuckets(
+                summedSlotAccountProgress,
+                this._getProgressBucketFromMap(slotProgress, MedalProgressScope.ACCOUNT)
+            );
+
+            var runProgress = this._getProgressBucketFromMap(slotProgress, MedalProgressScope.RUN);
+            if (this._hasProgressBucketData(runProgress)) {
+                this._writeRunProgress(slot, runProgress);
+                if (slot === currentSlot) {
+                    currentSlotRunProgress = this._mergeProgressBucketByMax(currentSlotRunProgress, runProgress);
+                }
+            }
+        }
+
+        var accountProgress = this._mergeProgressBucketByMax(
+            summedSlotAccountProgress,
+            this._getProgressBucketFromMap(legacyGlobalProgress, MedalProgressScope.ACCOUNT)
+        );
+        this._writeAccountProgress(accountProgress);
+
+        currentSlotRunProgress = this._mergeProgressBucketByMax(
+            currentSlotRunProgress,
+            this._getProgressBucketFromMap(legacyGlobalProgress, MedalProgressScope.RUN)
+        );
+        if (this._hasProgressBucketData(currentSlotRunProgress)) {
+            this._writeRunProgress(currentSlot, currentSlotRunProgress);
+        }
+
+        var legacyCompleted = this._normalizeCompletedForOneGame(
+            this._readStorageJson(this.LEGACY_COMPLETED_RUN_STORAGE_KEY, [], "Medal.migrateLegacyStorage.completed")
+        );
+        if (legacyCompleted.length > 0) {
+            this._writeCompletedForOneGame(currentSlot, legacyCompleted);
+        }
+
+        this._clearDeprecatedStorage();
+    },
+    _persistCurrentSlotProgress: function () {
+        if (this._currentSlot === null || this._currentSlot === undefined) {
+            this._currentSlot = this._getCurrentSlot();
+        }
+        this._slotProgress = this._slotProgress || this._createProgressMap();
+        this._slotProgress.run = this._writeRunProgress(
+            this._currentSlot,
+            this._getProgressBucketFromMap(this._slotProgress, MedalProgressScope.RUN)
+        );
+        return this._slotProgress;
+    },
+    _collectAggregatedRunProgress: function () {
+        var aggregatedRun = {};
+        for (var slot = 1; slot <= this._getSlotCount(); slot++) {
+            var runProgress = this._readRunProgress(slot);
+            if (this._hasProgressBucketData(runProgress)) {
+                aggregatedRun = this._mergeProgressBucketByMax(aggregatedRun, runProgress);
+            }
+        }
+        return aggregatedRun;
+    },
+    _rebuildAggregatedProgress: function () {
+        this._progress = this._createProgressMap();
+        this._progress.account = this._readAccountProgress();
+        this._progress.run = this._collectAggregatedRunProgress();
     },
     _migrateLegacyProgress: function (savedMap) {
         var self = this;
         MedalLegacyProgressMap.forEach(function (migration) {
-            if (!migration || !migration.progressKey || self._hasStoredProgressValue(migration.progressKey, migration.progressScope)) {
+            if (!migration
+                || !migration.progressKey
+                || self._hasStoredProgressValue(migration.progressKey, migration.progressScope, self._progress)) {
                 return;
             }
 
@@ -698,7 +1004,7 @@ var Medal = {
             });
 
             if (migratedValue > 0) {
-                self._setProgressValue(migration.progressKey, migration.progressScope, migratedValue);
+                self._setProgressValueInMap(self._progress, migration.progressKey, migration.progressScope, migratedValue);
             }
         });
     },
@@ -715,6 +1021,15 @@ var Medal = {
         }
         return aimCompleted;
     },
+    _syncAllProgressForMedals: function (options) {
+        var self = this;
+        this.getMedalIds().forEach(function (medalId) {
+            var config = MedalConfig[medalId];
+            if (config && config.progressKey) {
+                self._syncProgressForMedal(medalId, options);
+            }
+        });
+    },
     _syncProgressForMedal: function (medalId, options) {
         options = options || {};
         var config = MedalConfig[medalId];
@@ -729,7 +1044,7 @@ var Medal = {
     },
     _applyProgressDeltas: function (deltaList, options) {
         options = options || {};
-        this._ensureState();
+        this._ensureCurrentSlotState();
 
         if (!Array.isArray(deltaList) || deltaList.length === 0) {
             return;
@@ -737,6 +1052,7 @@ var Medal = {
 
         var touchedKeys = {};
         var hasChange = false;
+        var hasRunChange = false;
         var self = this;
         deltaList.forEach(function (delta) {
             if (!delta || !delta.progressKey) {
@@ -749,8 +1065,24 @@ var Medal = {
             }
 
             var scope = delta.progressScope || MedalProgressScope.ACCOUNT;
-            var bucket = self._getProgressBucket(scope);
-            bucket[delta.progressKey] = Math.max(0, (Number(bucket[delta.progressKey]) || 0) + amount);
+            if (scope === MedalProgressScope.RUN) {
+                var runBucket = self._getProgressBucketFromMap(self._slotProgress, scope);
+                runBucket[delta.progressKey] = Math.max(0, (Number(runBucket[delta.progressKey]) || 0) + amount);
+                self._setProgressValueInMap(
+                    self._progress,
+                    delta.progressKey,
+                    scope,
+                    Math.max(
+                        self._getProgressValueFromMap(self._progress, delta.progressKey, scope),
+                        runBucket[delta.progressKey]
+                    )
+                );
+                hasRunChange = true;
+            } else {
+                var accountBucket = self._getProgressBucketFromMap(self._progress, scope);
+                accountBucket[delta.progressKey] = Math.max(0, (Number(accountBucket[delta.progressKey]) || 0) + amount);
+                self._writeAccountProgress(accountBucket);
+            }
             touchedKeys[scope + ":" + delta.progressKey] = true;
             hasChange = true;
         });
@@ -759,6 +1091,9 @@ var Medal = {
             return;
         }
 
+        if (hasRunChange) {
+            this._persistCurrentSlotProgress();
+        }
         this.getMedalIds().forEach(function (medalId) {
             var config = MedalConfig[medalId];
             if (!config || !config.progressKey) {
@@ -772,13 +1107,17 @@ var Medal = {
     },
     save: function () {
         if (this._map) {
-            cc.sys.localStorage.setItem("medal", JSON.stringify(this._map));
+            this._writeStorageJson(this.STORAGE_KEY, this._map);
         }
         if (this._progress) {
-            cc.sys.localStorage.setItem("medalProgress", JSON.stringify(this._progress));
+            this._writeAccountProgress(this._getProgressBucketFromMap(this._progress, MedalProgressScope.ACCOUNT));
+        }
+        if (this._slotProgress && this._currentSlot !== null && this._currentSlot !== undefined) {
+            this._writeRunProgress(this._currentSlot, this._getProgressBucketFromMap(this._slotProgress, MedalProgressScope.RUN));
         }
         cc.sys.localStorage.setItem("achievementPoints", this._achievementPoints.toString());
         cc.sys.localStorage.setItem("exchangeAchievements", JSON.stringify(this._exchangeMap));
+        this._clearDeprecatedStorage();
     },
 
     // 获取成就点
@@ -1009,28 +1348,15 @@ var Medal = {
         return total;
     },
     newGameReset: function () {
-        this._ensureState();
-        var resetProgressKeys = {};
-        var self = this;
-        this.getMedalIds().forEach(function (id) {
-            var config = MedalConfig[id];
-            if (config && config.progressScope === MedalProgressScope.RUN && config.progressKey) {
-                resetProgressKeys[config.progressKey] = true;
-            }
-        });
-
-        Object.keys(resetProgressKeys).forEach(function (progressKey) {
-            self._setProgressValue(progressKey, MedalProgressScope.RUN, 0);
-        });
-
-        this.getMedalIds().forEach(function (id) {
-            var config = MedalConfig[id];
-            var info = self._map[id];
-            if (!config || !info || config.progressScope !== MedalProgressScope.RUN) {
-                return;
-            }
-            self._syncProgressForMedal(id, {silent: true});
-        });
+        this._ensureCurrentSlotState();
+        this._slotProgress = this._slotProgress || this._createProgressMap();
+        this._slotProgress.run = {};
+        this._persistCurrentSlotProgress();
+        this._completeForOneGame = [];
+        this._completeForOneGameSlot = this._currentSlot;
+        this._writeCompletedForOneGame(this._currentSlot, this._completeForOneGame);
+        this._rebuildAggregatedProgress();
+        this._syncAllProgressForMedals({silent: true});
         this.save();
     },
     improve: function (player) {
@@ -1150,22 +1476,24 @@ var Medal = {
         return true;
     },
     initCompletedForOneGame: function (isNewGame) {
-        var completeOneGame = cc.sys.localStorage.getItem("medalForOneGame");
-        if (isNewGame || !completeOneGame) {
-            this._completeForOneGame = [];
-        } else {
-            this._completeForOneGame = SafetyHelper.safeJSONParse(completeOneGame, [], "Medal.initCompletedForOneGame");
-        }
-        cc.sys.localStorage.setItem("medalForOneGame", JSON.stringify(this._completeForOneGame));
+        this._ensureCurrentSlotState();
+        this._completeForOneGameSlot = this._currentSlot;
+        this._completeForOneGame = isNewGame
+            ? []
+            : this._readCompletedForOneGame(this._currentSlot);
+        this._writeCompletedForOneGame(this._currentSlot, this._completeForOneGame);
     },
-    addCompletedForOneGame: function (medalInfo) {
-        if (!this._completeForOneGame) {
-            this._completeForOneGame = [];
+    addCompletedForOneGame: function (medalId) {
+        this._ensureCompletedForOneGameState();
+        medalId = parseInt(medalId, 10);
+        if (isNaN(medalId) || this._completeForOneGame.indexOf(medalId) !== -1) {
+            return;
         }
-        this._completeForOneGame.push(medalInfo);
-        cc.sys.localStorage.setItem("medalForOneGame", JSON.stringify(this._completeForOneGame));
+        this._completeForOneGame.push(medalId);
+        this._writeCompletedForOneGame(this._currentSlot, this._completeForOneGame);
     },
     getCompletedForOneGame: function () {
+        this._ensureCompletedForOneGameState();
         return this._completeForOneGame;
     },
     trackProgress: function (progressKey, value, progressScope) {

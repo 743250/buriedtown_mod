@@ -1,25 +1,21 @@
 /**
- * PurchaseService centralizes purchase/cancel entry points and
- * legacy pay-result interpretation to reduce scattered shop logic.
+ * PurchaseService centralizes purchase/cancel entry points and exposes a
+ * structured purchase result contract to UI callers.
  */
+var PurchaseGatewayResultCode = {
+    SUCCESS: 0,
+    SDK_SUCCESS: 1,
+    FAILED: 2,
+    ALREADY_UNLOCKED: 3
+};
+
 var PurchaseService = {
-    LEGACY_RESULT: {
-        SUCCESS: 0,
-        SDK_SUCCESS: 1,
-        FAILED: 2,
-        ALREADY_UNLOCKED: 3
-    },
     FAIL_REASON: {
         INVALID_PURCHASE: "INVALID_PURCHASE",
         INSUFFICIENT_POINTS: "INSUFFICIENT_POINTS",
         ALREADY_UNLOCKED: "ALREADY_UNLOCKED",
         MAX_LEVEL: "MAX_LEVEL",
         PURCHASE_FAILED: "PURCHASE_FAILED"
-    },
-    LEGACY_PURCHASE_LOCK_PURCHASE_IDS: {
-        isBigBagUnlocked: 105,
-        isBootUnlocked: 106,
-        isDogHouseUnlocked: 107
     },
     _normalizePurchaseId: function (purchaseId) {
         var normalizedPurchaseId = parseInt(purchaseId);
@@ -28,23 +24,11 @@ var PurchaseService = {
         }
         return normalizedPurchaseId;
     },
-    _getLegacyPurchaseLockPurchaseId: function (checkFn) {
-        if (typeof checkFn !== "string" || !this.LEGACY_PURCHASE_LOCK_PURCHASE_IDS.hasOwnProperty(checkFn)) {
-            return null;
-        }
-        return this.LEGACY_PURCHASE_LOCK_PURCHASE_IDS[checkFn];
-    },
     _resolvePurchaseLockPurchaseId: function (purchaseLock) {
         if (!purchaseLock || typeof purchaseLock !== "object") {
             return null;
         }
-
-        var purchaseId = this._normalizePurchaseId(purchaseLock.purchaseId);
-        if (purchaseId !== null) {
-            return purchaseId;
-        }
-
-        return this._getLegacyPurchaseLockPurchaseId(purchaseLock.checkFn);
+        return this._normalizePurchaseId(purchaseLock.purchaseId);
     },
     isExchangePurchase: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
@@ -556,6 +540,14 @@ var PurchaseService = {
         });
         return total;
     },
+    _getRuntimePlayer: function () {
+        if (typeof GameRuntime === "undefined"
+            || !GameRuntime
+            || typeof GameRuntime.getPlayer !== "function") {
+            return null;
+        }
+        return GameRuntime.getPlayer();
+    },
     grantUnlockRewardToPlayer: function (playerObj, purchaseId) {
         var reward = this.getUnlockReward(purchaseId);
         if (!reward || !playerObj) {
@@ -608,10 +600,7 @@ var PurchaseService = {
         return changed;
     },
     _grantUnlockReward: function (purchaseId) {
-        if (typeof player === "undefined" || !player) {
-            return false;
-        }
-        return this.grantUnlockRewardToPlayer(player, purchaseId);
+        return this.grantUnlockRewardToPlayer(this._getRuntimePlayer(), purchaseId);
     },
     syncPurchasedUnlock: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
@@ -651,165 +640,145 @@ var PurchaseService = {
             changed: recorded || unlockRewardGranted
         };
     },
-    applyPurchaseResult: function (purchaseId, payResult) {
-        var outcome = this.getPurchaseOutcome(purchaseId, payResult);
+    _createPurchaseResult: function (purchaseId, overrides) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
         var result = {
-            purchaseId: outcome.purchaseId,
-            rawResult: outcome.rawResult,
-            legacyResultCode: outcome.rawResult,
-            isExchangePurchase: outcome.isExchangePurchase,
-            isSuccess: outcome.isSuccess,
-            isFailure: outcome.isFailure,
-            isAlreadyUnlocked: outcome.isAlreadyUnlocked,
-            isAchievementPointFailure: outcome.isAchievementPointFailure,
-            failedReason: outcome.failedReason,
+            purchaseId: purchaseId,
+            isExchangePurchase: purchaseId === null ? false : this.isExchangePurchase(purchaseId),
+            isConsumablePurchase: purchaseId !== null && purchaseId >= 200,
+            isSuccess: false,
+            isFailure: true,
+            failedReason: this.FAIL_REASON.PURCHASE_FAILED,
             unlockRecorded: false,
             unlockRewardGranted: false,
             consumableGranted: false
         };
-
-        if (!result.isSuccess || result.purchaseId === null) {
-            return result;
+        if (overrides) {
+            Object.keys(overrides).forEach(function (key) {
+                result[key] = overrides[key];
+            });
         }
-
-        if (outcome.isConsumablePurchase) {
-            result.consumableGranted = true;
-        }
-
-        if (outcome.needsUnlockRecord) {
-            var syncResult = this.syncPurchasedUnlock(result.purchaseId);
-            result.unlockRecorded = !!syncResult.recorded;
-            result.unlockRewardGranted = !!syncResult.unlockRewardGranted;
-        } else if (outcome.needsUnlockReward) {
-            result.unlockRewardGranted = this._grantUnlockReward(result.purchaseId);
-        }
-
+        result.isSuccess = !!result.isSuccess;
+        result.isFailure = !result.isSuccess;
+        result.failedReason = result.isSuccess ? null : (result.failedReason || this.FAIL_REASON.PURCHASE_FAILED);
         return result;
+    },
+    _buildPurchaseFailureResult: function (purchaseId, failedReason, overrides) {
+        overrides = overrides || {};
+        overrides.failedReason = failedReason || this.FAIL_REASON.PURCHASE_FAILED;
+        overrides.isSuccess = false;
+        return this._createPurchaseResult(purchaseId, overrides);
+    },
+    _buildPurchaseSuccessResult: function (purchaseId, overrides) {
+        overrides = overrides || {};
+        overrides.isSuccess = true;
+        overrides.failedReason = null;
+        return this._createPurchaseResult(purchaseId, overrides);
+    },
+    _completeUnlockPurchase: function (purchaseId) {
+        var syncResult = this.syncPurchasedUnlock(purchaseId);
+        return this._buildPurchaseSuccessResult(purchaseId, {
+            unlockRecorded: !!syncResult.recorded,
+            unlockRewardGranted: !!syncResult.unlockRewardGranted
+        });
+    },
+    _completeExchangePurchase: function (purchaseId) {
+        return this._buildPurchaseSuccessResult(purchaseId, {
+            unlockRewardGranted: this._grantUnlockReward(purchaseId)
+        });
+    },
+    _getExchangePurchaseFailureReason: function (purchaseId) {
+        if (this.isTalentPurchase(purchaseId)
+            && this._hasIAPMethod("isPurchaseFullyUnlocked")
+            && IAPPackage.isPurchaseFullyUnlocked(purchaseId)) {
+            return this.FAIL_REASON.MAX_LEVEL;
+        }
+        return this.FAIL_REASON.ALREADY_UNLOCKED;
+    },
+    _purchaseExchange: function (purchaseId) {
+        var exchangeId = this.getExchangeIdByPurchaseId(purchaseId);
+        if (!exchangeId) {
+            return this._buildPurchaseFailureResult(purchaseId, this._getExchangePurchaseFailureReason(purchaseId));
+        }
+
+        var exchangeConfig = typeof ExchangeAchievementConfig !== "undefined"
+            ? ExchangeAchievementConfig[exchangeId]
+            : null;
+        if (!exchangeConfig) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.PURCHASE_FAILED);
+        }
+        if (this.getAchievementPoints() < exchangeConfig.cost) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.INSUFFICIENT_POINTS);
+        }
+        if (typeof Medal === "undefined"
+            || !Medal
+            || typeof Medal.exchangeAchievement !== "function"
+            || !Medal.exchangeAchievement(exchangeId)) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.PURCHASE_FAILED);
+        }
+        if (this._hasIAPMethod("onIAPPaied")) {
+            IAPPackage.onIAPPaied(purchaseId);
+        }
+        return this._completeExchangePurchase(purchaseId);
+    },
+    _purchaseConsumableWithAchievementPoints: function (purchaseId) {
+        var purchaseInfo = this.getPurchaseInfo(purchaseId);
+        var achievementPrice = this._getConsumableAchievementPrice(purchaseId);
+        if (!purchaseInfo || achievementPrice === null || achievementPrice === undefined) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.PURCHASE_FAILED);
+        }
+        if (!purchaseInfo.multiPrice && this.isUnlocked(purchaseId)) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.ALREADY_UNLOCKED);
+        }
+        if (this.getAchievementPoints() < achievementPrice) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.INSUFFICIENT_POINTS);
+        }
+        if (!this._hasIAPMethod("payConsumeIAP") || !IAPPackage.payConsumeIAP(purchaseId)) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.PURCHASE_FAILED);
+        }
+        return this._buildPurchaseSuccessResult(purchaseId, {
+            consumableGranted: true
+        });
+    },
+    _resolveGatewayPurchaseResult: function (purchaseId, payResult) {
+        if (payResult === PurchaseGatewayResultCode.ALREADY_UNLOCKED) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.ALREADY_UNLOCKED);
+        }
+        if (payResult !== PurchaseGatewayResultCode.SDK_SUCCESS) {
+            return this._buildPurchaseFailureResult(purchaseId, this.FAIL_REASON.PURCHASE_FAILED);
+        }
+        return this._completeUnlockPurchase(purchaseId);
     },
     purchase: function (purchaseId, target, cb) {
         var self = this;
-        this.purchaseLegacy(purchaseId, target, function (paidPurchaseId, payResult) {
-            var result = self.applyPurchaseResult(paidPurchaseId, payResult);
+        var normalizedPurchaseId = this._normalizePurchaseId(purchaseId);
+        var complete = function (result) {
             if (cb) {
                 cb.call(target, result);
             }
-        });
-    },
-    getPurchaseOutcome: function (purchaseId, payResult) {
-        purchaseId = this._normalizePurchaseId(purchaseId);
-
-        var isExchangePurchase = purchaseId === null ? false : this.isExchangePurchase(purchaseId);
-        var isConsumablePurchase = purchaseId !== null && purchaseId >= 200;
-        var isTalentPurchase = purchaseId === null ? false : this.isTalentPurchase(purchaseId);
-        var isBypassSuccess = purchaseId !== null
-            && !isExchangePurchase
-            && !isConsumablePurchase
-            && payResult == this.LEGACY_RESULT.SUCCESS
-            && this.isPaySdkBypassedForTest();
-        var isSuccess = false;
-        if (purchaseId !== null) {
-            if (isExchangePurchase) {
-                isSuccess = payResult == this.LEGACY_RESULT.SUCCESS;
-            } else if (isConsumablePurchase) {
-                isSuccess = payResult == this.LEGACY_RESULT.SDK_SUCCESS;
-            } else {
-                isSuccess = payResult == this.LEGACY_RESULT.SDK_SUCCESS || isBypassSuccess;
-            }
-        }
-
-        var isAlreadyUnlocked = purchaseId !== null
-            && isExchangePurchase
-            && payResult == this.LEGACY_RESULT.ALREADY_UNLOCKED;
-        var isAchievementPointFailure = purchaseId !== null
-            && payResult == this.LEGACY_RESULT.FAILED
-            && (isExchangePurchase || isConsumablePurchase);
-        var failedReason = null;
-        if (purchaseId === null) {
-            failedReason = this.FAIL_REASON.INVALID_PURCHASE;
-        } else if (!isSuccess) {
-            if (isAlreadyUnlocked) {
-                failedReason = isTalentPurchase
-                    ? this.FAIL_REASON.MAX_LEVEL
-                    : this.FAIL_REASON.ALREADY_UNLOCKED;
-            } else if (isAchievementPointFailure) {
-                failedReason = this.FAIL_REASON.INSUFFICIENT_POINTS;
-            } else {
-                failedReason = this.FAIL_REASON.PURCHASE_FAILED;
-            }
-        }
-
-        return {
-            purchaseId: purchaseId,
-            rawResult: payResult,
-            isExchangePurchase: isExchangePurchase,
-            isConsumablePurchase: isConsumablePurchase,
-            isSuccess: isSuccess,
-            isFailure: !isSuccess,
-            needsUnlockRecord: purchaseId !== null
-                && isSuccess
-                && !isExchangePurchase
-                && !isConsumablePurchase,
-            needsUnlockReward: purchaseId !== null
-                && isSuccess
-                && isExchangePurchase,
-            needsManualUnlockRecord: purchaseId !== null
-                && isSuccess
-                && !isExchangePurchase
-                && !isConsumablePurchase,
-            needsManualConsumableGrant: false,
-            isAlreadyUnlocked: isAlreadyUnlocked,
-            isAchievementPointFailure: isAchievementPointFailure,
-            failedReason: failedReason
         };
-    },
-    isLegacySuccess: function (purchaseId, payResult) {
-        return this.getPurchaseOutcome(purchaseId, payResult).isSuccess;
-    },
-    needsManualUnlockRecord: function (purchaseId, payResult) {
-        return this.getPurchaseOutcome(purchaseId, payResult).needsUnlockRecord;
-    },
-    needsManualConsumableGrant: function (purchaseId, payResult) {
-        return this.getPurchaseOutcome(purchaseId, payResult).needsManualConsumableGrant;
-    },
-    purchaseLegacy: function (purchaseId, target, cb) {
-        purchaseId = this._normalizePurchaseId(purchaseId);
-        if (purchaseId === null) {
-            if (cb) {
-                cb.call(target, purchaseId, this.LEGACY_RESULT.FAILED);
-            }
+
+        if (normalizedPurchaseId === null) {
+            complete(this._buildPurchaseFailureResult(null, this.FAIL_REASON.INVALID_PURCHASE));
             return;
         }
 
-        // Support-pack consumables (201-209) should be bought via achievement points directly.
-        if (purchaseId >= 200) {
-            var consumePurchased = IAPPackage.payConsumeIAP(purchaseId);
-            if (cb) {
-                cb.call(
-                    target,
-                    purchaseId,
-                    consumePurchased ? this.LEGACY_RESULT.SDK_SUCCESS : this.LEGACY_RESULT.FAILED
-                );
-            }
+        if (normalizedPurchaseId >= 200) {
+            complete(this._purchaseConsumableWithAchievementPoints(normalizedPurchaseId));
             return;
         }
 
-        var exchangeResult = IAPPackage.tryExchangePurchase(purchaseId);
-        if (exchangeResult.handled) {
-            if (cb) {
-                cb.call(target, purchaseId, exchangeResult.code);
-            }
+        if (this.isExchangePurchase(normalizedPurchaseId)) {
+            complete(this._purchaseExchange(normalizedPurchaseId));
             return;
         }
 
         if (this.isPaySdkBypassedForTest()) {
-            if (cb) {
-                // Keep historical bypass behavior for existing callback contracts.
-                cb.call(target, purchaseId, this.LEGACY_RESULT.SUCCESS);
-            }
+            complete(this._completeUnlockPurchase(normalizedPurchaseId));
             return;
         }
 
-        var purchaseTask = PurchaseTaskManager.newTask(purchaseId);
+        var purchaseTask = PurchaseTaskManager.newTask(normalizedPurchaseId);
         purchaseTask.beforePay = function () {
             if (cc.sys.isNative) {
                 uiUtil.showLoadingView();
@@ -825,9 +794,7 @@ var PurchaseService = {
                     cc.timer.resume();
                 }
             }
-            if (cb) {
-                cb.call(target, paidPurchaseId, payResult);
-            }
+            complete(self._resolveGatewayPurchaseResult(paidPurchaseId, payResult));
         };
         purchaseTask.pay();
     }

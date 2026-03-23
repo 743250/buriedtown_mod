@@ -47,13 +47,17 @@ var BattleSettlementService = {
     _collectBrokenWeapons: function (sumRes) {
         var brokenWeapon = [];
         var gunItemId = player.equip.getEquip(EquipmentPos.GUN);
-        if (gunItemId && sumRes.weapon1 > 0 && player.bag.testWeaponBroken(gunItemId)) {
-            brokenWeapon.push(gunItemId);
+        var gunBrokenResult = gunItemId && sumRes.weapon1 > 0 ? player.bag.testWeaponBroken(gunItemId) : false;
+        if (gunBrokenResult) {
+            brokenWeapon.push(gunBrokenResult.brokenResultItemId || gunBrokenResult.itemId || gunItemId);
         }
 
         var weaponItemId = player.equip.getEquip(EquipmentPos.WEAPON);
-        if (weaponItemId && weaponItemId != Equipment.HAND && sumRes.weapon2 > 0 && player.bag.testWeaponBroken(weaponItemId)) {
-            brokenWeapon.push(weaponItemId);
+        var weaponBrokenResult = weaponItemId && weaponItemId != Equipment.HAND && sumRes.weapon2 > 0
+            ? player.bag.testWeaponBroken(weaponItemId)
+            : false;
+        if (weaponBrokenResult) {
+            brokenWeapon.push(weaponBrokenResult.brokenResultItemId || weaponBrokenResult.itemId || weaponItemId);
         }
 
         return brokenWeapon;

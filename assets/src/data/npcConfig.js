@@ -1538,16 +1538,8 @@ var npcConfig = {
             [{
                 "itemId": 1105022,
                 "num": 1
-            }],
-            [{
-                "itemId": 1105022,
-                "num": 1
             }, {
-                "itemId": 1103074,
-                "num": 1
-            }],
-            [{
-                "itemId": 1105022,
+                "itemId": 1101071,
                 "num": 1
             }],
             [{
@@ -1556,9 +1548,15 @@ var npcConfig = {
             }, {
                 "itemId": 1103074,
                 "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
                 "num": 1
             }],
             [{
@@ -1567,9 +1565,15 @@ var npcConfig = {
             }, {
                 "itemId": 1103074,
                 "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
                 "num": 1
             }],
             [{
@@ -1578,9 +1582,15 @@ var npcConfig = {
             }, {
                 "itemId": 1103074,
                 "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
                 "num": 1
             }],
             [{
@@ -1589,9 +1599,32 @@ var npcConfig = {
             }, {
                 "itemId": 1103074,
                 "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
+            }],
+            [{
+                "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1103074,
+                "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
+            }],
+            [{
+                "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
                 "num": 1
             }]
         ],

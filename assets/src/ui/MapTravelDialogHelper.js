@@ -59,7 +59,8 @@ var MapTravelDialogHelper = {
     },
     _createSiteTravelConfig: function (entity, okCb, cancelCb, isHomeSite) {
         var config = utils.clone(stringUtil.getString(5000));
-        config.title.icon = "#site_" + entity.baseSite.id + ".png";
+        config.title.icon = uiUtil.getSiteIconFrameName(entity.baseSite.id, true);
+        config.title.iconFallback = uiUtil.getDefaultSpriteName("site", true);
         config.title.title = entity.baseSite.getName();
         config.title.txt_1 = isHomeSite ? null : cc.formatStr(config.title.txt_1, entity.baseSite.getProgressStr());
         config.title.txt_2 = isHomeSite ? null : cc.formatStr(config.title.txt_2, entity.baseSite.getAllItemNum());

@@ -65,6 +65,7 @@ var TalentConfigTable = {
         effectType: 'social_gift_chance',
         socialExtraGiftChanceValues: [0, 0.25, 0.5, 1],
         socialTradeQuantityMultiplierValues: [1, 1, 1.5, 2],
+        socialFavorGiftRatioValues: [0, 0.6, 0.7, 0.8],
         tierEffectTextList: [
             "你更容易收到NPC的额外回礼，额外赠礼率+25%",
             "你的魅力让人难以抗拒，NPC交易货物数量+50%，额外赠礼率+50%",

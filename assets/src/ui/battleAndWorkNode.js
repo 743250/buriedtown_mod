@@ -595,7 +595,10 @@ var BattleAndWorkNode = BottomFrameNode.extend({
             btn.time = time;
             btn.itemId = itemId;
 
-            var icon = uiUtil.getSpriteByNameSafe("#icon_item_" + uiUtil.getDisplayItemId(itemId) + ".png", "#icon_item_1101051.png");
+            var icon = uiUtil.getSpriteByNameSafe(
+                uiUtil.getItemIconFrameName(itemId, true),
+                uiUtil.getDefaultSpriteName("item", true)
+            );
             icon.setPosition(btn.getContentSize().width / 2, btn.getContentSize().height / 2);
             icon.setScale(0.5);
             btn.addChild(icon);

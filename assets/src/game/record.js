@@ -108,6 +108,70 @@ var Record = {
         }
         cc.sys.localStorage.removeItem(recordName);
     },
+    _removeStorageKeys: function (keyList) {
+        if (!Array.isArray(keyList)) {
+            return;
+        }
+        keyList.forEach(function (key) {
+            if (key) {
+                cc.sys.localStorage.removeItem(key);
+            }
+        });
+    },
+    _getSlotScopedStorageKeys: function (slot) {
+        slot = this._normalizeSlot(slot);
+        return [
+            "roleType_slot_" + slot,
+            "chosenTalents_slot_" + slot,
+            "chosenTalent_slot_" + slot,
+            "medalProgress_slot_" + slot,
+            "medalProgressRun_slot_" + slot + "_v3",
+            "medalCompleteRun_slot_" + slot + "_v3"
+        ];
+    },
+    clearSlotScopedState: function (slot) {
+        this._removeStorageKeys(this._getSlotScopedStorageKeys(slot));
+    },
+    clearDeprecatedSelectionState: function () {
+        this._removeStorageKeys([
+            "roleType",
+            "chosenTalent",
+            "chosenTalents"
+        ]);
+    },
+    clearDeprecatedMedalState: function () {
+        this._removeStorageKeys([
+            "medalProgress",
+            "medalProgressLegacy",
+            "medalProgressMode",
+            "medalProgressLegacyAccountSeedSlot",
+            "medalForOneGame"
+        ]);
+    },
+    clearCurrentSlotCompatibilityState: function () {
+        this.clearSlotScopedState(this.getCurrentSlot());
+        this.clearDeprecatedSelectionState();
+    },
+    clearAllPersistentState: function () {
+        var self = this;
+        this.getAllRecordNames().forEach(function (name) {
+            cc.sys.localStorage.removeItem(name);
+        });
+        this._removeStorageKeys([
+            this.SLOT_STORAGE_KEY,
+            "uuid",
+            "IAPRecord",
+            "medal",
+            "medalProgressAccount_v3",
+            "achievementPoints",
+            "exchangeAchievements"
+        ]);
+        this.clearDeprecatedSelectionState();
+        this.clearDeprecatedMedalState();
+        for (var slot = 1; slot <= this.SLOT_COUNT; slot++) {
+            self.clearSlotScopedState(slot);
+        }
+    },
     restore: function (key) {
         return this.recordObj[key];
     },
@@ -209,23 +273,7 @@ var Record = {
                 res = true;
             } else {
                 res = false;
-                var recordNameList = this.getAllRecordNames();
-                recordNameList.forEach(function (name) {
-                    cc.sys.localStorage.removeItem(name);
-                });
-                cc.sys.localStorage.removeItem(this.SLOT_STORAGE_KEY);
-                cc.sys.localStorage.removeItem('uuid');
-                cc.sys.localStorage.removeItem('IAPRecord');
-                cc.sys.localStorage.removeItem('medal');
-                cc.sys.localStorage.removeItem('roleType');
-                cc.sys.localStorage.removeItem('chosenTalent');
-                cc.sys.localStorage.removeItem('chosenTalents');
-                for (var slot = 1; slot <= this.SLOT_COUNT; slot++) {
-                    cc.sys.localStorage.removeItem('roleType_slot_' + slot);
-                    cc.sys.localStorage.removeItem('chosenTalents_slot_' + slot);
-                    cc.sys.localStorage.removeItem('chosenTalent_slot_' + slot);
-                }
-
+                this.clearAllPersistentState();
                 cc.sys.localStorage.setItem(flagName, deviceId);
             }
         }
