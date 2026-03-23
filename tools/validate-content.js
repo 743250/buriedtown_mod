@@ -5,9 +5,10 @@ function printHelp() {
     console.log("Usage: node tools/validate-content.js [command] [options]");
     console.log("");
     console.log("Commands:");
-    console.log("  all                    Run item-ui and ContentBlueprint link checks.");
+    console.log("  all                    Run item-ui, ContentBlueprint link checks, and purchase contract checks.");
     console.log("  item-ui                Validate item config text and sprite links.");
     console.log("  links [type|all]       Validate role/talent/item/site/build/build-action/formula links.");
+    console.log("  purchase-links         Validate purchase/exchange role/talent/item mapping contracts.");
     console.log("  weapon-links           Validate weapon item links (1301xxx-1305xxx).");
     console.log("  site-links             Validate all site links.");
     console.log("  checklist <type> <id>  Print required/optional dependency status for one id.");
@@ -66,7 +67,7 @@ function parseArgs(argv) {
             parsed.itemIds = parseItemIds(argv[index] || "");
             continue;
         }
-        if (arg === "all" || arg === "item-ui" || arg === "links" || arg === "weapon-links" || arg === "site-links" || arg === "checklist") {
+        if (arg === "all" || arg === "item-ui" || arg === "links" || arg === "purchase-links" || arg === "weapon-links" || arg === "site-links" || arg === "checklist") {
             parsed.command = arg;
             if (arg === "weapon-links") {
                 parsed.type = "item";
@@ -145,6 +146,9 @@ function printText(results) {
 function validateAll(parsed) {
     return {
         itemUiResults: runAll(parsed),
+        purchaseResults: contentValidator.validatePurchaseLinks({
+            ids: parsed.itemIds
+        }),
         linkResults: contentValidator.validateLinks("all", {
             lang: parsed.lang,
             ids: parsed.itemIds
@@ -155,7 +159,8 @@ function validateAll(parsed) {
 function printAllText(resultBundle) {
     const itemUiExitCode = printText(resultBundle.itemUiResults);
     const linksExitCode = contentValidator.printValidationResults(resultBundle.linkResults, console);
-    return itemUiExitCode || linksExitCode;
+    const purchaseExitCode = contentValidator.printValidationResults(resultBundle.purchaseResults, console);
+    return itemUiExitCode || linksExitCode || purchaseExitCode;
 }
 
 function main() {
@@ -204,6 +209,21 @@ function main() {
         process.exit(contentValidator.printValidationResults(results, console));
     }
 
+    if (parsed.command === "purchase-links") {
+        const results = contentValidator.validatePurchaseLinks({
+            ids: parsed.itemIds
+        });
+
+        if (parsed.json) {
+            printJson(results);
+            process.exit(results.every(function (result) {
+                return result.ok;
+            }) ? 0 : 1);
+        }
+
+        process.exit(contentValidator.printValidationResults(results, console));
+    }
+
     if (parsed.command === "checklist") {
         if (!parsed.type || !parsed.checklistId) {
             console.error("checklist requires a type and one --id value");
@@ -227,10 +247,12 @@ function main() {
     const results = validateAll(parsed);
 
     if (parsed.json) {
-        printJson([].concat(results.itemUiResults, results.linkResults));
+        printJson([].concat(results.itemUiResults, results.linkResults, results.purchaseResults));
         process.exit(results.itemUiResults.every(function (result) {
             return result.ok;
         }) && results.linkResults.every(function (result) {
+            return result.ok;
+        }) && results.purchaseResults.every(function (result) {
             return result.ok;
         }) ? 0 : 1);
     }

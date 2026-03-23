@@ -30,7 +30,7 @@
   统一的 smoke 入口，只执行 `startup` 和 `runtime-boundaries`。
 
 - `node tools/validate-content.js ...`
-  内容配置和链接校验入口。
+  内容配置、链接和购买链契约校验入口。
 
 - `python3 tools/normalize-portrait.py ...`
   资源立绘规范化入口。
@@ -41,6 +41,9 @@
 - `index.js` 保持薄，只负责拼接 checks 和导出 `runChecks` / `runCli`。
 - 共享 sandbox、storage stub、`cc` stub 优先落到 `tools/smoke/lib/fixtures`，不要在多个 suite 里重复手写。
 - 跨模块协同行为放 `runtime-boundaries` 一类 suite。
+- Smoke 只测启动链、模块边界和规则解释层是否还能工作，不绑定真实内容分配、角色专属归属或具体公式 ownership。
+- 如果断言依赖真实配置 id、当前配方归属或策划分配结果，这类检查应迁移到 `validate-content` 或单独的 regression 检查，而不是继续堆在 smoke。
+- 真实 `PurchaseList / RoleConfigTable / TalentConfigTable / ExchangeAchievementConfig` 的映射一致性，归 `validate-content` 的 `purchase-links` 检查，不放在 smoke 里做快照式断言。
 
 ## Current Structure
 

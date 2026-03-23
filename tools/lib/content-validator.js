@@ -206,6 +206,36 @@ function normalizeIds(ids, availableIds) {
     }));
 }
 
+function buildReport(type, results) {
+    const report = {
+        type: type || "",
+        total: 0,
+        validCount: 0,
+        invalidCount: 0,
+        warningCount: 0,
+        errorCount: 0,
+        results: Array.isArray(results) ? results : []
+    };
+
+    report.total = report.results.length;
+    report.results.forEach(function (result) {
+        if (!result || result.error) {
+            report.invalidCount += 1;
+            report.errorCount += 1;
+            return;
+        }
+        if (result.valid) {
+            report.validCount += 1;
+        } else {
+            report.invalidCount += 1;
+        }
+        report.warningCount += (result.warnings || []).length;
+        report.errorCount += (result.errors || []).length;
+    });
+
+    return report;
+}
+
 function getAvailableIds(context, type, scope) {
     const globalName = TYPE_TO_GLOBAL[type];
     const table = globalName ? context[globalName] : null;
@@ -258,6 +288,269 @@ function validateLinks(type, options) {
     });
 
     return results;
+}
+
+function normalizeNumericId(value) {
+    const normalized = parseInt(value, 10);
+    return Number.isFinite(normalized) ? normalized : null;
+}
+
+function createPurchaseContractRuntime() {
+    const rootDir = gameData.getRootDir();
+    const context = createRuntime("zh");
+
+    context.SafetyHelper = {
+        isEmpty: function (value) {
+            return value === undefined || value === null || value === "";
+        },
+        safeJSONParse: function (value, fallbackValue) {
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+    };
+    context.Medal = {
+        isExchanged: function () {
+            return false;
+        },
+        getAchievementPoints: function () {
+            return 0;
+        },
+        getTalentLevel: function () {
+            return 0;
+        }
+    };
+    context.memoryUtil = {
+        decode: function (value) {
+            return value;
+        }
+    };
+    context.PlayerAttr = {
+        HP_MAX: 240
+    };
+    context.GameKernel = {
+        register: function (name, service) {
+            this._services[name] = service;
+        },
+        get: function (name) {
+            return this._services[name] || null;
+        },
+        require: function (name) {
+            return this.get(name);
+        },
+        _services: {}
+    };
+
+    loadScriptIntoContext(rootDir, context, "assets/src/game/role.js");
+    loadScriptIntoContext(rootDir, context, "assets/src/game/TalentService.js");
+    loadScriptIntoContext(rootDir, context, "assets/src/game/PurchaseService.js");
+    return context;
+}
+
+function getPurchaseAvailableIds(context) {
+    return sortNumericIds(Object.keys(context.PurchaseList || {}).map(function (purchaseId) {
+        return parseInt(purchaseId, 10);
+    }).filter(function (purchaseId) {
+        return Number.isFinite(purchaseId);
+    }));
+}
+
+function addToListMap(map, key, value) {
+    if (!Number.isFinite(key)) {
+        return;
+    }
+    if (!map[key]) {
+        map[key] = [];
+    }
+    map[key].push(value);
+}
+
+function buildRolePurchaseMap(context) {
+    const purchaseMap = {};
+    Object.keys(context.RoleConfigTable || {}).forEach(function (roleType) {
+        const normalizedRoleType = normalizeNumericId(roleType);
+        const roleConfig = context.RoleConfigTable[roleType] || {};
+        const purchaseId = normalizeNumericId(roleConfig.purchaseId);
+        if (normalizedRoleType === null || purchaseId === null) {
+            return;
+        }
+        addToListMap(purchaseMap, purchaseId, normalizedRoleType);
+    });
+    return purchaseMap;
+}
+
+function buildTalentPurchaseMap(context) {
+    const purchaseMap = {};
+    Object.keys(context.TalentConfigTable || {}).forEach(function (talentId) {
+        const normalizedTalentId = normalizeNumericId(talentId);
+        const talentConfig = context.TalentConfigTable[talentId] || {};
+        const purchaseId = normalizeNumericId(talentConfig.purchaseId !== undefined ? talentConfig.purchaseId : talentId);
+        if (normalizedTalentId === null || purchaseId === null) {
+            return;
+        }
+        addToListMap(purchaseMap, purchaseId, normalizedTalentId);
+    });
+    return purchaseMap;
+}
+
+function getSortedExchangeIds(context, type, targetId) {
+    const exchangeIds = [];
+    const exchangeConfig = context.ExchangeAchievementConfig || {};
+
+    Object.keys(exchangeConfig).forEach(function (exchangeId) {
+        const normalizedExchangeId = normalizeNumericId(exchangeId);
+        const config = exchangeConfig[exchangeId];
+        if (normalizedExchangeId === null || !config || config.type !== type) {
+            return;
+        }
+        if (normalizeNumericId(config.targetId) !== targetId) {
+            return;
+        }
+        exchangeIds.push(normalizedExchangeId);
+    });
+
+    exchangeIds.sort(function (a, b) {
+        const configA = exchangeConfig[a] || {};
+        const configB = exchangeConfig[b] || {};
+        const levelA = normalizeNumericId(configA.level) || 1;
+        const levelB = normalizeNumericId(configB.level) || 1;
+        if (levelA !== levelB) {
+            return levelA - levelB;
+        }
+        return a - b;
+    });
+
+    return exchangeIds;
+}
+
+function getExpectedExchangeIdsForPurchaseId(context, purchaseId, rolePurchaseMap, talentPurchaseMap) {
+    const roleTypes = rolePurchaseMap[purchaseId] || [];
+    const talentIds = talentPurchaseMap[purchaseId] || [];
+
+    if (talentIds.length === 1) {
+        return getSortedExchangeIds(context, "talent", talentIds[0]);
+    }
+    if (roleTypes.length === 1) {
+        return getSortedExchangeIds(context, "character", roleTypes[0]);
+    }
+    if (purchaseId >= 100 && purchaseId < 200) {
+        return getSortedExchangeIds(context, "item", purchaseId);
+    }
+    return [];
+}
+
+function validatePurchaseLinkEntry(context, purchaseId, rolePurchaseMap, talentPurchaseMap) {
+    const purchaseInfo = context.PurchaseList && context.PurchaseList[purchaseId];
+    const entry = {
+        id: purchaseId,
+        valid: true,
+        errors: [],
+        warnings: []
+    };
+    const roleTypes = rolePurchaseMap[purchaseId] || [];
+    const talentIds = talentPurchaseMap[purchaseId] || [];
+    const expectedExchangeIds = getExpectedExchangeIdsForPurchaseId(context, purchaseId, rolePurchaseMap, talentPurchaseMap);
+    const actualExchangeIds = context.IAPPackage.getExchangeIdsByPurchaseId(purchaseId) || [];
+    const expectedIsExchange = expectedExchangeIds.length > 0;
+    const actualIsExchange = !!context.IAPPackage.isExchangePurchase(purchaseId);
+
+    if (!purchaseInfo) {
+        entry.valid = false;
+        entry.errors.push("缺少购买配置 - plugin/purchaseList.js");
+        return entry;
+    }
+
+    if (roleTypes.length > 1) {
+        entry.valid = false;
+        entry.errors.push("多个角色共享同一个购买 id - data/roleConfigTable.js");
+    }
+    if (talentIds.length > 1) {
+        entry.valid = false;
+        entry.errors.push("多个天赋共享同一个购买 id - data/talentConfigTable.js");
+    }
+    if (roleTypes.length > 0 && talentIds.length > 0) {
+        entry.valid = false;
+        entry.errors.push("购买 id 同时映射了角色和天赋 - data/roleConfigTable.js / data/talentConfigTable.js");
+    }
+
+    if (JSON.stringify(actualExchangeIds) !== JSON.stringify(expectedExchangeIds)) {
+        entry.valid = false;
+        entry.errors.push("IAPPackage 兑换映射与配置期望不一致 - game/IAPPackage.js / game/medal.js");
+    }
+    if (actualIsExchange !== expectedIsExchange) {
+        entry.valid = false;
+        entry.errors.push("IAPPackage 兑换购买判定与配置期望不一致 - game/IAPPackage.js");
+    }
+
+    if (roleTypes.length === 1) {
+        const roleType = roleTypes[0];
+        const roleConfig = context.RoleConfigTable[roleType] || {};
+        const configuredExchangeId = normalizeNumericId(roleConfig.exchangeId);
+        const actualRoleType = context.role.getRoleTypeByPurchaseId(purchaseId);
+
+        if (actualRoleType !== roleType) {
+            entry.valid = false;
+            entry.errors.push("role.getRoleTypeByPurchaseId 返回值与角色购买配置不一致 - game/role.js");
+        }
+        if (configuredExchangeId === null && expectedExchangeIds.length > 0) {
+            entry.valid = false;
+            entry.errors.push("角色购买缺少显式 exchangeId，但存在角色兑换配置 - data/roleConfigTable.js / game/medal.js");
+        }
+        if (configuredExchangeId !== null && expectedExchangeIds.indexOf(configuredExchangeId) === -1) {
+            entry.valid = false;
+            entry.errors.push("角色配置 exchangeId 与兑换表不一致 - data/roleConfigTable.js / game/medal.js");
+        }
+    }
+
+    if (talentIds.length === 1) {
+        const talentId = talentIds[0];
+        const talentConfig = context.TalentConfigTable[talentId] || {};
+        const configuredPurchaseId = normalizeNumericId(talentConfig.purchaseId !== undefined ? talentConfig.purchaseId : talentId);
+        const maxLevel = Math.max(1, normalizeNumericId(talentConfig.maxLevel) || 1);
+        const actualLevels = expectedExchangeIds.map(function (exchangeId) {
+            const exchangeConfig = context.ExchangeAchievementConfig[exchangeId] || {};
+            return normalizeNumericId(exchangeConfig.level) || 1;
+        });
+        const expectedLevels = [];
+        let level = 1;
+
+        if (configuredPurchaseId !== purchaseId) {
+            entry.valid = false;
+            entry.errors.push("天赋 purchaseId 与购买入口不一致 - data/talentConfigTable.js");
+        }
+        if (!context.TalentService.isTalentPurchaseId(purchaseId)) {
+            entry.valid = false;
+            entry.errors.push("TalentService 未将该购买识别为天赋购买 - game/TalentService.js");
+        }
+
+        for (; level <= maxLevel; level++) {
+            expectedLevels.push(level);
+        }
+        if (JSON.stringify(actualLevels) !== JSON.stringify(expectedLevels)) {
+            entry.valid = false;
+            entry.errors.push("天赋兑换等级链不完整或顺序错误 - data/talentConfigTable.js / game/medal.js");
+        }
+    }
+
+    return entry;
+}
+
+function validatePurchaseLinks(options) {
+    const opts = options || {};
+    const context = createPurchaseContractRuntime();
+    const availableIds = getPurchaseAvailableIds(context);
+    const ids = normalizeIds(opts.ids, availableIds);
+    const rolePurchaseMap = buildRolePurchaseMap(context);
+    const talentPurchaseMap = buildTalentPurchaseMap(context);
+    const results = ids.map(function (purchaseId) {
+        return validatePurchaseLinkEntry(context, purchaseId, rolePurchaseMap, talentPurchaseMap);
+    });
+
+    return [
+        buildValidationResult("purchase", "config", "all", ids, buildReport("purchase", results))
+    ];
 }
 
 function buildChecklistResult(type, lang, id, checklist) {
@@ -364,5 +657,6 @@ module.exports = {
     getChecklist: getChecklist,
     printChecklistResults: printChecklistResults,
     printValidationResults: printValidationResults,
-    validateLinks: validateLinks
+    validateLinks: validateLinks,
+    validatePurchaseLinks: validatePurchaseLinks
 };

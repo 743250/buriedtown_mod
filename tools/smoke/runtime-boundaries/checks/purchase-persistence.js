@@ -25,40 +25,319 @@ function bootstrapRuntimeSandbox(sandbox, runtimeOptions) {
     });
 }
 
+const SYNTHETIC_PURCHASE_IDS = {
+    DIRECT_UNLOCK: 150,
+    ITEM_REWARD: 151,
+    ITEM_TOOL: 152,
+    BUILD_REWARD: 153,
+    PAID_ROLE_ALPHA: 158,
+    PAID_ROLE_BETA: 159,
+    TALENT_ALPHA: 160,
+    TALENT_BETA: 161,
+    TALENT_GAMMA: 162,
+    CONSUMABLE_LOW: 230,
+    CONSUMABLE_HIGH: 231,
+    DISCOUNT_PACK: 260
+};
+
+const SYNTHETIC_ITEM_IDS = {
+    BAG: 930001,
+    BOOTS: 930002
+};
+
+const SYNTHETIC_BUILD_ID = 77;
+
+const SYNTHETIC_EXCHANGE_IDS = {
+    ROLE_ALPHA: 4001,
+    ROLE_BETA: 4002,
+    ITEM_REWARD: 5001,
+    BUILD_REWARD: 5003,
+    TALENT_ALPHA_LV1: 6001,
+    TALENT_ALPHA_LV2: 6101,
+    TALENT_ALPHA_LV3: 6201
+};
+
+function createSafetyHelper() {
+    return {
+        isEmpty: function (value) {
+            return value === undefined || value === null || value === "";
+        },
+        safeJSONParse: function (value) {
+            return JSON.parse(value);
+        }
+    };
+}
+
+function createSyntheticPurchaseList() {
+    return {
+        150: {
+            priceList: [
+                {
+                    productId: "synthetic_direct_unlock",
+                    price: 12,
+                    currencyCode: "USD",
+                    productPriceStr: "$9.99"
+                }
+            ],
+            multiPrice: false
+        },
+        151: {
+            priceList: [
+                {
+                    productId: "synthetic_item_reward",
+                    price: 6,
+                    currencyCode: "USD",
+                    productPriceStr: "$4.99"
+                }
+            ],
+            unlockReward: {
+                type: "item",
+                itemId: SYNTHETIC_ITEM_IDS.BAG,
+                num: 1
+            },
+            multiPrice: false
+        },
+        152: {
+            priceList: [
+                {
+                    productId: "synthetic_item_tool",
+                    price: 3,
+                    currencyCode: "USD",
+                    productPriceStr: "$2.99"
+                }
+            ],
+            unlockReward: {
+                type: "item",
+                itemId: SYNTHETIC_ITEM_IDS.BOOTS,
+                num: 1
+            },
+            multiPrice: false
+        },
+        153: {
+            priceList: [
+                {
+                    productId: "synthetic_build_reward",
+                    price: 5,
+                    currencyCode: "USD",
+                    productPriceStr: "$3.99"
+                }
+            ],
+            unlockReward: {
+                type: "build",
+                bid: SYNTHETIC_BUILD_ID,
+                level: 0
+            },
+            multiPrice: false
+        },
+        158: {
+            priceList: [
+                {
+                    productId: "synthetic_role_alpha",
+                    price: 12,
+                    currencyCode: "USD",
+                    productPriceStr: "$9.99"
+                }
+            ],
+            multiPrice: false
+        },
+        159: {
+            priceList: [
+                {
+                    productId: "synthetic_role_beta",
+                    price: 12,
+                    currencyCode: "USD",
+                    productPriceStr: "$9.99"
+                }
+            ],
+            multiPrice: false
+        },
+        160: {
+            priceList: [
+                {
+                    productId: "synthetic_talent_alpha",
+                    price: 12,
+                    currencyCode: "USD",
+                    productPriceStr: "$9.99"
+                }
+            ],
+            multiPrice: false
+        },
+        230: {
+            priceList: [
+                {
+                    productId: "synthetic_consumable_low",
+                    price: 6,
+                    currencyCode: "USD",
+                    productPriceStr: "$5.99"
+                }
+            ],
+            multiPrice: false
+        },
+        231: {
+            priceList: [
+                {
+                    productId: "synthetic_consumable_high",
+                    price: 18,
+                    currencyCode: "USD",
+                    productPriceStr: "$17.99"
+                }
+            ],
+            multiPrice: false
+        },
+        260: {
+            priceList: [
+                {
+                    productId: "synthetic_discount_pack",
+                    price: 18,
+                    currencyCode: "USD",
+                    productPriceStr: "$17.99"
+                }
+            ],
+            discountPercent: 50,
+            multiPrice: false
+        }
+    };
+}
+
+function createSyntheticRoleConfigTable() {
+    return {
+        6: {
+            roleType: 6,
+            purchaseId: null,
+            exchangeId: null,
+            selectionOrder: 0
+        },
+        7: {
+            roleType: 7,
+            purchaseId: SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA,
+            exchangeId: SYNTHETIC_EXCHANGE_IDS.ROLE_ALPHA,
+            selectionOrder: 1
+        },
+        8: {
+            roleType: 8,
+            purchaseId: SYNTHETIC_PURCHASE_IDS.PAID_ROLE_BETA,
+            exchangeId: SYNTHETIC_EXCHANGE_IDS.ROLE_BETA,
+            selectionOrder: 2
+        }
+    };
+}
+
+function createSyntheticTalentConfigTable() {
+    return {
+        160: {
+            talentId: 160,
+            purchaseId: SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
+            displayOrder: 1,
+            maxLevel: 3
+        },
+        161: {
+            talentId: 161,
+            purchaseId: SYNTHETIC_PURCHASE_IDS.TALENT_BETA,
+            displayOrder: 2,
+            maxLevel: 3
+        },
+        162: {
+            talentId: 162,
+            purchaseId: SYNTHETIC_PURCHASE_IDS.TALENT_GAMMA,
+            displayOrder: 3,
+            maxLevel: 3
+        }
+    };
+}
+
+function createSyntheticExchangeAchievementConfig() {
+    return {
+        4001: {
+            type: "character",
+            targetId: 7,
+            cost: 50
+        },
+        4002: {
+            type: "character",
+            targetId: 8,
+            cost: 50
+        },
+        5001: {
+            type: "item",
+            targetId: SYNTHETIC_PURCHASE_IDS.ITEM_REWARD,
+            cost: 30
+        },
+        5003: {
+            type: "item",
+            targetId: SYNTHETIC_PURCHASE_IDS.BUILD_REWARD,
+            cost: 25
+        },
+        6001: {
+            type: "talent",
+            targetId: SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
+            level: 1,
+            cost: 30
+        },
+        6101: {
+            type: "talent",
+            targetId: SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
+            level: 2,
+            cost: 50
+        },
+        6201: {
+            type: "talent",
+            targetId: SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
+            level: 3,
+            cost: 70
+        }
+    };
+}
+
 function runPurchaseUnlockRewardSmoke() {
     const sandbox = createVmSandbox();
     sandbox.IAPPackage = {
         isIAPUnlocked: function (purchaseId) {
-            return purchaseId === 105 || purchaseId === 106 || purchaseId === 107;
+            return purchaseId === SYNTHETIC_PURCHASE_IDS.ITEM_REWARD
+                || purchaseId === SYNTHETIC_PURCHASE_IDS.ITEM_TOOL
+                || purchaseId === SYNTHETIC_PURCHASE_IDS.BUILD_REWARD;
         }
     };
-    const runtimeRewardPlayer = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
+    sandbox.PurchaseList = createSyntheticPurchaseList();
+    const runtimeRewardPlayer = createPurchaseRewardPlayer({
+        bag: {}
+    });
+    runtimeRewardPlayer.bag.increaseItem(SYNTHETIC_ITEM_IDS.BAG, 1);
 
     bootstrapRuntimeSandbox(sandbox, {
         player: runtimeRewardPlayer
     });
     sandbox.player = null;
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
 
-    assert(sandbox.PurchaseService._grantUnlockReward(105) === false,
+    assert(sandbox.PurchaseService._grantUnlockReward(SYNTHETIC_PURCHASE_IDS.ITEM_REWARD) === false,
         "PurchaseService should not duplicate unlock reward items already owned in bag");
-    assert(runtimeRewardPlayer.storage.getNumByItemId(1305024) === 0,
+    assert(runtimeRewardPlayer.storage.getNumByItemId(SYNTHETIC_ITEM_IDS.BAG) === 0,
         "PurchaseService should grant unlock rewards against GameRuntime player state");
 
-    const reconcilePlayer = createPurchaseRewardPlayer({ bag: { 1305024: 1 } });
-    assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [105, 106, 107]) === true,
+    const reconcilePlayer = createPurchaseRewardPlayer({ bag: {} });
+    reconcilePlayer.bag.increaseItem(SYNTHETIC_ITEM_IDS.BAG, 1);
+    assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [
+        SYNTHETIC_PURCHASE_IDS.ITEM_REWARD,
+        SYNTHETIC_PURCHASE_IDS.ITEM_TOOL,
+        SYNTHETIC_PURCHASE_IDS.BUILD_REWARD
+    ]) === true,
         "PurchaseService should reconcile missing unlock rewards for unlocked purchases");
-    assert(reconcilePlayer.storage.getNumByItemId(1305024) === 0,
+    assert(reconcilePlayer.storage.getNumByItemId(SYNTHETIC_ITEM_IDS.BAG) === 0,
         "PurchaseService should not duplicate big bag reward when it already exists in bag");
-    assert(reconcilePlayer.storage.getNumByItemId(1304024) === 1,
-        "PurchaseService should restore the boots unlock reward when it is missing");
-    assert(reconcilePlayer.room.buildLevels[12] === 0,
+    assert(reconcilePlayer.storage.getNumByItemId(SYNTHETIC_ITEM_IDS.BOOTS) === 1,
+        "PurchaseService should restore missing synthetic item unlock rewards");
+    assert(reconcilePlayer.room.buildLevels[SYNTHETIC_BUILD_ID] === 0,
         "PurchaseService should restore dog house unlock reward at build level 0");
-    assert(reconcilePlayer.room.createCalls.length === 1 && reconcilePlayer.room.createCalls[0][1] === 0,
+    assert(reconcilePlayer.room.createCalls.length === 1
+        && reconcilePlayer.room.createCalls[0][0] === SYNTHETIC_BUILD_ID
+        && reconcilePlayer.room.createCalls[0][1] === 0,
         "PurchaseService should create dog house using the unlocked build level");
-    assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [105, 106, 107]) === false,
+    assert(sandbox.PurchaseService.reconcileUnlockRewardsForPlayer(reconcilePlayer, [
+        SYNTHETIC_PURCHASE_IDS.ITEM_REWARD,
+        SYNTHETIC_PURCHASE_IDS.ITEM_TOOL,
+        SYNTHETIC_PURCHASE_IDS.BUILD_REWARD
+    ]) === false,
         "PurchaseService unlock reward reconciliation should be idempotent once rewards exist");
 
     return {
@@ -70,37 +349,30 @@ function runPurchaseUnlockRewardSmoke() {
 
 function runPurchaseRecordBoundarySmoke() {
     const sandbox = createVmSandbox();
-    sandbox.SafetyHelper = {
-        isEmpty: function (value) {
-            return value === undefined || value === null || value === "";
-        },
-        safeJSONParse: function (value) {
-            return JSON.parse(value);
-        }
-    };
+    sandbox.SafetyHelper = createSafetyHelper();
+    sandbox.PurchaseList = createSyntheticPurchaseList();
 
     bootstrapRuntimeSandbox(sandbox);
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
 
     sandbox.IAPPackage.initPackage();
-    assert(sandbox.IAPPackage._record[101] === 0,
-        "IAPPackage initPackage should no longer pre-mark exchange purchases as purchased");
-    assert(sandbox.IAPPackage._record[108] === 0,
+    assert(sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.ITEM_REWARD] === 0,
+        "IAPPackage initPackage should no longer pre-mark synthetic exchange item purchases as purchased");
+    assert(sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA] === 0,
         "IAPPackage initPackage should leave role exchange purchase records untouched");
-    assert(sandbox.IAPPackage._record[120] === 0,
+    assert(sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA] === 0,
         "IAPPackage initPackage should leave talent exchange purchase records untouched");
 
-    sandbox.IAPPackage._record[201] = 1;
-    sandbox.IAPPackage._record[207] = 2;
-    sandbox.IAPPackage._record[105] = 3;
+    sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW] = 1;
+    sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.CONSUMABLE_HIGH] = 2;
+    sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.ITEM_REWARD] = 3;
     sandbox.IAPPackage.resetConsumeIAP();
 
-    assert(sandbox.IAPPackage._record[201] === 0,
+    assert(sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW] === 0,
         "IAPPackage resetConsumeIAP should reset configured consumable purchase records");
-    assert(sandbox.IAPPackage._record[207] === 0,
+    assert(sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.CONSUMABLE_HIGH] === 0,
         "IAPPackage resetConsumeIAP should reset high-tier consumable purchase records");
-    assert(sandbox.IAPPackage._record[105] === 3,
+    assert(sandbox.IAPPackage._record[SYNTHETIC_PURCHASE_IDS.ITEM_REWARD] === 3,
         "IAPPackage resetConsumeIAP should not reset non-consumable exchange purchase records");
 
     return {
@@ -112,9 +384,24 @@ function runPurchaseRecordBoundarySmoke() {
 
 function runPurchaseExchangeConfigSmoke() {
     const sandbox = createVmSandbox();
+    sandbox.ExchangeAchievementConfig = createSyntheticExchangeAchievementConfig();
+    sandbox.RoleConfigTable = createSyntheticRoleConfigTable();
+    sandbox.PurchaseList = createSyntheticPurchaseList();
+    sandbox.Medal = {
+        _exchangeMap: {
+            6001: { unlocked: true }
+        },
+        _achievementPoints: 0,
+        isExchanged: function (exchangeId) {
+            return !!this._exchangeMap[exchangeId];
+        },
+        getAchievementPoints: function () {
+            return this._achievementPoints;
+        }
+    };
     sandbox.TalentService = {
         isTalentPurchaseId: function (purchaseId) {
-            return Number(purchaseId) === 120;
+            return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA;
         },
         getTalentLevel: function () {
             return 2;
@@ -123,7 +410,7 @@ function runPurchaseExchangeConfigSmoke() {
             return 3;
         },
         isTalentUnlocked: function (purchaseId) {
-            return Number(purchaseId) === 120;
+            return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA;
         },
         isTalentFullyUnlocked: function () {
             return false;
@@ -131,49 +418,42 @@ function runPurchaseExchangeConfigSmoke() {
     };
     bootstrapRuntimeSandbox(sandbox);
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
     loadIntoSandbox(sandbox, "assets/src/game/role.js");
-    loadIntoSandbox(sandbox, "assets/src/game/medal.js");
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
-    sandbox.Medal._exchangeMap = {
-        2005: { unlocked: true }
-    };
-    sandbox.Medal._achievementPoints = 0;
 
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(108)) === "[1001]",
-        "IAPPackage should resolve legacy paid role exchanges from ExchangeAchievementConfig via role config");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(114)) === "[1007]",
-        "IAPPackage should resolve new role exchanges from ExchangeAchievementConfig via role config");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(105)) === "[3001]",
+    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA)) === "[4001]",
+        "IAPPackage should resolve synthetic paid role exchanges from ExchangeAchievementConfig via role config");
+    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_BETA)) === "[4002]",
+        "IAPPackage should resolve additional paid role exchanges from synthetic role config");
+    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.ITEM_REWARD)) === "[5001]",
         "IAPPackage should resolve exchange-only item purchases from ExchangeAchievementConfig");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(107)) === "[3003]",
-        "IAPPackage should resolve dog house exchange purchase from ExchangeAchievementConfig");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(120)) === "[2005,2105,2205]",
+    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.BUILD_REWARD)) === "[5003]",
+        "IAPPackage should resolve synthetic build unlock purchases from ExchangeAchievementConfig");
+    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA)) === "[6001,6101,6201]",
         "IAPPackage should resolve ordered talent exchange levels from ExchangeAchievementConfig");
-    assert(sandbox.IAPPackage.getExchangeIdByPurchaseId(120) === 2105,
+    assert(sandbox.IAPPackage.getExchangeIdByPurchaseId(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === SYNTHETIC_EXCHANGE_IDS.TALENT_ALPHA_LV2,
         "IAPPackage should return the next unexchanged talent level after configured exchange sorting");
-    assert(sandbox.IAPPackage.isExchangePurchase(110) === true,
+    assert(sandbox.IAPPackage.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA) === true,
         "IAPPackage should keep exchange-role purchases on config-driven exchange flow");
-    assert(sandbox.IAPPackage.isExchangePurchase(203) === false,
+    assert(sandbox.IAPPackage.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW) === false,
         "IAPPackage should not treat consumable support packs as exchange-config purchases");
-    assert(sandbox.PurchaseService.isTalentPurchase(120) === true,
+    assert(sandbox.PurchaseService.isTalentPurchase(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
         "PurchaseService should source talent purchase detection from TalentService");
     sandbox.Medal.getTalentLevel = function () {
         throw new Error("purchase chain should source talent level state from TalentService");
     };
-    assert(sandbox.IAPPackage.isIAPUnlocked(120) === true,
+    assert(sandbox.IAPPackage.isIAPUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
         "IAPPackage should delegate talent unlock checks to TalentService");
-    assert(sandbox.IAPPackage.isPurchaseFullyUnlocked(120) === false,
+    assert(sandbox.IAPPackage.isPurchaseFullyUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === false,
         "IAPPackage should delegate talent max-level checks to TalentService");
-    assert(sandbox.PurchaseService.getShopUiState(120).currentTalentLevel === 2,
+    assert(sandbox.PurchaseService.getShopUiState(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA).currentTalentLevel === 2,
         "PurchaseService should source current talent level from TalentService when building shop state");
-    assert(sandbox.PurchaseService.getPriceOff(206) === 50,
+    assert(sandbox.PurchaseService.getPriceOff(SYNTHETIC_PURCHASE_IDS.DISCOUNT_PACK) === 50,
         "PurchaseService should source fixed support-pack discounts from purchase config");
-    const paidRoleType = sandbox.role.getRoleTypeByPurchaseId(108);
+    const paidRoleType = sandbox.role.getRoleTypeByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA);
     sandbox.PurchaseService.isUnlocked = function (purchaseId) {
-        return Number(purchaseId) === 108;
+        return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA;
     };
     sandbox.Medal.isExchanged = function () {
         throw new Error("role.isRoleUnlocked should prefer PurchaseService purchase-state checks");
@@ -190,7 +470,7 @@ function runPurchaseExchangeConfigSmoke() {
     return {
         name: "purchase-exchange-config",
         ok: true,
-        detail: "validated IAPPackage derives exchange mappings from config while talent gameplay ownership stays outside the purchase chain"
+        detail: "validated config-driven purchase mapping stays runtime-oriented without pinning live purchase ids"
     };
 }
 
@@ -205,14 +485,14 @@ function runPurchaseUiStateProjectionSmoke() {
         }
     };
     sandbox.ExchangeAchievementConfig = {
-        1001: {
+        4002: {
             type: "character",
             targetId: 8,
-            name: "Bell"
+            name: "Synthetic Role"
         },
-        2005: {
+        6001: {
             type: "talent",
-            targetId: 120
+            targetId: SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA
         }
     };
     sandbox.role = {
@@ -230,7 +510,7 @@ function runPurchaseUiStateProjectionSmoke() {
         },
         getShopUiState: function (purchaseId) {
             purchaseId = Number(purchaseId);
-            if (purchaseId === 203) {
+            if (purchaseId === SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW) {
                 return {
                     purchaseId: purchaseId,
                     isExchangePurchase: false,
@@ -250,9 +530,9 @@ function runPurchaseUiStateProjectionSmoke() {
             return {
                 purchaseId: purchaseId,
                 isExchangePurchase: true,
-                isTalentPurchase: purchaseId === 120,
+                isTalentPurchase: purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
                 isUnlocked: true,
-                currentTalentLevel: purchaseId === 120 ? 2 : 0,
+                currentTalentLevel: purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA ? 2 : 0,
                 priceOff: 50,
                 priceText: "15 成就点",
                 canBuy: false,
@@ -271,11 +551,11 @@ function runPurchaseUiStateProjectionSmoke() {
         },
         getExchangeIdsByPurchaseId: function (purchaseId) {
             purchaseId = Number(purchaseId);
-            if (purchaseId === 108) {
-                return [1001];
+            if (purchaseId === SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA) {
+                return [SYNTHETIC_EXCHANGE_IDS.ROLE_ALPHA];
             }
-            if (purchaseId === 120) {
-                return [2005];
+            if (purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) {
+                return [SYNTHETIC_EXCHANGE_IDS.TALENT_ALPHA_LV1];
             }
             return [];
         },
@@ -306,10 +586,10 @@ function runPurchaseUiStateProjectionSmoke() {
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
     loadIntoSandbox(sandbox, "assets/src/ui/PurchaseUiHelper.js");
 
-    const snapshot = sandbox.PurchaseUiHelper.getPurchaseUiSnapshot(120);
-    assert(snapshot.purchaseConfig && snapshot.purchaseConfig.id === 120,
+    const snapshot = sandbox.PurchaseUiHelper.getPurchaseUiSnapshot(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA);
+    assert(snapshot.purchaseConfig && snapshot.purchaseConfig.id === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
         "PurchaseUiHelper should resolve purchase config through PurchaseService");
-    assert(snapshot.shopState && snapshot.shopState.purchaseId === 120,
+    assert(snapshot.shopState && snapshot.shopState.purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
         "PurchaseUiHelper should resolve shop state through PurchaseService");
     assert(snapshot.isExchangePurchase === true
         && snapshot.isTalentPurchase === true
@@ -347,7 +627,7 @@ function runPurchaseUiStateProjectionSmoke() {
         }
     };
 
-    sandbox.PurchaseUiHelper.applyPayDialogState(120, {
+    sandbox.PurchaseUiHelper.applyPayDialogState(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA, {
         titleNode: {
             getChildByName: function (name) {
                 if (name === "price") {
@@ -372,17 +652,17 @@ function runPurchaseUiStateProjectionSmoke() {
         "PurchaseUiHelper should apply projected buy-button state onto pay dialogs");
     assert(offIcon.visible === true && offIcon.off === 50,
         "PurchaseUiHelper should apply projected discount state onto pay dialogs");
-    assert(sandbox.PurchaseUiHelper.isPurchaseUnlocked(120) === true,
+    assert(sandbox.PurchaseUiHelper.isPurchaseUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
         "PurchaseUiHelper unlock helper should read from PurchaseService shop state");
-    assert(sandbox.PurchaseUiHelper.isExchangePurchase(120) === true
-        && sandbox.PurchaseUiHelper.isTalentPurchase(120) === true,
+    assert(sandbox.PurchaseUiHelper.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true
+        && sandbox.PurchaseUiHelper.isTalentPurchase(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
         "PurchaseUiHelper should project exchange and talent flags through snapshot helpers");
-    assert(sandbox.PurchaseUiHelper.shouldRequestRemotePayInfo(120) === false
-        && sandbox.PurchaseUiHelper.shouldRequestRemotePayInfo(203) === true,
+    assert(sandbox.PurchaseUiHelper.shouldRequestRemotePayInfo(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === false
+        && sandbox.PurchaseUiHelper.shouldRequestRemotePayInfo(SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW) === true,
         "PurchaseUiHelper should expose whether a purchase still needs remote pay info");
-    assert(JSON.stringify(sandbox.PurchaseUiHelper.getExchangeIdsByPurchaseId(108)) === "[1001]"
-        && sandbox.PurchaseUiHelper.getExchangeIdByPurchaseId(108) === 1001
-        && sandbox.PurchaseUiHelper.getRoleTypeByPurchaseId(108) === 8,
+    assert(JSON.stringify(sandbox.PurchaseUiHelper.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA)) === "[4001]"
+        && sandbox.PurchaseUiHelper.getExchangeIdByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA) === SYNTHETIC_EXCHANGE_IDS.ROLE_ALPHA
+        && sandbox.PurchaseUiHelper.getRoleTypeByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA) === 8,
         "PurchaseUiHelper should expose exchange metadata helpers through PurchaseService");
     assert(sandbox.PurchaseUiHelper.getAchievementPointsText() === "成就点 77",
         "PurchaseUiHelper should source achievement points label text from PurchaseService");
@@ -396,14 +676,8 @@ function runPurchaseUiStateProjectionSmoke() {
 
 function runSentinelPurchaseIdSnapshotSmoke() {
     const sandbox = createVmSandbox();
-    sandbox.SafetyHelper = {
-        isEmpty: function (value) {
-            return value === undefined || value === null || value === "";
-        },
-        safeJSONParse: function (value) {
-            return JSON.parse(value);
-        }
-    };
+    sandbox.SafetyHelper = createSafetyHelper();
+    sandbox.PurchaseList = createSyntheticPurchaseList();
     sandbox.Medal = {
         getAchievementPoints: function () {
             return 0;
@@ -428,7 +702,6 @@ function runSentinelPurchaseIdSnapshotSmoke() {
 
     bootstrapRuntimeSandbox(sandbox);
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
@@ -458,28 +731,35 @@ function runTalentSelectionScopedStorageSmoke() {
             return 2;
         }
     };
+    sandbox.TalentConfigTable = createSyntheticTalentConfigTable();
     sandbox.Medal = {
         getTalentLevel: function (purchaseId) {
             purchaseId = Number(purchaseId);
-            return (purchaseId === 120 || purchaseId === 121 || purchaseId === 122) ? 1 : 0;
+            return purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA
+                || purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_BETA
+                || purchaseId === SYNTHETIC_PURCHASE_IDS.TALENT_GAMMA
+                ? 1
+                : 0;
         }
     };
 
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/data/talentConfigTable.js");
     loadIntoSandbox(sandbox, "assets/src/game/TalentService.js");
 
-    sandbox.cc.sys.localStorage.setItem("chosenTalents_slot_2", "[120]");
-    sandbox.cc.sys.localStorage.setItem("chosenTalent_slot_2", "121");
-    sandbox.cc.sys.localStorage.setItem("chosenTalents", "[122]");
+    sandbox.cc.sys.localStorage.setItem("chosenTalents_slot_2", "[160]");
+    sandbox.cc.sys.localStorage.setItem("chosenTalent_slot_2", "161");
+    sandbox.cc.sys.localStorage.setItem("chosenTalents", "[162]");
 
-    assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[120]",
+    assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[160]",
         "TalentService should only restore current slot talent selections from chosenTalents_slot storage");
-    sandbox.TalentService.chooseTalents([120, 121]);
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === "[120,121]",
+    sandbox.TalentService.chooseTalents([
+        SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
+        SYNTHETIC_PURCHASE_IDS.TALENT_BETA
+    ]);
+    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === "[160,161]",
         "TalentService should write the normalized slot-scoped talent selection only to chosenTalents_slot");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === "121"
-        && sandbox.cc.sys.localStorage.getItem("chosenTalents") === "[122]",
+    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === "161"
+        && sandbox.cc.sys.localStorage.getItem("chosenTalents") === "[162]",
         "TalentService should ignore legacy talent-selection keys instead of migrating them");
 
     return {
@@ -506,8 +786,8 @@ function runRoleSelectionScopedStorageSmoke() {
             return roleUnlocked && Number(roleType) === 8;
         }
     };
+    sandbox.RoleConfigTable = createSyntheticRoleConfigTable();
 
-    loadIntoSandbox(sandbox, "assets/src/data/roleConfigTable.js");
     loadIntoSandbox(sandbox, "assets/src/game/role.js");
 
     sandbox.cc.sys.localStorage.setItem("roleType", String(sandbox.RoleType.BELL));
@@ -545,6 +825,7 @@ function runPurchaseStructuredResultSmoke() {
     let achievementPoints = 100;
     let paidPurchaseIds = [];
     const runtimePlayer = createPurchaseRewardPlayer();
+    sandbox.PurchaseList = createSyntheticPurchaseList();
 
     sandbox.TalentService = {
         isTalentPurchaseId: function () {
@@ -564,18 +845,18 @@ function runPurchaseStructuredResultSmoke() {
         }
     };
     sandbox.ExchangeAchievementConfig = {
-        3001: {
+        5001: {
             type: "item",
-            targetId: 105,
+            targetId: SYNTHETIC_PURCHASE_IDS.ITEM_REWARD,
             cost: exchangeCost
         }
     };
     sandbox.IAPPackage = {
         getExchangeIdsByPurchaseId: function (purchaseId) {
-            return Number(purchaseId) === 105 ? [3001] : [];
+            return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.ITEM_REWARD ? [5001] : [];
         },
         getExchangeIdByPurchaseId: function (purchaseId) {
-            return Number(purchaseId) === 105 ? 3001 : null;
+            return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.ITEM_REWARD ? 5001 : null;
         },
         isIAPUnlocked: function () {
             return false;
@@ -591,7 +872,7 @@ function runPurchaseStructuredResultSmoke() {
         },
         getPurchaseConfig: function (purchaseId) {
             return {
-                price: Number(purchaseId) === 203 ? 6 : 12,
+                price: Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW ? 6 : 12,
                 productPriceStr: "$9.99",
                 priceIndex: 0
             };
@@ -606,31 +887,30 @@ function runPurchaseStructuredResultSmoke() {
         player: runtimePlayer
     });
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/plugin/purchaseList.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
 
-    const exchangeResult = capturePurchaseResult(sandbox, 105);
+    const exchangeResult = capturePurchaseResult(sandbox, SYNTHETIC_PURCHASE_IDS.ITEM_REWARD);
     assert(exchangeResult && exchangeResult.isSuccess === true
         && exchangeResult.isExchangePurchase === true
         && exchangeResult.unlockRewardGranted === true,
         "PurchaseService should return a structured success result for exchange purchases");
-    assert(runtimePlayer.storage.getNumByItemId(1305024) === 1,
+    assert(runtimePlayer.storage.getNumByItemId(SYNTHETIC_ITEM_IDS.BAG) === 1,
         "PurchaseService exchange purchases should still grant unlock rewards through the runtime player");
 
     achievementPoints = 0;
-    const consumableResult = capturePurchaseResult(sandbox, 203);
+    const consumableResult = capturePurchaseResult(sandbox, SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW);
     assert(consumableResult && consumableResult.isFailure === true
         && consumableResult.failedReason === sandbox.PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS,
         "PurchaseService should return a structured insufficient-points failure for consumable purchases");
 
     achievementPoints = 100;
-    const bypassResult = capturePurchaseResult(sandbox, 101);
+    const bypassResult = capturePurchaseResult(sandbox, SYNTHETIC_PURCHASE_IDS.DIRECT_UNLOCK);
     assert(bypassResult && bypassResult.isSuccess === true
         && bypassResult.isExchangePurchase === false
         && bypassResult.unlockRecorded === true
         && bypassResult.failedReason === null,
         "PurchaseService should return a structured unlock result for bypassed direct purchases");
-    assert(JSON.stringify(paidPurchaseIds) === "[105]",
+    assert(JSON.stringify(paidPurchaseIds) === "[151]",
         "PurchaseService should only invoke exchange payment side effects for the exchange path under this smoke");
 
     return {
@@ -747,6 +1027,7 @@ function runPlayerPersistenceUnsupportedSaveSmoke() {
     let purchaseReconcileCount = 0;
     let recordSaveCount = 0;
     let chosenRoleType = null;
+    let reconcilePurchaseIds = null;
 
     sandbox.ErrorHandler = {
         safeExecute: function (fn, context, fallbackValue) {
@@ -788,8 +1069,9 @@ function runPlayerPersistenceUnsupportedSaveSmoke() {
         }
     };
     sandbox.PurchaseService = {
-        reconcileUnlockRewardsForPlayer: function () {
+        reconcileUnlockRewardsForPlayer: function (playerObj, purchaseIds) {
             purchaseReconcileCount++;
+            reconcilePurchaseIds = purchaseIds;
             return true;
         }
     };
@@ -847,6 +1129,8 @@ function runPlayerPersistenceUnsupportedSaveSmoke() {
         "PlayerPersistenceService should reset role selection through the current slot role flow after unsupported saves");
     assert(calls.indexOf("zipline.restore") !== -1 && calls.indexOf("navigation.sync") !== -1,
         "PlayerPersistenceService should still restore deferred runtime components on the new-game path");
+    assert(reconcilePurchaseIds === undefined,
+        "PlayerPersistenceService should let PurchaseService decide unlock-reward purchase ids");
     assert(purchaseReconcileCount === 1 && recordSaveCount === 1,
         "PlayerPersistenceService should still run unlock reward reconciliation and persist rebuilt state after unsupported saves");
 
@@ -867,6 +1151,7 @@ function runPlayerPersistenceNewGameUnlockRewardSmoke() {
     let initialUnlockEnsureCount = 0;
     let specialItemsEnsureCount = 0;
     let recordSaveCount = 0;
+    let reconcilePurchaseIds = null;
 
     sandbox.ErrorHandler = {
         safeExecute: function (fn, context, fallbackValue) {
@@ -908,7 +1193,8 @@ function runPlayerPersistenceNewGameUnlockRewardSmoke() {
     sandbox.PurchaseService = {
         reconcileUnlockRewardsForPlayer: function (playerObj, purchaseIds) {
             purchaseReconcileCount++;
-            return !!(playerObj && JSON.stringify(purchaseIds) === "[105,106,107]");
+            reconcilePurchaseIds = purchaseIds;
+            return !!playerObj;
         }
     };
     sandbox.RoleRuntimeService = {
@@ -958,6 +1244,8 @@ function runPlayerPersistenceNewGameUnlockRewardSmoke() {
         "PlayerPersistenceService should initialize new-game talent and medal effects before reconciliation");
     assert(purchaseReconcileCount === 1,
         "PlayerPersistenceService should validate unlock reward entitlements even on a fresh new game");
+    assert(reconcilePurchaseIds === undefined,
+        "PlayerPersistenceService should not hardcode unlock reward purchase ids");
     assert(roomEnsureCount === 1 && initialUnlockEnsureCount === 1 && specialItemsEnsureCount === 1,
         "PlayerPersistenceService should run role-derived reconciliation on the new-game path");
     assert(recordSaveCount === 1,
@@ -968,7 +1256,7 @@ function runPlayerPersistenceNewGameUnlockRewardSmoke() {
     return {
         name: "player-persistence-new-game-unlock-reward",
         ok: true,
-        detail: "validated fresh new games also reconcile purchased unlock rewards such as backpack and boots"
+        detail: "validated fresh new games also reconcile purchased unlock rewards on the new-game path"
     };
 }
 
@@ -979,6 +1267,7 @@ function runPlayerPersistenceSupportedRestoreSmoke() {
     let chosenRoleType = null;
     let recordSaveCount = 0;
     let restoreAttrsKeys = null;
+    let reconcilePurchaseIds = null;
 
     sandbox.ErrorHandler = {
         safeExecute: function (fn, context, fallbackValue) {
@@ -1013,7 +1302,8 @@ function runPlayerPersistenceSupportedRestoreSmoke() {
         }
     };
     sandbox.PurchaseService = {
-        reconcileUnlockRewardsForPlayer: function () {
+        reconcileUnlockRewardsForPlayer: function (playerObj, purchaseIds) {
+            reconcilePurchaseIds = purchaseIds;
             return false;
         }
     };
@@ -1053,7 +1343,7 @@ function runPlayerPersistenceSupportedRestoreSmoke() {
                 },
                 isBombActive: true,
                 roleType: 8,
-                chosenTalentIds: [120],
+                chosenTalentIds: [160],
                 bag: { id: "bag" },
                 storage: { id: "storage" },
                 dog: { id: "dog" },
@@ -1092,10 +1382,12 @@ function runPlayerPersistenceSupportedRestoreSmoke() {
 
     assert(playerObj.roleType === 8 && chosenRoleType === 8,
         "PlayerPersistenceService should restore and persist the supported save role selection");
-    assert(JSON.stringify(chooseTalentsArgs) === "[120]",
+    assert(JSON.stringify(chooseTalentsArgs) === "[160]",
         "PlayerPersistenceService should restore supported save talent selections through TalentService");
     assert(JSON.stringify(restoreAttrsKeys) === JSON.stringify(sandbox.PlayerPersistenceService.RESTORE_ATTR_KEYS),
         "PlayerPersistenceService should restore the supported attribute set through the attr helper");
+    assert(reconcilePurchaseIds === undefined,
+        "PlayerPersistenceService should keep unlock reward reconciliation routed through PurchaseService ownership");
     assert(playerObj.navigationState.lastRestore
         && playerObj.navigationState.lastRestore.locationType === "map",
         "PlayerPersistenceService should restore navigation only from the normalized navigationState object");

@@ -25,7 +25,6 @@ var getPlayerPersistenceRecord = function () {
 var PlayerPersistenceService = {
     SAVE_SCHEMA_VERSION: 3,
     MIN_SUPPORTED_SCHEMA_VERSION: 2,
-    UNLOCK_REWARD_PURCHASE_IDS: [105, 106, 107],
     ATTR_KEYS: ["hp", "spirit", "starve", "vigour", "injury", "infect", "temperature"],
     RESTORE_ATTR_KEYS: ["hp", "hpMaxOrigin", "hpMax", "spirit", "starve", "vigour", "injury", "infect", "temperature"],
     SAVE_COMPONENTS: [
@@ -249,7 +248,7 @@ var PlayerPersistenceService = {
         var purchaseService = getPlayerPersistencePurchaseService();
         if (purchaseService
             && typeof purchaseService.reconcileUnlockRewardsForPlayer === "function"
-            && purchaseService.reconcileUnlockRewardsForPlayer(playerInstance, this.UNLOCK_REWARD_PURCHASE_IDS)) {
+            && purchaseService.reconcileUnlockRewardsForPlayer(playerInstance)) {
             hasRestoreMutation = true;
         }
 

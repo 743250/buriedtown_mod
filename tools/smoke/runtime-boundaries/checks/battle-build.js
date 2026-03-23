@@ -1017,7 +1017,7 @@ function runBuildActionRuntimeRoleSmoke() {
         getRoleConfig: function (roleType) {
             roleType = Number(roleType);
             if (roleType === 1) {
-                return { actionTags: ["luo"] };
+                return { actionTags: ["active-role"] };
             }
             if (roleType === 6) {
                 return { actionTags: [] };
@@ -1040,14 +1040,18 @@ function runBuildActionRuntimeRoleSmoke() {
     sandbox.WORK_SITE = 99;
     sandbox.buildConfig = {
         "15": [{
-            produceList: [1201071]
+            produceList: [990001]
         }]
     };
     sandbox.BuildActionFactory = {
         createBuildActions: function () {
             return [{
-                id: 1201071,
-                config: sandbox.formulaConfig["1201071"],
+                id: 990001,
+                config: {
+                    runtimeRule: {
+                        includeAnyTags: ["active-role"]
+                    }
+                },
                 save: function () {
                     return {};
                 },
@@ -1069,7 +1073,6 @@ function runBuildActionRuntimeRoleSmoke() {
 
     loadIntoSandbox(sandbox, "assets/src/game/GameRuntime.js");
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
-    loadIntoSandbox(sandbox, "assets/src/data/formulaConfig.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
     loadIntoSandbox(sandbox, "assets/src/game/RoleRuntimeService.js");
     sandbox.GameRuntime.bootstrap({
@@ -1083,8 +1086,8 @@ function runBuildActionRuntimeRoleSmoke() {
 
     const build = new sandbox.Build(15, 0);
     const actions = build.getBuildActions();
-    assert(actions.length === 1 && actions[0].id === 1201071,
-        "Build.getBuildActions should filter role-tagged formulas by runtime player roleType, not chosen-role storage");
+    assert(actions.length === 1 && actions[0].id === 990001,
+        "Build.getBuildActions should filter role-tagged actions by runtime player roleType, not chosen-role storage");
 
     return {
         name: "build-action-runtime-role",
