@@ -8,6 +8,7 @@ function runSyntaxSmoke() {
         "assets/src/data/playerAttrEffect.js",
         "assets/src/data/itemConfig.js",
         "assets/src/data/weatherConfig.js",
+        "assets/src/game/record.js",
         "assets/src/game/GameRuntime.js",
         "assets/src/game/GameKernel.js",
         "assets/src/game/game.js",

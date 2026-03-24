@@ -347,7 +347,9 @@ var BattleActors = (function () {
 
             var runtimePlayer = getBattleActorsRuntimePlayer();
             runtimePlayer.changeAttr("hp", -harm);
-            runtimePlayer.changeAttr("injury", 1);
+            if (harm > 0) {
+                runtimePlayer.changeAttr("injury", 1);
+            }
         },
         die: function () {
             cc.e("player die");

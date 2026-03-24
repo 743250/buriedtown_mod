@@ -11,15 +11,7 @@ var getPlayerPersistencePurchaseService = function () {
     return GameKernel.get("PurchaseService");
 };
 var getPlayerPersistenceRecord = function () {
-    if (typeof GameRuntime !== "undefined"
-        && GameRuntime
-        && typeof GameRuntime.getRecord === "function") {
-        return GameRuntime.getRecord();
-    }
-    if (typeof Record !== "undefined") {
-        return Record;
-    }
-    return null;
+    return GameRuntime.requireRecord();
 };
 
 var PlayerPersistenceService = {

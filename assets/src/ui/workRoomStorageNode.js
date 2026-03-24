@@ -1,14 +1,27 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getWorkRoomStorageRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getWorkRoomStorageRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getWorkRoomStorageRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var WorkRoomStorageNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
         var siteId = this.userData.siteId;
+        var runtimePlayer = getWorkRoomStorageRuntimePlayer();
         this.workRoom = this.userData.room;
-        this.site = player.map.getSite(siteId);
+        this.site = runtimePlayer.map.getSite(siteId);
         this.setName(Navigation.nodeName.WORK_ROOM_STORAGE_NODE);
         var workRoomTitle = stringUtil.getString(3007)[this.workRoom.workType];
         var isScavengerDouble = !!(this.workRoom && this.workRoom.scavengerDoubleTriggered);
@@ -34,7 +47,7 @@ var WorkRoomStorageNode = BottomFrameNode.extend({
             self.storage.increaseItem(itemInfo.itemId, itemInfo.num);
         });
 
-        var itemChangeNode = new ItemChangeNode(player.bag, stringUtil.getString(1034), this.storage, this.uiConfig.title, true, true);
+        var itemChangeNode = new ItemChangeNode(runtimePlayer.bag, stringUtil.getString(1034), this.storage, this.uiConfig.title, true, true);
         itemChangeNode.setAnchorPoint(0.5, 0);
         itemChangeNode.setPosition(this.bgRect.width / 2, 100);
         this.bg.addChild(itemChangeNode);
@@ -54,7 +67,7 @@ var WorkRoomStorageNode = BottomFrameNode.extend({
         btn.setPosition(this.bgRect.width / 2, 60);
         this.bg.addChild(btn);
         btn.setName("btn");
-        utils.emitter.on("guideNextRoom",function(){
+        getWorkRoomStorageRuntimeEmitter().on("guideNextRoom",function(){
             if(userGuide.isStep(userGuide.stepName.BACK_ROOM)){
                 uiUtil.createIconWarn(btn);
                 userGuide.step();
@@ -67,7 +80,7 @@ var WorkRoomStorageNode = BottomFrameNode.extend({
     },
     onExit: function () {
         this._super();
-        utils.emitter.off("guideNextRoom");
+        getWorkRoomStorageRuntimeEmitter().off("guideNextRoom");
     },
     flushItems: function () {
         cc.i("last items in room move to site storage")
@@ -75,7 +88,7 @@ var WorkRoomStorageNode = BottomFrameNode.extend({
         this.storage.forEach(function (item, num) {
             self.site.increaseItem(item.id, num);
         });
-        Record.saveAll();
+        getWorkRoomStorageRuntimeRecord().saveAll();
     },
 
     onClickLeftBtn: function () {
@@ -85,7 +98,7 @@ var WorkRoomStorageNode = BottomFrameNode.extend({
     onClickRightBtn: function () {
         if(userGuide.isStep(userGuide.stepName.BACK_ROOM)){
             userGuide.step();
-            utils.emitter.emit("nextStep");
+            getWorkRoomStorageRuntimeEmitter().emit("nextStep");
         }
         this.flushItems();
         this.replace(Navigation.nodeName.BATTLE_AND_WORK_NODE, this.userData.siteId);

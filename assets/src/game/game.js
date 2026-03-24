@@ -2,6 +2,15 @@
  * Created by lancelot on 15/5/16.
  */
 var player;
+var getGameRuntimePlayer = function () {
+    return GameRuntime.requirePlayer();
+};
+var getGameRuntimeTimer = function () {
+    return GameRuntime.requireTimer();
+};
+var getGameRuntimeRecord = function () {
+    return GameRuntime.requireRecord();
+};
 var game = {
     init: function () {
         Record.init(Record.getCurrentRecordName());
@@ -14,8 +23,10 @@ var game = {
         GameRuntime.setEmitter(new Emitter());
         GameRuntime.setTimer(new TimerManager());
         GameRuntime.setPlayer(new Player());
-        player = GameRuntime.getPlayer();
-        player.restore();
+        if (typeof Record.bindRuntime === "function") {
+            Record.bindRuntime(GameRuntime);
+        }
+        getGameRuntimePlayer().restore();
         userGuide.init();
         Medal.initCompletedForOneGame(false);
         if (!Record.restore('randomPack')) {
@@ -23,20 +34,19 @@ var game = {
         }
     },
     start: function () {
-        player.start();
+        var runtimePlayer = getGameRuntimePlayer();
+        runtimePlayer.start();
         if (typeof TalentService !== "undefined"
             && TalentService
             && typeof TalentService.applyActiveTalentStartGifts === "function") {
-            var gifted = TalentService.applyActiveTalentStartGifts(player);
-            if (gifted && typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
-                Record.saveAll();
+            var gifted = TalentService.applyActiveTalentStartGifts(runtimePlayer);
+            if (gifted) {
+                getGameRuntimeRecord().saveAll();
             }
         }
     },
     stop: function () {
-        if (cc.timer) {
-            cc.timer.stop();
-        }
+        getGameRuntimeTimer().stop();
     },
     newGame: function () {
         Record.deleteRecord(Record.getCurrentRecordName());
@@ -52,6 +62,6 @@ var game = {
     relive: function () {
         this.init();
         this.start();
-        player.relive();
+        getGameRuntimePlayer().relive();
     }
 };

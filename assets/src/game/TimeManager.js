@@ -1,6 +1,23 @@
 /**
  * Created by lancelot on 15/4/1.
  */
+var getTimerManagerRuntimeRecord = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getRecord === "function") {
+        return GameRuntime.getRecord();
+    }
+    return typeof Record !== "undefined" ? Record : null;
+};
+
+var getTimerManagerRuntimePlayer = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getPlayer === "function") {
+        return GameRuntime.getPlayer();
+    }
+    return typeof player !== "undefined" ? player : null;
+};
 
 var TimerManager = cc.Class.extend({
     ctor: function () {
@@ -38,7 +55,10 @@ var TimerManager = cc.Class.extend({
     },
 
     restore: function () {
-        var opt = Record.restore("time");
+        var runtimeRecord = getTimerManagerRuntimeRecord();
+        var opt = runtimeRecord && typeof runtimeRecord.restore === "function"
+            ? runtimeRecord.restore("time")
+            : null;
         if (opt) {
             this.time = opt.time;
         }
@@ -343,7 +363,7 @@ var TimerManager = cc.Class.extend({
         var s = this.getSeason();
         if (s != this.currentSeason) {
             this.currentSeason = s;
-            player.log.addMsg(stringUtil.getString(3016)[this.currentSeason]);
+            getTimerManagerRuntimePlayer().log.addMsg(stringUtil.getString(3016)[this.currentSeason]);
             Achievement.checkSeason(this.currentSeason);
         }
     },

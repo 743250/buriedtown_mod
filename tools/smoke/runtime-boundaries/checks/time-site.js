@@ -121,7 +121,73 @@ function runWorkSiteMaintenanceCatchupSmoke() {
     };
 }
 
+function runRecordRuntimeBindingSmoke() {
+    const sandbox = createVmSandbox();
+    let playerSaveCount = 0;
+    let timerSaveCount = 0;
+    sandbox.SafetyHelper = {
+        safeJSONParse: function (value, fallbackValue) {
+            if (!value) {
+                return fallbackValue;
+            }
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/game/GameRuntime.js");
+    loadIntoSandbox(sandbox, "assets/src/game/record.js");
+
+    sandbox.Record.init("slot1");
+    sandbox.GameRuntime.bootstrap({
+        record: sandbox.Record,
+        player: {
+            save: function () {
+                playerSaveCount++;
+                return { hp: 240 };
+            }
+        },
+        timer: {
+            save: function () {
+                timerSaveCount++;
+                return { time: 123 };
+            }
+        }
+    });
+    sandbox.Record.bindRuntime(sandbox.GameRuntime);
+
+    sandbox.player = {
+        save: function () {
+            throw new Error("Record.saveAll should not read the global player");
+        }
+    };
+    sandbox.cc.timer = {
+        save: function () {
+            throw new Error("Record.saveAll should not read the global timer");
+        }
+    };
+
+    sandbox.Record.saveAll();
+
+    assert(playerSaveCount === 1 && timerSaveCount === 1,
+        "Record.saveAll should persist player and timer from the bound GameRuntime");
+    assert(sandbox.Record.recordObj.player && sandbox.Record.recordObj.player.hp === 240,
+        "Record.saveAll should store the runtime player payload");
+    assert(sandbox.Record.recordObj.time && sandbox.Record.recordObj.time.time === 123,
+        "Record.saveAll should store the runtime timer payload");
+
+    return {
+        name: "record-runtime-binding",
+        ok: true,
+        detail: "validated Record.saveAll persists through the bound GameRuntime instead of direct globals"
+    };
+}
+
 module.exports = [
     runTimerRepeatAlignmentSmoke,
-    runWorkSiteMaintenanceCatchupSmoke
+    runWorkSiteMaintenanceCatchupSmoke,
+    runRecordRuntimeBindingSmoke
 ];

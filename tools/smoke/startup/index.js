@@ -306,6 +306,7 @@ function runPreloadingFlowSmoke() {
 function runGameBootstrapSmoke() {
     const calls = {
         recordInitNames: [],
+        boundRuntime: null,
         navInit: 0,
         emitters: 0,
         timers: 0,
@@ -332,6 +333,9 @@ function runGameBootstrapSmoke() {
         Record: {
             init: function (name) {
                 calls.recordInitNames.push(name);
+            },
+            bindRuntime: function (runtime) {
+                calls.boundRuntime = runtime;
             },
             getCurrentRecordName: function () {
                 return "slot1";
@@ -404,6 +408,7 @@ function runGameBootstrapSmoke() {
     sandbox.game.start();
 
     assert(calls.recordInitNames.length === 1 && calls.recordInitNames[0] === "slot1", "game.init must initialize Record with current slot");
+    assert(calls.boundRuntime === sandbox.GameRuntime, "game.init must bind Record to GameRuntime once runtime is ready");
     assert(calls.navInit === 1, "game.init must initialize Navigation once");
     assert(calls.emitters === 1, "game.init must create one runtime emitter");
     assert(calls.timers === 1, "game.init must create one timer manager");

@@ -108,7 +108,7 @@ T 版借鉴原则（保留）：只借鉴“功能独立打包”，不回迁 UI
 | 3B | ✅ 完成 | 兑换映射去硬编码 |
 | 3C | ✅ 完成 | 天赋选择兼容收口 |
 | 3D | 🔄 进行中 | 购买链职责收边，清理硬编码 |
-| 3E | ⏳ 待开始 | runtime 真源唯一化 |
+| 3E | 🔄 进行中 | runtime 真源唯一化 |
 | 3F | 🔄 进行中 | shop state 单一入口 |
 | 3G | ⏳ 待开始 | restore / migration 分层 |
 
@@ -116,6 +116,10 @@ T 版借鉴原则（保留）：只借鉴“功能独立打包”，不回迁 UI
 1. 收完 3F（锁定 `PurchaseService.getShopUiState()`）
 2. 清 3E（双轨 runtime fallback）
 3. 做 3G（restore/migration 分层）
+
+3E 已收口的窄边界：
+- `MapNode` / `MapEntity` / `home` / `MapZiplineController` / `MapZiplineBuildController` / `ZiplineEndpointPanelController` / `ZiplineActionService`
+- `buildNode` / `gateNode` / `storageNode` / `siteStorageNode` / `workRoomStorageNode` / `npcStorageNode` / `equipNode` / `SectionTableView` / `ItemChangeNode`
 
 ## 7. 统一约束与验证
 
@@ -165,12 +169,60 @@ node tools/run-smoke.js runtime-boundaries startup
 - `tools/run-smoke.js runtime-boundaries startup` 通过
 - 最小人工回归通过（`MenuScene` / `ChooseScene` / `MainScene`）
 
+### 7.2 子代理与 Hook 使用策略（新增）
+
+目标：让“结构收口”阶段的协作方式也服务主线，不把多代理和自动化变成新的双轨来源。
+
+子代理使用原则：
+- 子代理以“只读分析、清单化、契约梳理、回归面收集”为主，不默认并行改高风险入口
+- 主代理负责最终实现收口；高风险文件默认单线程改动
+- 子代理适用于大任务拆分，不适用于简单链路修补
+- 子代理输出应优先是：调用链清单、契约字段列表、风险点、最小回归建议
+
+子代理推荐落点：
+- 3D / 3F：拆分扫描 `PurchaseService.js` / `PurchaseUiHelper.js` / `uiUtil.js` / `dialog.js` 的 shop state 消费与重复推导点，由主代理统一收口到 `PurchaseService.getShopUiState()`
+- 3E：按 runtime fallback 清单逐项核对现状，并单独审查启动链写回点是否继续泄漏到 `GameRuntime` 之外
+- 3G：分离 `restore` 调用图、`migration` 规则清单、读档热路径副作用，再由主代理统一做分层实现
+- Phase 4：整理特殊 itemId / weapon id 散落点，按“配置 / 局部 service / UI 显示”三类归档
+
+子代理禁区：
+- 不并行改 `jsList.js` / `game.js` / `GameRuntime.js` / `player.js` / `site.js` / `IAPPackage.js` / `PurchaseService.js` / `uiUtil.js`
+- 不为赶进度新增 fallback、影子状态、一次性 helper
+- 不让不同子代理各自补兼容分支后再尝试拼接
+
+Hook 使用原则：
+- Hook 负责“守回归”，不负责承载业务逻辑
+- `pre-commit` 只放快速、明确、与改动范围强相关的检查
+- `pre-push` 放全量内容校验和较慢的 smoke
+- Hook 失败信息应直接指向配置类型、入口文件或 smoke 名称，便于快速回退
+
+推荐 Hook 分层：
+- `pre-commit`：
+  - 对暂存的 `*.js` 执行 `node --check`
+  - 改到高风险入口时执行 `node tools/run-smoke.js runtime-boundaries startup`
+  - 改到内容配置时执行定向校验：
+    - `itemConfig.js` / 字符串表 / 物品展示链：`node tools/validate-content.js item-ui --strict-text`
+    - `buildConfig.js`：`node tools/validate-content.js links build --lang zh`
+    - `buildActionConfig.js`：`node tools/validate-content.js links build-action --lang zh`
+    - 武器/战斗链：`node tools/validate-content.js weapon-links --lang zh`
+    - 站点链：`node tools/validate-content.js site-links --lang zh`
+- `pre-push`：
+  - `node tools/validate-content.js all --lang zh`
+  - `node tools/validate-content.js all --lang en`
+  - `node tools/run-smoke.js runtime-boundaries startup`
+
+执行建议：
+- Phase 3 主线默认采用“1 个主代理 + 只读子代理 + hook 护栏”
+- Phase 4 内容收口可增加 1 个清单型子代理，但仍由主代理统一落代码
+- 在 R7 `dialog / uiUtil` 职责收口完成前，不扩张为复杂 UI 自动化 hook
+- 如果某轮任务无法明确切成只读分析与单点实现两部分，则优先不用子代理
+
 ## 8. R 系列整改计划（精简但保留）
 
 | R | 状态 | 目标 |
 |---|------|------|
 | R1 | 🔄 进行中 | 边界清单化 + 契约断言 |
-| R2 | ⏳ 待开始 | runtime 真源唯一化（对齐 3E） |
+| R2 | 🔄 进行中 | runtime 真源唯一化（对齐 3E） |
 | R3 | 🔄 进行中 | shop state 单一入口（对齐 3F） |
 | R4 | ⏳ 待开始 | restore/migration 分层（对齐 3G） |
 | R5 | ⏳ 待开始 | 配置 fallback 清退 |

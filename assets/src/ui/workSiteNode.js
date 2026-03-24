@@ -1,6 +1,18 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getWorkSiteRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getWorkSiteRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getWorkSiteRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var workSiteConfig = {
     smallMaintenanceTime: 60,
     smallMaintenanceValue: 20,
@@ -95,7 +107,7 @@ var WorkSiteNode = BottomFrameNode.extend({
     },
     _buildCostItems: function (items) {
         var clonedItems = utils.clone(items);
-        player.validateItemsInBag(clonedItems);
+        getWorkSiteRuntimePlayer().validateItemsInBag(clonedItems);
         return clonedItems.map(function (itemInfo) {
             return {
                 itemId: itemInfo.itemId,
@@ -114,10 +126,11 @@ var WorkSiteNode = BottomFrameNode.extend({
         var pastTime = 0;
         var self = this;
         var time = timeMinutes * 60;
+        var runtimePlayer = getWorkSiteRuntimePlayer();
         this.currentMaintenanceAction = actionId;
         this.updateView();
 
-        cc.timer.addTimerCallback(new TimerCallback(time, this, {
+        getWorkSiteRuntimeTimer().addTimerCallback(new TimerCallback(time, this, {
             process: function (dt) {
                 pastTime += dt;
                 if (actionId === "small") {
@@ -127,20 +140,20 @@ var WorkSiteNode = BottomFrameNode.extend({
                 }
             },
             end: function () {
-                player.costItemsInBag(utils.clone(items));
+                runtimePlayer.costItemsInBag(utils.clone(items));
                 endCb.call(self);
-                Record.saveAll();
+                getWorkSiteRuntimeRecord().saveAll();
                 self.currentMaintenanceAction = null;
                 self.updateView();
             }
         }));
-        cc.timer.accelerateWorkTime(time);
+        getWorkSiteRuntimeTimer().accelerateWorkTime(time);
     },
     onClickSmallMaintenance: function () {
         if (!this.site.isActive || this._isMaintenanceFull()) {
             return;
         }
-        if (!player.validateItemsInBag(utils.clone(workSiteConfig.smallMaintenanceItems))) {
+        if (!getWorkSiteRuntimePlayer().validateItemsInBag(utils.clone(workSiteConfig.smallMaintenanceItems))) {
             return;
         }
         this._runMaintenanceAction(
@@ -156,7 +169,7 @@ var WorkSiteNode = BottomFrameNode.extend({
         if (this.site.isActive && this._isMaintenanceFull()) {
             return;
         }
-        if (!player.validateItemsInBag(utils.clone(workSiteConfig.largeMaintenanceItems))) {
+        if (!getWorkSiteRuntimePlayer().validateItemsInBag(utils.clone(workSiteConfig.largeMaintenanceItems))) {
             return;
         }
         this._runMaintenanceAction(
@@ -170,8 +183,9 @@ var WorkSiteNode = BottomFrameNode.extend({
     },
     updateView: function () {
         var isRepairing = !!this.currentMaintenanceAction;
-        var smallCostReady = player.validateItemsInBag(utils.clone(workSiteConfig.smallMaintenanceItems));
-        var largeCostReady = player.validateItemsInBag(utils.clone(workSiteConfig.largeMaintenanceItems));
+        var runtimePlayer = getWorkSiteRuntimePlayer();
+        var smallCostReady = runtimePlayer.validateItemsInBag(utils.clone(workSiteConfig.smallMaintenanceItems));
+        var largeCostReady = runtimePlayer.validateItemsInBag(utils.clone(workSiteConfig.largeMaintenanceItems));
         var isMaintenanceFull = this._isMaintenanceFull();
 
         this.statusView.updateView({

@@ -1,6 +1,15 @@
 /**
  * Created by lancelot on 15/4/27.
  */
+var getEquipmentRuntimePlayer = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getPlayer === "function") {
+        return GameRuntime.getPlayer();
+    }
+    return typeof player !== "undefined" ? player : null;
+};
+
 var EquipmentPos = {
     GUN: 0,
     WEAPON: 1,
@@ -15,7 +24,7 @@ var Equipment = cc.Class.extend({
     equip: function (pos, itemId) {
         cc.i(pos + " equip " + itemId);
         if (itemId !== Equipment.HAND) {
-            if (!player.bag.validateItem(itemId, 1)) {
+            if (!getEquipmentRuntimePlayer().bag.validateItem(itemId, 1)) {
                 return false;
             }
         }
@@ -81,8 +90,9 @@ var Equipment = cc.Class.extend({
     },
 
     haveWeapon: function () {
-        var gunItemId = player.equip.getEquip(EquipmentPos.GUN);
-        var weaponItemId = player.equip.getEquip(EquipmentPos.WEAPON);
+        var runtimePlayer = getEquipmentRuntimePlayer();
+        var gunItemId = runtimePlayer.equip.getEquip(EquipmentPos.GUN);
+        var weaponItemId = runtimePlayer.equip.getEquip(EquipmentPos.WEAPON);
         return gunItemId || (weaponItemId && weaponItemId != Equipment.HAND);
     }
 

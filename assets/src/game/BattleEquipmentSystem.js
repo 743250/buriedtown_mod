@@ -42,6 +42,14 @@ var BattleEquipmentSystem = (function () {
     var getTalentService = function () {
         return (typeof TalentService !== "undefined" && TalentService) ? TalentService : null;
     };
+    var getBattleEquipmentRuntimePlayer = function () {
+        if (typeof GameRuntime !== "undefined"
+            && GameRuntime
+            && typeof GameRuntime.getPlayer === "function") {
+            return GameRuntime.getPlayer();
+        }
+        return typeof player !== "undefined" ? player : null;
+    };
 
     var callTalentRuntime = function (methodName, defaultValue) {
         var args = Array.prototype.slice.call(arguments, 2);
@@ -64,27 +72,28 @@ var BattleEquipmentSystem = (function () {
     var applyStatusPreciseAdjustments = function (precise, options) {
         options = options || {};
         var adjustedPrecise = precise;
+        var runtimePlayer = getBattleEquipmentRuntimePlayer();
 
-        if (player && player.weather && typeof player.weather.getValue === "function") {
-            adjustedPrecise += player.weather.getValue("gun_precise");
+        if (runtimePlayer && runtimePlayer.weather && typeof runtimePlayer.weather.getValue === "function") {
+            adjustedPrecise += runtimePlayer.weather.getValue("gun_precise");
         }
 
-        var spiritPenalty = RoleRuntimeService.getSpiritPrecisePenalty(player);
+        var spiritPenalty = RoleRuntimeService.getSpiritPrecisePenalty(runtimePlayer);
         if (spiritPenalty > 0) {
             adjustedPrecise -= spiritPenalty;
             if (options.logPenalty) {
-                cc.log("spirit " + memoryUtil.decode(player.spirit));
+                cc.log("spirit " + memoryUtil.decode(runtimePlayer.spirit));
                 cc.log("decPreciseBySpirit " + spiritPenalty);
             }
         }
 
         var vigourPenalty = RoleRuntimeService.getVigourPrecisePenalty
-            ? RoleRuntimeService.getVigourPrecisePenalty(player)
+            ? RoleRuntimeService.getVigourPrecisePenalty(runtimePlayer)
             : 0;
         if (vigourPenalty > 0) {
             adjustedPrecise -= vigourPenalty;
             if (options.logPenalty) {
-                cc.log("vigour " + memoryUtil.decode(player.vigour));
+                cc.log("vigour " + memoryUtil.decode(runtimePlayer.vigour));
                 cc.log("decPreciseByVigour " + vigourPenalty);
             }
         }
@@ -227,7 +236,7 @@ var BattleEquipmentSystem = (function () {
             if (!(atkCD > 0)) {
                 atkCD = 0.1;
             }
-            return roundBattleTime(atkCD * player.vigourEffect());
+            return roundBattleTime(atkCD * getBattleEquipmentRuntimePlayer().vigourEffect());
         },
         update: function (battleTime) {
             battleTime = this.resolveBattleTime(battleTime);
@@ -501,7 +510,7 @@ var BattleEquipmentSystem = (function () {
         cost: function () {
         },
         isEnough: function () {
-            return player.map.getSite(WORK_SITE).isActive;
+            return getBattleEquipmentRuntimePlayer().map.getSite(WORK_SITE).isActive;
         },
         getBulletHarm: function () {
             return this.attr.atk;

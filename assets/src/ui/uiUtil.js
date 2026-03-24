@@ -753,12 +753,80 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
     var contentMinWidth = 220;
     var contentDefaultWidth = 300;
 
+    var hintScrollBarWidth = 4;
+    var hintScrollBarGap = 4;
+    var hintMinHeight = uiUtil.fontSize.COMMON_3 + 6;
+    var hintScrollContent = new cc.Node();
+    hintScrollContent.setAnchorPoint(0, 0);
+    hintScrollContent.setContentSize(contentDefaultWidth, hintMinHeight);
+
+    var hintScrollView = new cc.ScrollView(cc.size(contentDefaultWidth, hintMinHeight), hintScrollContent);
+    hintScrollView.setDirection(cc.SCROLLVIEW_DIRECTION_VERTICAL);
+    hintScrollView.setBounceable(false);
+    hintScrollView.setClippingToBounds(true);
+    hintScrollView.setAnchorPoint(0, 0);
+    hintScrollView.setPosition(contentBaseX, contentBaseY - hintMinHeight);
+    hintScrollView.setName("hintScrollView");
+    if (typeof hintScrollView.setTouchEnabled === "function") {
+        hintScrollView.setTouchEnabled(false);
+    }
+    bgNode.addChild(hintScrollView);
+
     var hint = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(contentDefaultWidth, 0));
-    hint.setPosition(contentBaseX, contentBaseY);
     hint.setAnchorPoint(0, 1);
     hint.setName("hint");
     hint.setColor(UITheme.colors.WHITE);
-    bgNode.addChild(hint);
+    hintScrollContent.addChild(hint);
+
+    var hintScrollTrack = uiUtil.createColorRect(cc.size(hintScrollBarWidth, hintMinHeight), UITheme.colors.GRAY, 120);
+    hintScrollTrack.setAnchorPoint(0, 0);
+    hintScrollTrack.setPosition(contentBaseX + contentDefaultWidth + hintScrollBarGap, contentBaseY - hintMinHeight);
+    hintScrollTrack.setVisible(false);
+    bgNode.addChild(hintScrollTrack);
+
+    var hintScrollThumb = uiUtil.createColorRect(cc.size(hintScrollBarWidth, hintMinHeight), UITheme.colors.WHITE, 220);
+    hintScrollThumb.setAnchorPoint(0, 1);
+    hintScrollThumb.setPosition(hintScrollTrack.getPositionX(), contentBaseY);
+    hintScrollThumb.setVisible(false);
+    bgNode.addChild(hintScrollThumb);
+
+    var updateHintScrollThumb = function () {
+        var viewSize = hintScrollView.getViewSize ? hintScrollView.getViewSize() : cc.size(contentDefaultWidth, hintMinHeight);
+        var contentSize = hintScrollView.getContentSize ? hintScrollView.getContentSize() : cc.size(viewSize.width, viewSize.height);
+        var trackHeight = hintScrollTrack.getContentSize().height;
+        var minOffsetY = Math.min(0, viewSize.height - contentSize.height);
+        var hasOverflow = contentSize.height > viewSize.height + 1 && trackHeight > 0;
+
+        hintScrollTrack.setVisible(hasOverflow);
+        hintScrollThumb.setVisible(hasOverflow);
+
+        if (!hasOverflow) {
+            return;
+        }
+
+        var thumbHeight = Math.max(14, Math.floor(trackHeight * viewSize.height / contentSize.height));
+        var maxTravel = Math.max(0, trackHeight - thumbHeight);
+        var offsetY = hintScrollView.getContentOffset ? hintScrollView.getContentOffset().y : minOffsetY;
+        var ratio = minOffsetY === 0 ? 0 : (offsetY - minOffsetY) / (0 - minOffsetY);
+        ratio = Math.max(0, Math.min(1, ratio));
+
+        hintScrollThumb.setContentSize(cc.size(hintScrollBarWidth, thumbHeight));
+        hintScrollThumb.setPosition(
+            hintScrollTrack.getPositionX(),
+            hintScrollTrack.getPositionY() + trackHeight - maxTravel * ratio
+        );
+    };
+
+    var hintScrollDelegate = {
+        scrollViewDidScroll: function () {
+            updateHintScrollThumb();
+        },
+        scrollViewDidZoom: function () {
+        }
+    };
+    if (typeof hintScrollView.setDelegate === "function") {
+        hintScrollView.setDelegate(hintScrollDelegate);
+    }
 
     var pbBg = autoSpriteFrameController.getSpriteFromSpriteName("#pb_bg.png");
     pbBg.setPosition(contentBaseX, progressDefaultY);
@@ -820,12 +888,17 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
         return Math.max(contentMinWidth, rightEdge - contentBaseX);
     };
 
-    var updateHintWidth = function () {
+    var getHintContentWidth = function () {
         var contentWidth = getContentWidth();
+        return Math.max(120, contentWidth - hintScrollBarWidth - hintScrollBarGap);
+    };
+
+    var updateHintWidth = function () {
+        var hintContentWidth = getHintContentWidth();
         if (hint.setDimensions) {
-            hint.setDimensions(cc.size(contentWidth, 0));
+            hint.setDimensions(cc.size(hintContentWidth, 0));
         }
-        return contentWidth;
+        return hintContentWidth;
     };
 
     var ensureRichTextButton = function (richText) {
@@ -897,18 +970,63 @@ uiUtil.createCommonListItem = function (clickIcon, action1, action2) {
         }
     };
     var relayoutContent = function () {
-        updateHintWidth();
-
-        var nextContentY = contentBaseY;
         var hintText = hint.getString ? hint.getString() : "";
-        hint.setPosition(contentBaseX, contentBaseY);
-        if (hintText) {
-            nextContentY -= uiUtil.getNodeLayoutHeight(hint);
-        }
-
         var richText = bgNode.getChildByName("richText");
         if (richText) {
             refreshRichTextWidth(richText);
+        }
+        var richTextHeight = richText ? uiUtil.getNodeLayoutHeight(richText) : 0;
+        var hintContentWidth = updateHintWidth();
+        var nextContentY = contentBaseY;
+        var hintHeight = 0;
+
+        if (hintText) {
+            hintHeight = uiUtil.getNodeLayoutHeight(hint);
+            var hintAvailableHeight = contentBaseY - progressDefaultY - pbBg.getContentSize().height - progressGap;
+            if (richTextHeight > 0) {
+                hintAvailableHeight -= contentGap + richTextHeight;
+            }
+            hintAvailableHeight = Math.max(0, hintAvailableHeight);
+
+            var hintVisibleHeight = Math.min(hintHeight, Math.max(hintMinHeight, hintAvailableHeight));
+            hintScrollContent.setContentSize(hintContentWidth, Math.max(hintHeight, hintVisibleHeight));
+            hint.setPosition(0, hintHeight);
+            if (typeof hintScrollView.setViewSize === "function") {
+                hintScrollView.setViewSize(cc.size(hintContentWidth, hintVisibleHeight));
+            }
+            hintScrollView.setContentSize(hintContentWidth, Math.max(hintHeight, hintVisibleHeight));
+            hintScrollView.setPosition(contentBaseX, contentBaseY - hintVisibleHeight);
+            hintScrollTrack.setContentSize(cc.size(hintScrollBarWidth, hintVisibleHeight));
+            hintScrollTrack.setPosition(contentBaseX + hintContentWidth + hintScrollBarGap, contentBaseY - hintVisibleHeight);
+            hintScrollView.setVisible(true);
+
+            var hintOffset = hintScrollView.getContentOffset ? hintScrollView.getContentOffset() : cc.p(0, 0);
+            hintOffset.y = Math.min(0, hintVisibleHeight - hintHeight);
+            hintOffset.x = 0;
+            if (typeof hintScrollView.setContentOffset === "function") {
+                hintScrollView.setContentOffset(hintOffset);
+            }
+            if (typeof hintScrollView.setTouchEnabled === "function") {
+                hintScrollView.setTouchEnabled(hintHeight > hintVisibleHeight + 1);
+            }
+            updateHintScrollThumb();
+            nextContentY -= hintVisibleHeight;
+        } else {
+            hintScrollContent.setContentSize(hintContentWidth, hintMinHeight);
+            hint.setPosition(0, 0);
+            if (typeof hintScrollView.setViewSize === "function") {
+                hintScrollView.setViewSize(cc.size(hintContentWidth, hintMinHeight));
+            }
+            hintScrollView.setContentSize(hintContentWidth, hintMinHeight);
+            hintScrollView.setVisible(false);
+            if (typeof hintScrollView.setTouchEnabled === "function") {
+                hintScrollView.setTouchEnabled(false);
+            }
+            hintScrollTrack.setVisible(false);
+            hintScrollThumb.setVisible(false);
+        }
+
+        if (richText) {
             if (hintText) {
                 nextContentY -= contentGap;
             }

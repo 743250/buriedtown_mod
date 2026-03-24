@@ -53,7 +53,8 @@ var BuffSourceType = {
 var BuffSlotType = {
     CONSUMABLE: "consumable",
     ENVIRONMENT: "environment",
-    TREATMENT: "treatment"
+    TREATMENT: "treatment",
+    STATUS: "status"
 };
 
 var BuffPeriodType = {
@@ -63,7 +64,8 @@ var BuffPeriodType = {
 var RuntimeBuffType = {
     LOW_TEMPERATURE_INFECT: "low_temperature_infect",
     CURE_TREATMENT: "cure_treatment",
-    BIND_TREATMENT: "bind_treatment"
+    BIND_TREATMENT: "bind_treatment",
+    DRINK_SPIRIT_PROTECT: "drink_spirit_protect"
 };
 
 var getRuntimeBuffMeta = function (buffKey) {
@@ -99,6 +101,20 @@ var getRuntimeBuffMeta = function (buffKey) {
                 durationSeconds: 24 * 60 * 60,
                 title: stringUtil.getString("status_bandage_title") || "包扎保护",
                 description: stringUtil.getString("status_bandage_effect") || "",
+                isDebuff: false,
+                saveEnabled: true
+            };
+        case RuntimeBuffType.DRINK_SPIRIT_PROTECT:
+            return {
+                key: buffKey,
+                slot: BuffSlotType.STATUS,
+                attrList: ["spirit"],
+                adverseAttrChangeRateMap: {
+                    spirit: 0.2
+                },
+                durationSeconds: 24 * 60 * 60,
+                title: stringUtil.getString("status_drink_title") || "微醺",
+                description: stringUtil.getString("status_drink_effect") || "",
                 isDebuff: false,
                 saveEnabled: true
             };
@@ -177,6 +193,7 @@ var Buff = cc.Class.extend({
         this.blockChangeAttrMap = cloneBuffMap(opt.blockChangeAttrMap);
         this.suppressAttrEffectMap = cloneBuffMap(opt.suppressAttrEffectMap);
         this.effectTargetBlockMap = cloneNestedBuffMap(opt.effectTargetBlockMap);
+        this.adverseAttrChangeRateMap = cloneBuffMap(opt.adverseAttrChangeRateMap);
         this.statBonusMap = cloneBuffMap(opt.statBonusMap);
         this.periodicChangeMap = cloneBuffMap(opt.periodicChangeMap);
         this.periodType = opt.periodType || null;
@@ -235,6 +252,16 @@ var Buff = cc.Class.extend({
     },
     blocksAttrEffectTarget: function (sourceAttr, targetAttr) {
         return !!(this.effectTargetBlockMap[sourceAttr] && this.effectTargetBlockMap[sourceAttr][targetAttr]);
+    },
+    getAdverseAttrChangeRate: function (attr) {
+        if (!this.adverseAttrChangeRateMap.hasOwnProperty(attr)) {
+            return 1;
+        }
+        var rate = Number(this.adverseAttrChangeRateMap[attr]);
+        if (!isFinite(rate) || rate < 0) {
+            return 1;
+        }
+        return rate;
     },
     getStatBonus: function (statKey) {
         return Number(this.statBonusMap[statKey]) || 0;
@@ -400,6 +427,7 @@ var BuffManager = cc.Class.extend({
             attrList: itemMeta.attrList,
             blockChangeAttrMap: itemMeta.blockChangeAttrMap,
             suppressAttrEffectMap: itemMeta.suppressAttrEffectMap,
+            adverseAttrChangeRateMap: itemMeta.adverseAttrChangeRateMap,
             statBonusMap: itemMeta.statBonusMap,
             lastTime: lastTime === undefined || lastTime === null
                 ? Number(buffConfig.lastTime) * 60 * 60
@@ -496,6 +524,11 @@ var BuffManager = cc.Class.extend({
             normalizedOpt[key] = overrideOpt[key];
         });
         normalizedOpt.key = buffKey;
+        if (normalizedOpt.lastTime === undefined || normalizedOpt.lastTime === null) {
+            if (normalizedOpt.durationSeconds !== undefined && normalizedOpt.durationSeconds !== null) {
+                normalizedOpt.lastTime = Number(normalizedOpt.durationSeconds);
+            }
+        }
         if (!normalizedOpt.slot) {
             normalizedOpt.slot = BuffSlotType.ENVIRONMENT;
         }
@@ -593,6 +626,18 @@ var BuffManager = cc.Class.extend({
             }
         });
         return total;
+    },
+    getAdverseAttrChangeRate: function (attr) {
+        var rate = 1;
+        this.buffList.forEach(function (buff) {
+            if (buff) {
+                rate *= buff.getAdverseAttrChangeRate(attr);
+            }
+        });
+        if (!isFinite(rate) || rate < 0) {
+            return 1;
+        }
+        return rate;
     },
     getPeriodicAttrChange: function (attr, periodType) {
         var total = 0;

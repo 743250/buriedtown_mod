@@ -1,12 +1,25 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getNpcStorageRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getNpcStorageRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getNpcStorageRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var NpcStorageNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
-        this.npc = player.npcManager.getNPC(this.userData);
+        var runtimePlayer = getNpcStorageRuntimePlayer();
+        this.npc = runtimePlayer.npcManager.getNPC(this.userData);
         this.setName(Navigation.nodeName.NPC_STORAGE_NODE);
         this.uiConfig = {
             title: this.npc.getName(),
@@ -19,7 +32,7 @@ var NpcStorageNode = BottomFrameNode.extend({
         equipNode.setPosition(this.bgRect.width / 2, this.contentTopLineHeight);
         this.bg.addChild(equipNode, 1);
 
-        var itemChangeNode = new ItemExchangeNode(this.npc, player.bag, stringUtil.getString(1034), this.npc.storage, this.npc.getName());
+        var itemChangeNode = new ItemExchangeNode(this.npc, runtimePlayer.bag, stringUtil.getString(1034), this.npc.storage, this.npc.getName());
         itemChangeNode.setAnchorPoint(0.5, 0);
         itemChangeNode.setPosition(this.bgRect.width / 2, 0);
         this.bg.addChild(itemChangeNode);
@@ -62,13 +75,13 @@ var NpcStorageNode = BottomFrameNode.extend({
         this._super();
 
         this.onExchangeEnd = this.onExchangeEndFunc();
-        utils.emitter.on("exchange_end", this.onExchangeEnd);
+        getNpcStorageRuntimeEmitter().on("exchange_end", this.onExchangeEnd);
         this.refreshFavoriteHint();
     },
     onExit: function () {
         this._super();
 
-        utils.emitter.off("exchange_end", this.onExchangeEnd);
+        getNpcStorageRuntimeEmitter().off("exchange_end", this.onExchangeEnd);
     },
     onExchangeEndFunc: function () {
         var self = this;
@@ -139,13 +152,13 @@ var ItemExchangeNode = ItemChangeNode.extend({
             var npcBenefitValue = Math.max(0, self.getTradeDelta());
             self.topSrcData.map = self.topData.map;
             self.bottomSrcData.map = self.bottomData.map;
-            utils.emitter.emit("exchange_end");
+            getNpcStorageRuntimeEmitter().emit("exchange_end");
             audioManager.playEffect(audioManager.sound.LOOT);
 
             self.npc.tradingCount = self.npc.tradingCount || 0
             self.npc.tradingCount++;
             self.npc.addGiftProgressByTradeDelta(npcBenefitValue);
-            Record.saveAll();
+            getNpcStorageRuntimeRecord().saveAll();
         });
         this.exchangeBtn.setAnchorPoint(0.5, 0.5);
         this.exchangeBtn.setPosition(sectionBar.getContentSize().width - this.exchangeBtn.width / 2 - 20, sectionBar.getContentSize().height / 2);
@@ -163,12 +176,12 @@ var ItemExchangeNode = ItemChangeNode.extend({
         this.bottomSrcData = bottomStorage;
         this.topData = topStorage.clone();
         this.bottomData = bottomStorage.clone();
-        player.tmpBag = this.topData;
+        getNpcStorageRuntimePlayer().tmpBag = this.topData;
     },
     onExit: function () {
         this._super();
 
-        delete player.tmpBag;
+        delete getNpcStorageRuntimePlayer().tmpBag;
     },
     exchange: function (id, itemId, num) {
         var res = this._super(id, itemId, num);

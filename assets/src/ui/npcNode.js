@@ -1,12 +1,17 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getNpcNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var NpcNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
-        this.npc = player.npcManager.getNPC(this.userData);
+        var runtimePlayer = getNpcNodeRuntimePlayer();
+        this.npc = runtimePlayer.npcManager.getNPC(this.userData);
         this.setName(Navigation.nodeName.NPC_NODE);
         this.uiConfig = {
             title: this.npc.getName(),
@@ -105,7 +110,7 @@ var NpcNode = BottomFrameNode.extend({
         var needStr = stringUtil.getString(needItemInfo.itemId).title + "x" + needItemInfo.num;
 
         var have = this.bg.getChildByName("have");
-        have.setString(stringUtil.getString(1036, needStr) + ', ' + stringUtil.getString(1038, player.bag.getNumByItemId(needItemInfo.itemId)));
+        have.setString(stringUtil.getString(1036, needStr) + ', ' + stringUtil.getString(1038, getNpcNodeRuntimePlayer().bag.getNumByItemId(needItemInfo.itemId)));
 
         var btn1 = this.bg.getChildByName("btn_1");
         btn1.setTitleForState(stringUtil.getString(1036, ""), cc.CONTROL_STATE_NORMAL);

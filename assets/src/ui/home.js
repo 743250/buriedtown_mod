@@ -2,16 +2,25 @@
  * Created by lancelot on 15/4/17.
  */
 
+var getHomeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+var getHomeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var isHomeWorkSitePowered = function () {
-    if (typeof player === "undefined" || !player || !player.map || typeof player.map.getSite !== "function") {
+    var runtimePlayer = getHomeRuntimePlayer();
+    if (!runtimePlayer || !runtimePlayer.map || typeof runtimePlayer.map.getSite !== "function") {
         return false;
     }
     var workSiteId = (typeof WORK_SITE !== "undefined") ? WORK_SITE : 204;
-    var workSite = player.map.getSite(workSiteId);
+    var workSite = runtimePlayer.map.getSite(workSiteId);
     return !!(workSite && workSite.isActive);
 };
 var canShowHomePowerStatus = function () {
-    if (typeof player === "undefined" || !player) {
+    var runtimePlayer = getHomeRuntimePlayer();
+    if (!runtimePlayer) {
         return false;
     }
     if (typeof RoleRuntimeService === "undefined"
@@ -19,22 +28,23 @@ var canShowHomePowerStatus = function () {
         || typeof RoleRuntimeService.getActionTags !== "function") {
         return false;
     }
-    var roleTags = RoleRuntimeService.getActionTags(player.roleType);
+    var roleTags = RoleRuntimeService.getActionTags(runtimePlayer.roleType);
     return Array.isArray(roleTags) && roleTags.indexOf("powered") !== -1;
 };
 
 var HomeNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
+        var runtimePlayer = getHomeRuntimePlayer();
 
         if (userData) {
             //从外面回家
             this.flushBag();
             //删除无用的副本
-            player.map.deleteUnusableSite();
+            runtimePlayer.map.deleteUnusableSite();
         }
 
-        player.goHome();
+        runtimePlayer.goHome();
 
         var homeBg = autoSpriteFrameController.getSpriteFromSpriteName("#home_bg.png");
         homeBg.setAnchorPoint(0.5, 0);
@@ -63,7 +73,7 @@ var HomeNode = BottomFrameNode.extend({
         var roleRoomBuildStates = (typeof RoleRuntimeService !== "undefined"
             && RoleRuntimeService
             && typeof RoleRuntimeService.getRoomBuildStates === "function")
-            ? RoleRuntimeService.getRoomBuildStates(player.roleType)
+            ? RoleRuntimeService.getRoomBuildStates(runtimePlayer.roleType)
             : [];
         roleRoomBuildStates.forEach(function (buildState, index) {
             if (roleBuildPositions[index]) {
@@ -82,8 +92,8 @@ var HomeNode = BottomFrameNode.extend({
 
         var self = this;
         infos.forEach(function (info) {
-            var build = player.room && typeof player.room.getBuild === "function"
-                ? player.room.getBuild(info.bid)
+            var build = runtimePlayer.room && typeof runtimePlayer.room.getBuild === "function"
+                ? runtimePlayer.room.getBuild(info.bid)
                 : null;
             var buildLevel = build ? build.level : -1;
             buildLevel = Math.max(0, buildLevel);
@@ -99,13 +109,13 @@ var HomeNode = BottomFrameNode.extend({
         });
 
 
-        utils.emitter.on("placed_success", function (bid) {
+        getHomeRuntimeEmitter().on("placed_success", function (bid) {
             self.updateBtn(bid);
         });
 
-        if (!player.getSetting("initLog", false)) {
-            player.setSetting("initLog", true);
-            player.log.addMsg(1168);
+        if (!runtimePlayer.getSetting("initLog", false)) {
+            runtimePlayer.setSetting("initLog", true);
+            runtimePlayer.log.addMsg(1168);
         }
 
         //为大门加入发光
@@ -135,8 +145,9 @@ var HomeNode = BottomFrameNode.extend({
 
     },
     updateRadioChatEntry: function () {
-        var radioBuild = player.room && typeof player.room.getBuild === "function"
-            ? player.room.getBuild(15)
+        var runtimePlayer = getHomeRuntimePlayer();
+        var radioBuild = runtimePlayer.room && typeof runtimePlayer.room.getBuild === "function"
+            ? runtimePlayer.room.getBuild(15)
             : null;
         var isVisible = !!(radioBuild && radioBuild.level >= 0);
         if (this.btnRadioChat) {
@@ -188,8 +199,9 @@ var HomeNode = BottomFrameNode.extend({
     },
     updateBtn: function (bid) {
         var btn = this.btnList[bid];
-        var build = player.room && typeof player.room.getBuild === "function"
-            ? player.room.getBuild(bid)
+        var runtimePlayer = getHomeRuntimePlayer();
+        var build = runtimePlayer.room && typeof runtimePlayer.room.getBuild === "function"
+            ? runtimePlayer.room.getBuild(bid)
             : null;
         if (!btn || !build) {
             return;
@@ -234,8 +246,9 @@ var HomeNode = BottomFrameNode.extend({
                 this.forward(Navigation.nodeName.STORAGE_NODE, sender.info);
                 break;
             case 14:
-                var gateBuild = player.room && typeof player.room.getBuild === "function"
-                    ? player.room.getBuild(bid)
+                var runtimePlayer = getHomeRuntimePlayer();
+                var gateBuild = runtimePlayer.room && typeof runtimePlayer.room.getBuild === "function"
+                    ? runtimePlayer.room.getBuild(bid)
                     : null;
                 if (gateBuild && gateBuild.level >= 0) {
                     this.forward(Navigation.nodeName.GATE_NODE, sender.info);
@@ -262,18 +275,19 @@ var HomeNode = BottomFrameNode.extend({
     onClickRightBtn: function () {
     },
     flushBag: function () {
-        player.bag.forEach(function (item, num) {
-            if (!player.equip.isEquiped(item.id) && item.id != BattleConfig.BULLET_ID) {
-                player.storage.increaseItem(item.id, num);
-                player.bag.decreaseItem(item.id, num);
+        var runtimePlayer = getHomeRuntimePlayer();
+        runtimePlayer.bag.forEach(function (item, num) {
+            if (!runtimePlayer.equip.isEquiped(item.id) && item.id != BattleConfig.BULLET_ID) {
+                runtimePlayer.storage.increaseItem(item.id, num);
+                runtimePlayer.bag.decreaseItem(item.id, num);
             }
         });
     },
     onExit: function () {
         this._super();
-        utils.emitter.off("placed_success");
+        getHomeRuntimeEmitter().off("placed_success");
         if (this.funcOnWorkSiteChange) {
-            utils.emitter.off("onWorkSiteChange", this.funcOnWorkSiteChange);
+            getHomeRuntimeEmitter().off("onWorkSiteChange", this.funcOnWorkSiteChange);
             this.funcOnWorkSiteChange = null;
         }
     },
@@ -283,7 +297,7 @@ var HomeNode = BottomFrameNode.extend({
         this.updateDogHouse();
         this.refreshPowerStatusHint();
         this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
-        utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
+        getHomeRuntimeEmitter().on("onWorkSiteChange", this.funcOnWorkSiteChange);
         //新手引导文字
         this.scheduleOnce(function () {
             if (userGuide.isStep(userGuide.stepName.GAME_START)) {
@@ -314,7 +328,8 @@ var HomeNode = BottomFrameNode.extend({
             btn.setEnabled(false);
             var lockNode = uiUtil.createLockNode(btn.getContentSize(), 107, function (result) {
                 if (result.isSuccess) {
-                    if (player.room && player.room.isBuildExist(12, 0)) {
+                    var runtimePlayer = getHomeRuntimePlayer();
+                    if (runtimePlayer.room && runtimePlayer.room.isBuildExist(12, 0)) {
                         uiUtil.removeIconWarn(btn, 'buildWarn');
                         self.updateBtn(12);
                     }

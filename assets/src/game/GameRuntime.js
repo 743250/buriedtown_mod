@@ -10,6 +10,13 @@ var GameRuntime = {
         emitter: null,
         record: null
     },
+    _requireState: function (key, dependencyName) {
+        var value = this._state[key];
+        if (value) {
+            return value;
+        }
+        throw new Error("GameRuntime missing runtime dependency: " + dependencyName);
+    },
     _getRoot: function () {
         if (typeof globalThis !== "undefined") {
             return globalThis;
@@ -60,6 +67,9 @@ var GameRuntime = {
         }
         return typeof player !== "undefined" ? player : null;
     },
+    requirePlayer: function () {
+        return this._requireState("player", "player");
+    },
     setTimer: function (timerInstance) {
         this._state.timer = timerInstance || null;
         if (typeof cc !== "undefined" && cc) {
@@ -75,6 +85,9 @@ var GameRuntime = {
             return cc.timer;
         }
         return null;
+    },
+    requireTimer: function () {
+        return this._requireState("timer", "timer");
     },
     setEmitter: function (emitterInstance) {
         this._state.emitter = emitterInstance || null;
@@ -92,6 +105,9 @@ var GameRuntime = {
         }
         return null;
     },
+    requireEmitter: function () {
+        return this._requireState("emitter", "emitter");
+    },
     setRecord: function (recordInstance) {
         this._state.record = recordInstance || null;
         return this._state.record;
@@ -101,6 +117,9 @@ var GameRuntime = {
             return this._state.record;
         }
         return typeof Record !== "undefined" ? Record : null;
+    },
+    requireRecord: function () {
+        return this._requireState("record", "record");
     },
     buildTravelOptions: function (overrides) {
         overrides = overrides || {};

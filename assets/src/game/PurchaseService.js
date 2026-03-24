@@ -158,6 +158,51 @@ var PurchaseService = {
 
         return 0;
     },
+    _isOperatorPromoPurchase: function (purchaseId) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId !== 106
+            || typeof PurchaseAndroid === "undefined"
+            || !PurchaseAndroid) {
+            return false;
+        }
+
+        return PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
+            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
+            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
+            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI;
+    },
+    _getDisplayNameOverride: function (purchaseId) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId === null) {
+            return "";
+        }
+
+        var purchaseInfo = this.getPurchaseInfo(purchaseId);
+        if (purchaseInfo
+            && typeof purchaseInfo.displayName === "string"
+            && purchaseInfo.displayName.length > 0) {
+            return purchaseInfo.displayName;
+        }
+
+        if (this._isOperatorPromoPurchase(purchaseId)) {
+            return "靴子特惠";
+        }
+
+        return "";
+    },
+    _shouldShowSaleIcon: function (purchaseId) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId === null) {
+            return false;
+        }
+
+        var purchaseInfo = this.getPurchaseInfo(purchaseId);
+        if (purchaseInfo && purchaseInfo.showSaleIcon !== undefined) {
+            return !!purchaseInfo.showSaleIcon;
+        }
+
+        return purchaseId === 106;
+    },
     getShopUiState: function (purchaseId) {
         purchaseId = this._normalizePurchaseId(purchaseId);
         if (purchaseId === null) {
@@ -177,6 +222,9 @@ var PurchaseService = {
         var hideBadge = false;
         var disabledReason = "";
         var priceOff = 0;
+        var isOperatorPromoPurchase = this._isOperatorPromoPurchase(purchaseId);
+        var displayNameOverride = this._getDisplayNameOverride(purchaseId);
+        var showSaleIcon = this._shouldShowSaleIcon(purchaseId);
 
         if (isExchangePurchase) {
             nextAchievementPrice = this.getAchievementPriceByPurchaseId(purchaseId);
@@ -263,9 +311,12 @@ var PurchaseService = {
             isExchangePurchase: isExchangePurchase,
             isTalentPurchase: isTalentPurchase,
             isUnlocked: isUnlocked,
+            isOperatorPromoPurchase: isOperatorPromoPurchase,
             currentTalentLevel: isTalentPurchase ? this.getTalentLevel(purchaseId) : 0,
             nextAchievementPrice: nextAchievementPrice,
             achievementPoints: achievementPoints,
+            displayNameOverride: displayNameOverride,
+            showSaleIcon: !!showSaleIcon,
             priceText: priceText,
             priceOff: priceOff,
             canBuy: !!canBuy,

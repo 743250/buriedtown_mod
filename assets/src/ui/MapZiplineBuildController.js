@@ -1,6 +1,13 @@
 /**
  * Owns the minimal map-side flow for creating ziplines.
  */
+var getMapZiplineBuildRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+var getMapZiplineBuildRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var MapZiplineBuildController = cc.Class.extend({
     MODE: {
         BUILD: "build",
@@ -33,15 +40,17 @@ var MapZiplineBuildController = cc.Class.extend({
         return button;
     },
     isAvailable: function () {
-        if (!RoleRuntimeService.isZiplineFrameworkAvailable(player)) {
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        if (!RoleRuntimeService.isZiplineFrameworkAvailable(runtimePlayer)) {
             return false;
         }
-        return !RoleRuntimeService.isZiplineBuildFromSiteOnly(player.roleType);
+        return !RoleRuntimeService.isZiplineBuildFromSiteOnly(runtimePlayer.roleType);
     },
     hasAnyLinks: function () {
-        return !!(player.ziplineNetwork
-            && typeof player.ziplineNetwork.getLinkCount === "function"
-            && player.ziplineNetwork.getLinkCount(player.map) > 0);
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        return !!(runtimePlayer.ziplineNetwork
+            && typeof runtimePlayer.ziplineNetwork.getLinkCount === "function"
+            && runtimePlayer.ziplineNetwork.getLinkCount(runtimePlayer.map) > 0);
     },
     getActionService: function () {
         return ZiplineActionService;
@@ -105,7 +114,7 @@ var MapZiplineBuildController = cc.Class.extend({
         this.mode = mode;
         this.selectedEntityKey = null;
         this.setSelectedEntity(null);
-        player.log.addMsg(mode === this.MODE.REMOVE ? 1362 : 1351);
+        getMapZiplineBuildRuntimePlayer().log.addMsg(mode === this.MODE.REMOVE ? 1362 : 1351);
         this.refresh();
     },
     cancelMode: function () {
@@ -117,7 +126,7 @@ var MapZiplineBuildController = cc.Class.extend({
         this.mode = null;
         this.selectedEntityKey = null;
         this.setSelectedEntity(null);
-        player.log.addMsg(cancelLogId);
+        getMapZiplineBuildRuntimePlayer().log.addMsg(cancelLogId);
         this.refresh();
     },
     finishMode: function () {
@@ -133,7 +142,7 @@ var MapZiplineBuildController = cc.Class.extend({
 
         var baseSite = entity ? entity.baseSite : null;
         if (!this.isBuildableEntity(baseSite)) {
-            player.log.addMsg(1357);
+            getMapZiplineBuildRuntimePlayer().log.addMsg(1357);
             return true;
         }
 
@@ -144,35 +153,36 @@ var MapZiplineBuildController = cc.Class.extend({
         return this.handleRemoveEntityClick(entity, baseSite);
     },
     handleBuildEntityClick: function (entity, baseSite) {
-        var currentEntityKey = player.ziplineNetwork.getEntityKey(baseSite, player.map);
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        var currentEntityKey = runtimePlayer.ziplineNetwork.getEntityKey(baseSite, runtimePlayer.map);
         if (!currentEntityKey) {
-            player.log.addMsg(1357);
+            runtimePlayer.log.addMsg(1357);
             return true;
         }
 
         if (!this.selectedEntityKey) {
             this.selectedEntityKey = currentEntityKey;
             this.setSelectedEntity(entity);
-            player.log.addMsg(1353, baseSite.getName());
+            runtimePlayer.log.addMsg(1353, baseSite.getName());
             this.refresh();
             return true;
         }
 
         if (this.selectedEntityKey === currentEntityKey) {
-            player.log.addMsg(1354);
+            runtimePlayer.log.addMsg(1354);
             return true;
         }
 
-        var startEntity = player.ziplineNetwork.resolveEntity(this.selectedEntityKey, player.map);
-        var result = this.getActionService().createLink(this.selectedEntityKey, currentEntityKey, player.map);
+        var startEntity = runtimePlayer.ziplineNetwork.resolveEntity(this.selectedEntityKey, runtimePlayer.map);
+        var result = this.getActionService().createLink(this.selectedEntityKey, currentEntityKey, runtimePlayer.map);
         if (!result.ok) {
             this.logBuildFailure(result.reason);
             return true;
         }
 
-        player.log.addMsg(1356, startEntity ? startEntity.getName() : "", baseSite.getName());
+        runtimePlayer.log.addMsg(1356, startEntity ? startEntity.getName() : "", baseSite.getName());
         this.finishMode();
-        Record.saveAll();
+        getMapZiplineBuildRuntimeRecord().saveAll();
         return true;
     },
     handleRemoveButtonClick: function (entity) {
@@ -182,21 +192,22 @@ var MapZiplineBuildController = cc.Class.extend({
 
         var baseSite = entity.baseSite;
         if (!this.isBuildableEntity(baseSite)) {
-            player.log.addMsg(1357);
+            getMapZiplineBuildRuntimePlayer().log.addMsg(1357);
             return;
         }
 
-        if (!player.ziplineNetwork.hasLinksForEntity(baseSite, player.map)) {
-            player.log.addMsg(1365);
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        if (!runtimePlayer.ziplineNetwork.hasLinksForEntity(baseSite, runtimePlayer.map)) {
+            runtimePlayer.log.addMsg(1365);
             return;
         }
 
-        var currentEntityKey = player.ziplineNetwork.getEntityKey(baseSite, player.map);
+        var currentEntityKey = runtimePlayer.ziplineNetwork.getEntityKey(baseSite, runtimePlayer.map);
         if (this.mode !== this.MODE.REMOVE) {
             this.mode = this.MODE.REMOVE;
             this.selectedEntityKey = currentEntityKey;
             this.setSelectedEntity(entity);
-            player.log.addMsg(1363, baseSite.getName());
+            runtimePlayer.log.addMsg(1363, baseSite.getName());
             this.refresh();
             return;
         }
@@ -209,88 +220,93 @@ var MapZiplineBuildController = cc.Class.extend({
         this.handleRemoveEntityClick(entity, baseSite);
     },
     handleRemoveEntityClick: function (entity, baseSite) {
-        var currentEntityKey = player.ziplineNetwork.getEntityKey(baseSite, player.map);
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        var currentEntityKey = runtimePlayer.ziplineNetwork.getEntityKey(baseSite, runtimePlayer.map);
         if (!currentEntityKey) {
-            player.log.addMsg(1357);
+            runtimePlayer.log.addMsg(1357);
             return true;
         }
 
         if (!this.selectedEntityKey) {
-            if (!player.ziplineNetwork.hasLinksForEntity(baseSite, player.map)) {
-                player.log.addMsg(1365);
+            if (!runtimePlayer.ziplineNetwork.hasLinksForEntity(baseSite, runtimePlayer.map)) {
+                runtimePlayer.log.addMsg(1365);
                 return true;
             }
 
             this.selectedEntityKey = currentEntityKey;
             this.setSelectedEntity(entity);
-            player.log.addMsg(1363, baseSite.getName());
+            runtimePlayer.log.addMsg(1363, baseSite.getName());
             this.refresh();
             return true;
         }
 
         if (this.selectedEntityKey === currentEntityKey) {
-            player.log.addMsg(1354);
+            runtimePlayer.log.addMsg(1354);
             return true;
         }
 
-        var startEntity = player.ziplineNetwork.resolveEntity(this.selectedEntityKey, player.map);
-        var result = this.getActionService().removeLink(this.selectedEntityKey, currentEntityKey, player.map, baseSite);
+        var startEntity = runtimePlayer.ziplineNetwork.resolveEntity(this.selectedEntityKey, runtimePlayer.map);
+        var result = this.getActionService().removeLink(this.selectedEntityKey, currentEntityKey, runtimePlayer.map, baseSite);
         if (!result.ok) {
             this.logRemoveFailure(result.reason);
             return true;
         }
 
-        player.log.addMsg(1360, (startEntity ? startEntity.getName() : this.selectedEntityKey) + " <-> " + baseSite.getName());
+        runtimePlayer.log.addMsg(1360, (startEntity ? startEntity.getName() : this.selectedEntityKey) + " <-> " + baseSite.getName());
         this.logRefundResult(result.refundTarget);
         this.finishMode();
-        Record.saveAll();
+        getMapZiplineBuildRuntimeRecord().saveAll();
         return true;
     },
     logBuildFailure: function (reason) {
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
         switch (reason) {
         case "missing-cost":
-            player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
             break;
         case "duplicate":
-            player.log.addMsg(1355);
+            runtimePlayer.log.addMsg(1355);
             break;
         case "max-links":
-            player.log.addMsg(1367);
+            runtimePlayer.log.addMsg(1367);
             break;
         case "same-site":
-            player.log.addMsg(1354);
+            runtimePlayer.log.addMsg(1354);
             break;
         case "home-only":
-            player.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
             break;
         case "invalid-site":
-            player.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
             break;
         default:
-            player.log.addMsg(1357);
+            runtimePlayer.log.addMsg(1357);
             break;
         }
     },
     logRemoveFailure: function (reason) {
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
         if (reason === "not-found") {
-            player.log.addMsg(1364);
+            runtimePlayer.log.addMsg(1364);
         } else if (reason === "same-site") {
-            player.log.addMsg(1354);
+            runtimePlayer.log.addMsg(1354);
         } else {
-            player.log.addMsg(1357);
+            runtimePlayer.log.addMsg(1357);
         }
     },
     logRefundResult: function (refundTarget) {
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
         if (refundTarget === "bag") {
-            player.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
         } else if (refundTarget === "storage") {
-            player.log.addMsg(stringUtil.getString("zipline_map_refund_to_target_storage")
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_map_refund_to_target_storage")
                 || "背包空间不足，返还材料已放入当前目标存放");
         }
     },
     getRemoveActionState: function (entityRef) {
-        var entityKey = player.ziplineNetwork.getEntityKey(entityRef, player.map);
-        var hasLinks = !!(entityKey && player.ziplineNetwork.hasLinksForEntity(entityRef, player.map));
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        var entityKey = runtimePlayer.ziplineNetwork.getEntityKey(entityRef, runtimePlayer.map);
+        var hasLinks = !!(entityKey && runtimePlayer.ziplineNetwork.hasLinksForEntity(entityRef, runtimePlayer.map));
         return {
             visible: this.isAvailable() && hasLinks,
             enabled: this.isAvailable() && hasLinks && !(this.mapView && this.mapView.actor && this.mapView.actor.isMoving),
@@ -309,9 +325,10 @@ var MapZiplineBuildController = cc.Class.extend({
         };
     },
     isBuildableEntity: function (site) {
-        return !!(player.ziplineNetwork
-            && typeof player.ziplineNetwork.isEligibleEntity === "function"
-            && player.ziplineNetwork.isEligibleEntity(site, player.map));
+        var runtimePlayer = getMapZiplineBuildRuntimePlayer();
+        return !!(runtimePlayer.ziplineNetwork
+            && typeof runtimePlayer.ziplineNetwork.isEligibleEntity === "function"
+            && runtimePlayer.ziplineNetwork.isEligibleEntity(site, runtimePlayer.map));
     },
     getRemoveActionLabel: function () {
         var removeText = stringUtil.getString(1359) || "X";

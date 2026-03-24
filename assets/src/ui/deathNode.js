@@ -2,6 +2,14 @@
  * Created by lancelot on 15/4/22.
  */
 var RELIVE_ITEMID = 1106054;
+var getDeathNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getDeathNodeRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
 var DeathNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -23,7 +31,8 @@ var DeathNode = BottomFrameNode.extend({
         this.bg.addChild(digDes);
         digDes.setName("dig_des");
 
-        var des = new cc.LabelTTF(stringUtil.getString(1084, cc.timer.getFinalTimeStr()), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(rightEdge - leftEdge, 0));
+        var runtimePlayer = getDeathNodeRuntimePlayer();
+        var des = new cc.LabelTTF(stringUtil.getString(1084, getDeathNodeRuntimeTimer().getFinalTimeStr()), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(rightEdge - leftEdge, 0));
         des.setAnchorPoint(0.5, 1);
         des.setPosition(this.bgRect.width / 2, digDes.y - digDes.height - 10);
         this.bg.addChild(des);
@@ -34,7 +43,7 @@ var DeathNode = BottomFrameNode.extend({
         btn1.setPosition(this.bgRect.width / 2, 100);
         this.bg.addChild(btn1);
         btn1.setName("btn_1");
-        var reliveItemNum = player.bag.getNumByItemId(RELIVE_ITEMID) + player.storage.getNumByItemId(RELIVE_ITEMID);
+        var reliveItemNum = runtimePlayer.bag.getNumByItemId(RELIVE_ITEMID) + runtimePlayer.storage.getNumByItemId(RELIVE_ITEMID);
         var label1 = new cc.LabelTTF(stringUtil.getString(1087, reliveItemNum), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
         label1.setAnchorPoint(0.5, 0);
         label1.x = btn1.x;
@@ -73,13 +82,14 @@ var DeathNode = BottomFrameNode.extend({
 
     },
     onClickBtn1: function () {
+        var runtimePlayer = getDeathNodeRuntimePlayer();
         if (this.validateBag()) {
-            player.bag.decreaseItem(RELIVE_ITEMID, 1);
+            runtimePlayer.bag.decreaseItem(RELIVE_ITEMID, 1);
             this.goHome();
             return;
         }
         if (this.validateStorage()) {
-            player.storage.decreaseItem(RELIVE_ITEMID, 1);
+            runtimePlayer.storage.decreaseItem(RELIVE_ITEMID, 1);
             this.goHome();
             return;
         }
@@ -89,7 +99,7 @@ var DeathNode = BottomFrameNode.extend({
         var payDialog = uiUtil.showPayDialog(purchaseId, function () {
             utils.pay(purchaseId, self, function (result) {
                 if (result.isSuccess) {
-                    player.storage.decreaseItem(RELIVE_ITEMID, 1);
+                    runtimePlayer.storage.decreaseItem(RELIVE_ITEMID, 1);
                     self.goHome();
                 } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
                     uiUtil.showTip("成就点不足!");
@@ -108,11 +118,11 @@ var DeathNode = BottomFrameNode.extend({
     },
     onEnter: function () {
         this._super();
-        cc.timer.pause();
+        getDeathNodeRuntimeTimer().pause();
     },
     onExit: function () {
         this._super();
-        cc.timer.resume();
+        getDeathNodeRuntimeTimer().resume();
     },
 
     onClickLeftBtn: function () {
@@ -120,16 +130,17 @@ var DeathNode = BottomFrameNode.extend({
     onClickRightBtn: function () {
     },
     goHome: function () {
+        var runtimePlayer = getDeathNodeRuntimePlayer();
         Navigation.root(Navigation.nodeName.HOME_NODE, -1);
 
         game.relive();
         cc.director.runScene(new MainScene());
-        player.log.addMsg(1123, player.getItemNumInPlayer(RELIVE_ITEMID));
+        runtimePlayer.log.addMsg(1123, runtimePlayer.getItemNumInPlayer(RELIVE_ITEMID));
     },
     validateBag: function () {
-        return player.bag.validateItem(RELIVE_ITEMID, 1);
+        return getDeathNodeRuntimePlayer().bag.validateItem(RELIVE_ITEMID, 1);
     },
     validateStorage: function () {
-        return player.storage.validateItem(RELIVE_ITEMID, 1);
+        return getDeathNodeRuntimePlayer().storage.validateItem(RELIVE_ITEMID, 1);
     }
 });

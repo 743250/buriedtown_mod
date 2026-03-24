@@ -5,6 +5,7 @@
 var Record = {
     recordObj: null,
     recordName: null,
+    _runtime: null,
     SLOT_COUNT: 3,
     SLOT_STORAGE_KEY: "recordSlot",
     DEFAULT_SLOT: 1,
@@ -85,11 +86,21 @@ var Record = {
     },
     init: function (recordName) {
         this.recordName = recordName || this.getCurrentRecordName();
+        this._runtime = null;
         this.recordObj = SafetyHelper.safeJSONParse(cc.sys.localStorage.getItem(this.recordName), {}, "Record.init");
     },
+    bindRuntime: function (runtime) {
+        this._runtime = runtime || null;
+        return this._runtime;
+    },
     saveAll: function () {
-        this.save("player", player.save());
-        this.save("time", cc.timer.save());
+        if (!this._runtime
+            || typeof this._runtime.requirePlayer !== "function"
+            || typeof this._runtime.requireTimer !== "function") {
+            throw new Error("Record.saveAll requires a bound GameRuntime with player/timer access");
+        }
+        this.save("player", this._runtime.requirePlayer().save());
+        this.save("time", this._runtime.requireTimer().save());
         //cc.e("save all " + JSON.stringify(this.recordObj));
         cc.e("save all ");
     },

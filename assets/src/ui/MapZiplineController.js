@@ -2,6 +2,10 @@
  * Owns map zipline mode, HUD and route drawing so MapView can stay focused on
  * travel flow and entity interaction.
  */
+var getMapZiplineRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var MapZiplineController = cc.Class.extend({
     ctor: function (mapView, viewSize, ziplineLayer) {
         this.mapView = mapView;
@@ -66,9 +70,10 @@ var MapZiplineController = cc.Class.extend({
 
         var isSelectingStart = !!this.isBuildMode && !this.startSiteId;
         var isSelectingEnd = !!this.isBuildMode && !!this.startSiteId;
-        var startSite = isSelectingEnd ? player.map.siteMap[this.startSiteId] : null;
-        var ziplineCount = player.ziplineManager && player.ziplineManager.getZiplines
-            ? player.ziplineManager.getZiplines().length
+        var runtimePlayer = getMapZiplineRuntimePlayer();
+        var startSite = isSelectingEnd ? runtimePlayer.map.siteMap[this.startSiteId] : null;
+        var ziplineCount = runtimePlayer.ziplineManager && runtimePlayer.ziplineManager.getZiplines
+            ? runtimePlayer.ziplineManager.getZiplines().length
             : 0;
 
         if (this.ziplineBtnBg) {
@@ -91,27 +96,29 @@ var MapZiplineController = cc.Class.extend({
         }
     },
     toggleBuildMode: function () {
+        var runtimePlayer = getMapZiplineRuntimePlayer();
         if (!this.isBuildMode) {
             this.isBuildMode = true;
             this.startSiteId = null;
-            player.log.addMsg(1351);
+            runtimePlayer.log.addMsg(1351);
         } else {
             this.cancelBuildMode(1352);
         }
         this.refresh();
     },
     cancelBuildMode: function (logMessageId) {
+        var runtimePlayer = getMapZiplineRuntimePlayer();
         this.isBuildMode = false;
         this.startSiteId = null;
         if (logMessageId) {
-            player.log.addMsg(logMessageId);
+            runtimePlayer.log.addMsg(logMessageId);
         }
     },
     refreshVisuals: function () {
         if (this.mapView && typeof this.mapView._refreshZiplineOverlay === "function") {
             this.mapView._refreshZiplineOverlay(this.startSiteId, this.isBuildMode);
         } else if (this.isBuildMode && this.startSiteId && this.ziplineLayer) {
-            var selectedStartSite = player.map.siteMap[this.startSiteId];
+            var selectedStartSite = getMapZiplineRuntimePlayer().map.siteMap[this.startSiteId];
             if (selectedStartSite && selectedStartSite.pos) {
                 this.ziplineLayer.drawDot(selectedStartSite.pos, 12, cc.color(214, 180, 72, 56));
                 this.ziplineLayer.drawDot(selectedStartSite.pos, 7, cc.color(255, 239, 168, 112));
@@ -140,30 +147,31 @@ var MapZiplineController = cc.Class.extend({
         }
 
         if (!(entity.baseSite instanceof Site)) {
-            player.log.addMsg(1357);
+            getMapZiplineRuntimePlayer().log.addMsg(1357);
             return true;
         }
 
         if (!this.startSiteId) {
             this.startSiteId = entity.baseSite.id;
-            player.log.addMsg(1353, entity.baseSite.getName());
+            getMapZiplineRuntimePlayer().log.addMsg(1353, entity.baseSite.getName());
             this.refresh();
             return true;
         }
 
         var endSiteId = entity.baseSite.id;
         if (endSiteId === this.startSiteId) {
-            player.log.addMsg(1354);
+            getMapZiplineRuntimePlayer().log.addMsg(1354);
             return true;
         }
 
-        if (player.ziplineManager && player.ziplineManager.hasZipline(this.startSiteId, endSiteId)) {
-            player.log.addMsg(1355);
-        } else if (player.ziplineManager && player.ziplineManager.addZipline) {
-            player.ziplineManager.addZipline(this.startSiteId, endSiteId);
-            player.log.addMsg(
+        var runtimePlayer = getMapZiplineRuntimePlayer();
+        if (runtimePlayer.ziplineManager && runtimePlayer.ziplineManager.hasZipline(this.startSiteId, endSiteId)) {
+            runtimePlayer.log.addMsg(1355);
+        } else if (runtimePlayer.ziplineManager && runtimePlayer.ziplineManager.addZipline) {
+            runtimePlayer.ziplineManager.addZipline(this.startSiteId, endSiteId);
+            runtimePlayer.log.addMsg(
                 1356,
-                player.map.siteMap[this.startSiteId].getName(),
+                runtimePlayer.map.siteMap[this.startSiteId].getName(),
                 entity.baseSite.getName()
             );
         }

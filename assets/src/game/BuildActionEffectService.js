@@ -9,6 +9,54 @@ var BuildActionEffectService = {
     _getEmitter: function () {
         return GameRuntime.getEmitter();
     },
+    _formatProducedItemSummary: function (runtimePlayer, produce, useStorageCount) {
+        if (!Array.isArray(produce) || produce.length === 0) {
+            return "";
+        }
+        return produce.map(function (itemInfo) {
+            if (!itemInfo) {
+                return "";
+            }
+            var itemId = itemInfo.itemId;
+            var itemTitleInfo = stringUtil.getString(itemId) || {};
+            var itemTitle = itemTitleInfo.title || ("" + itemId);
+            var itemNum = useStorageCount
+                ? runtimePlayer.storage.getNumByItemId(itemId)
+                : (parseInt(itemInfo.num, 10) || 0);
+            return itemTitle + "x" + itemNum;
+        }).filter(function (itemText) {
+            return !!itemText;
+        }).join("、");
+    },
+    _buildProducedLogMessage: function (runtimePlayer, produce, options) {
+        if (!options.logMessageId || !Array.isArray(produce) || produce.length === 0) {
+            return null;
+        }
+
+        if (produce.length === 1) {
+            var producedItemInfo = produce[0];
+            return stringUtil.getString(
+                options.logMessageId,
+                producedItemInfo.num,
+                stringUtil.getString(producedItemInfo.itemId).title,
+                runtimePlayer.storage.getNumByItemId(producedItemInfo.itemId)
+            );
+        }
+
+        var produceSummary = this._formatProducedItemSummary(runtimePlayer, produce, false);
+        var storageSummary = this._formatProducedItemSummary(runtimePlayer, produce, true);
+        if (!produceSummary) {
+            return null;
+        }
+
+        if (options.logMessageId == 1090) {
+            return stringUtil.getString("build_action_make_multi_log", produceSummary, storageSummary);
+        }
+        if (options.logMessageId == 1092) {
+            return stringUtil.getString("build_action_collect_multi_log", produceSummary, storageSummary);
+        }
+        return produceSummary;
+    },
     updateConfig: function (action) {
         var level = action.getCurrentBuildLevel();
         level = level >= 0 ? level : 0;
@@ -43,7 +91,7 @@ var BuildActionEffectService = {
             }
 
             if (options.afterComplete) {
-                options.afterComplete(action);
+                options.afterComplete(action, runtimePlayer);
             }
 
             if (options.logMessageId) {
@@ -95,12 +143,10 @@ var BuildActionEffectService = {
         var fallbackItemInfo = options.fallbackItemInfo || (action.config && action.config.produce ? action.config.produce[0] : null);
         var producedItemInfo = produce[0] || fallbackItemInfo;
         if (options.logMessageId && producedItemInfo) {
-            runtimePlayer.log.addMsg(
-                options.logMessageId,
-                producedItemInfo.num,
-                stringUtil.getString(producedItemInfo.itemId).title,
-                runtimePlayer.storage.getNumByItemId(producedItemInfo.itemId)
-            );
+            var producedLogMessage = this._buildProducedLogMessage(runtimePlayer, produce, options);
+            if (producedLogMessage) {
+                runtimePlayer.log.addMsg(producedLogMessage);
+            }
         }
 
         if (typeof options.afterGrant === "function") {

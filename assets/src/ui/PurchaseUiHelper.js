@@ -2,6 +2,10 @@ var getPurchaseUiService = function () {
     return GameKernel.require("PurchaseService", "PurchaseUiHelper.js");
 };
 
+var getPurchaseUiRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var PurchaseUiHelper = {
     getDisplayIconMeta: function (purchaseId, purchaseConfig) {
         var roleType = this.getRoleTypeByPurchaseId(purchaseId);
@@ -70,29 +74,20 @@ var PurchaseUiHelper = {
         };
     },
 
-    isOperatorPromoPurchase: function (purchaseId) {
-        purchaseId = parseInt(purchaseId);
-        if (purchaseId !== 106
-            || typeof PurchaseAndroid === "undefined"
-            || !PurchaseAndroid) {
-            return false;
-        }
-
-        return PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_OPERATOR
-            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_UNI
-            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_AIYOUXI
-            || PurchaseAndroid.payType == PurchaseAndroid.PAY_TYPE_HEYOUXI;
+    isOperatorPromoPurchase: function (purchaseId, shopState) {
+        return !!this.getPurchaseUiSnapshot(purchaseId, null, shopState).isOperatorPromoPurchase;
     },
 
-    getPurchaseDisplayName: function (purchaseId, defaultName) {
-        if (this.isOperatorPromoPurchase(purchaseId)) {
-            return "靴子特惠";
+    getPurchaseDisplayName: function (purchaseId, defaultName, shopState) {
+        var displayNameOverride = this.getPurchaseUiSnapshot(purchaseId, null, shopState).displayNameOverride;
+        if (displayNameOverride) {
+            return displayNameOverride;
         }
         return defaultName || "";
     },
 
-    shouldShowSaleIcon: function (purchaseId) {
-        return parseInt(purchaseId) === 106;
+    shouldShowSaleIcon: function (purchaseId, shopState) {
+        return !!this.getPurchaseUiSnapshot(purchaseId, null, shopState).showSaleIcon;
     },
     getExchangeIdsByPurchaseId: function (purchaseId) {
         purchaseId = parseInt(purchaseId);
@@ -207,7 +202,10 @@ var PurchaseUiHelper = {
                 isExchangePurchase: false,
                 isTalentPurchase: false,
                 isUnlocked: false,
+                isOperatorPromoPurchase: false,
                 currentTalentLevel: 0,
+                displayNameOverride: "",
+                showSaleIcon: false,
                 priceText: "",
                 priceOff: 0,
                 canBuy: false,
@@ -232,9 +230,12 @@ var PurchaseUiHelper = {
             isExchangePurchase: !!(resolvedShopState && resolvedShopState.isExchangePurchase),
             isTalentPurchase: !!(resolvedShopState && resolvedShopState.isTalentPurchase),
             isUnlocked: !!(resolvedShopState && resolvedShopState.isUnlocked),
+            isOperatorPromoPurchase: !!(resolvedShopState && resolvedShopState.isOperatorPromoPurchase),
             currentTalentLevel: resolvedShopState && resolvedShopState.currentTalentLevel !== undefined && resolvedShopState.currentTalentLevel !== null
                 ? resolvedShopState.currentTalentLevel
                 : 0,
+            displayNameOverride: resolvedShopState && resolvedShopState.displayNameOverride ? resolvedShopState.displayNameOverride : "",
+            showSaleIcon: !!(resolvedShopState && resolvedShopState.showSaleIcon),
             priceText: resolvedShopState && resolvedShopState.priceText ? resolvedShopState.priceText : "",
             priceOff: priceOff,
             canBuy: !!(resolvedShopState && resolvedShopState.canBuy),
@@ -279,10 +280,9 @@ var PurchaseUiHelper = {
 
         purchaseId = purchaseUiState.purchaseId;
         var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-        strConfig.name = this.getPurchaseDisplayName(purchaseId, strConfig.name);
-
         var resolvedPurchaseConfig = purchaseUiState.purchaseConfig || null;
         var resolvedShopState = purchaseUiState.shopState || null;
+        strConfig.name = this.getPurchaseDisplayName(purchaseId, strConfig.name, resolvedShopState);
         var talentDisplayInfo = uiUtil.getTalentDisplayInfo
             ? uiUtil.getTalentDisplayInfo(purchaseId, strConfig.name, purchaseUiState)
             : null;
@@ -453,34 +453,32 @@ var PurchaseUiHelper = {
     },
 
     bindShopStateListener: function (host, handler) {
+        var runtimeEmitter = getPurchaseUiRuntimeEmitter();
         if (!host
             || host._shopStateListener
             || typeof handler !== "function"
-            || typeof utils === "undefined"
-            || !utils
-            || !utils.emitter) {
+            || !runtimeEmitter) {
             return;
         }
 
         host._shopStateListener = function (changeInfo) {
             handler.call(host, changeInfo);
         };
-        utils.emitter.on(getPurchaseUiService().getShopStateChangeEventName(), host._shopStateListener);
+        runtimeEmitter.on(getPurchaseUiService().getShopStateChangeEventName(), host._shopStateListener);
     },
 
     unbindShopStateListener: function (host) {
+        var runtimeEmitter = getPurchaseUiRuntimeEmitter();
         if (!host
             || !host._shopStateListener
-            || typeof utils === "undefined"
-            || !utils
-            || !utils.emitter) {
+            || !runtimeEmitter) {
             if (host) {
                 host._shopStateListener = null;
             }
             return;
         }
 
-        utils.emitter.off(getPurchaseUiService().getShopStateChangeEventName(), host._shopStateListener);
+        runtimeEmitter.off(getPurchaseUiService().getShopStateChangeEventName(), host._shopStateListener);
         host._shopStateListener = null;
     },
 

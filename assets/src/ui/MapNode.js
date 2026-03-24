@@ -1,13 +1,22 @@
+var getMapNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+var getMapNodeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var isMapWorkSitePowered = function () {
-    if (typeof player === "undefined" || !player || !player.map || typeof player.map.getSite !== "function") {
+    var runtimePlayer = getMapNodeRuntimePlayer();
+    if (!runtimePlayer || !runtimePlayer.map || typeof runtimePlayer.map.getSite !== "function") {
         return false;
     }
     var workSiteId = (typeof WORK_SITE !== "undefined") ? WORK_SITE : 204;
-    var workSite = player.map.getSite(workSiteId);
+    var workSite = runtimePlayer.map.getSite(workSiteId);
     return !!(workSite && workSite.isActive);
 };
 var canShowMapPowerStatus = function () {
-    if (typeof player === "undefined" || !player) {
+    var runtimePlayer = getMapNodeRuntimePlayer();
+    if (!runtimePlayer) {
         return false;
     }
     if (typeof RoleRuntimeService === "undefined"
@@ -15,7 +24,7 @@ var canShowMapPowerStatus = function () {
         || typeof RoleRuntimeService.getActionTags !== "function") {
         return false;
     }
-    var roleTags = RoleRuntimeService.getActionTags(player.roleType);
+    var roleTags = RoleRuntimeService.getActionTags(runtimePlayer.roleType);
     return Array.isArray(roleTags) && roleTags.indexOf("powered") !== -1;
 };
 
@@ -83,12 +92,12 @@ var MapNode = BottomFrameNode.extend({
         this._super();
         this.refreshPowerStatusHint();
         this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
-        utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
+        getMapNodeRuntimeEmitter().on("onWorkSiteChange", this.funcOnWorkSiteChange);
     },
     onExit: function () {
         this._super();
         if (this.funcOnWorkSiteChange) {
-            utils.emitter.off("onWorkSiteChange", this.funcOnWorkSiteChange);
+            getMapNodeRuntimeEmitter().off("onWorkSiteChange", this.funcOnWorkSiteChange);
             this.funcOnWorkSiteChange = null;
         }
     },
@@ -103,12 +112,13 @@ var MapView = cc.ScrollView.extend({
     ctor: function (size) {
         var container = new cc.Layer();
         this._super(size, container);
+        var runtimePlayer = getMapNodeRuntimePlayer();
 
         this.bg = autoSpriteFrameController.getSpriteFromSpriteName("#map_bg.png");
         this.bg.setAnchorPoint(0, 0);
         this.bg.setName("name");
         container.addChild(this.bg);
-        this.updateWeather(player.weather.weatherId);
+        this.updateWeather(runtimePlayer.weather.weatherId);
 
         this.setContentSize(this.bg.getContentSize());
 
@@ -118,7 +128,7 @@ var MapView = cc.ScrollView.extend({
         this.setDelegate(this);
 
         this.actor = new MapActor(this);
-        this.actor.setPosition(player.map.pos);
+        this.actor.setPosition(runtimePlayer.map.pos);
         container.addChild(this.actor, 1);
         this.interactionController = new MapInteractionController(this);
         this.ziplineOverlay = null;
@@ -135,7 +145,7 @@ var MapView = cc.ScrollView.extend({
 
         this.entityList = [];
 
-        player.map.forEach(function (baseSite) {
+        runtimePlayer.map.forEach(function (baseSite) {
             self.createEntity(baseSite);
         });
 
@@ -147,11 +157,12 @@ var MapView = cc.ScrollView.extend({
     onEnter: function () {
         this._super();
         var self = this;
-        utils.emitter.on("unlock_site", function (site) {
+        var runtimeEmitter = getMapNodeRuntimeEmitter();
+        runtimeEmitter.on("unlock_site", function (site) {
             self.createEntity(site);
         });
         this.func = this.createFuncOnWeatherChange();
-        utils.emitter.on("weather_change", this.func);
+        runtimeEmitter.on("weather_change", this.func);
 
         adHelper.updateAd();
         adHelper.addAdListener(this, function (adStatus) {
@@ -161,16 +172,17 @@ var MapView = cc.ScrollView.extend({
         });
 
         this.funcOnWorkSiteChange = this.createFuncOnWorkSiteChange();
-        utils.emitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
+        runtimeEmitter.on("onWorkSiteChange", this.funcOnWorkSiteChange);
     },
     onExit: function () {
         this._super();
-        utils.emitter.off("unlock_site");
-        utils.emitter.off("weather_change", this.func);
+        var runtimeEmitter = getMapNodeRuntimeEmitter();
+        runtimeEmitter.off("unlock_site");
+        runtimeEmitter.off("weather_change", this.func);
 
         adHelper.removeAdListener();
 
-        utils.emitter.off("onWorkSiteChange", this.funcOnWorkSiteChange);
+        runtimeEmitter.off("onWorkSiteChange", this.funcOnWorkSiteChange);
     },
     _updateAllStatus: function () {
         cc.log('onWorkSiteChange');
@@ -276,7 +288,7 @@ var MapView = cc.ScrollView.extend({
         this.refreshZiplineOverlay();
     },
     supportsZiplineFramework: function () {
-        return RoleRuntimeService.isZiplineFrameworkAvailable(player);
+        return RoleRuntimeService.isZiplineFrameworkAvailable(getMapNodeRuntimePlayer());
     },
     attachZiplineUi: function (hostNode) {
         if (!this.supportsZiplineFramework() || !hostNode || this.ziplineBuildController) {
@@ -297,7 +309,8 @@ var MapView = cc.ScrollView.extend({
         var buildState = this.ziplineBuildController
             ? this.ziplineBuildController.getOverlayState()
             : null;
-        this.ziplineOverlay.refresh(player.ziplineNetwork, player.map, buildState);
+        var runtimePlayer = getMapNodeRuntimePlayer();
+        this.ziplineOverlay.refresh(runtimePlayer.ziplineNetwork, runtimePlayer.map, buildState);
 
         for (var i = 0; i < this.entityList.length; i++) {
             var entity = this.entityList[i];

@@ -1,8 +1,13 @@
 /**
  * Visualizes a map destination and its local status indicators.
  */
+var getMapEntityRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var canShowPoweredWorksiteStatus = function () {
-    if (typeof player === "undefined" || !player) {
+    var runtimePlayer = getMapEntityRuntimePlayer();
+    if (!runtimePlayer) {
         return false;
     }
     if (typeof RoleRuntimeService === "undefined"
@@ -10,7 +15,7 @@ var canShowPoweredWorksiteStatus = function () {
         || typeof RoleRuntimeService.getActionTags !== "function") {
         return false;
     }
-    var roleTags = RoleRuntimeService.getActionTags(player.roleType);
+    var roleTags = RoleRuntimeService.getActionTags(runtimePlayer.roleType);
     return Array.isArray(roleTags) && roleTags.indexOf("powered") !== -1;
 };
 

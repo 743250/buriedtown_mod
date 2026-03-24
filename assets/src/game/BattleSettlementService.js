@@ -1,3 +1,12 @@
+var getBattleSettlementRuntimePlayer = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getPlayer === "function") {
+        return GameRuntime.getPlayer();
+    }
+    return typeof player !== "undefined" ? player : null;
+};
+
 var BattleSettlementService = {
     settle: function (context) {
         var summary = context.summary;
@@ -18,23 +27,25 @@ var BattleSettlementService = {
     _syncConsumables: function (context) {
         var battlePlayer = context.battlePlayer;
         var summary = context.summary;
+        var runtimePlayer = getBattleSettlementRuntimePlayer();
 
-        player.bag.setItem(context.bulletItemId, battlePlayer.bulletNum);
+        runtimePlayer.bag.setItem(context.bulletItemId, battlePlayer.bulletNum);
         if (!battlePlayer.equip) {
             return;
         }
 
-        var toolItemId = player.equip.getEquip(EquipmentPos.TOOL);
+        var toolItemId = runtimePlayer.equip.getEquip(EquipmentPos.TOOL);
         summary.setToolItemId(toolItemId);
-        player.bag.setItem(toolItemId, battlePlayer.toolNum);
+        runtimePlayer.bag.setItem(toolItemId, battlePlayer.toolNum);
         if (battlePlayer.toolNum === 0) {
-            player.equip.unequip(EquipmentPos.TOOL);
+            runtimePlayer.equip.unequip(EquipmentPos.TOOL);
         }
     },
 
     _applyWinSettlement: function (context) {
+        var runtimePlayer = getBattleSettlementRuntimePlayer();
         if (!context.isDodge) {
-            player.log.addMsg(1118);
+            runtimePlayer.log.addMsg(1118);
         }
 
         context.summary.setBrokenWeapons(this._collectBrokenWeapons(context.summary.getData()));
@@ -45,16 +56,17 @@ var BattleSettlementService = {
     },
 
     _collectBrokenWeapons: function (sumRes) {
+        var runtimePlayer = getBattleSettlementRuntimePlayer();
         var brokenWeapon = [];
-        var gunItemId = player.equip.getEquip(EquipmentPos.GUN);
-        var gunBrokenResult = gunItemId && sumRes.weapon1 > 0 ? player.bag.testWeaponBroken(gunItemId) : false;
+        var gunItemId = runtimePlayer.equip.getEquip(EquipmentPos.GUN);
+        var gunBrokenResult = gunItemId && sumRes.weapon1 > 0 ? runtimePlayer.bag.testWeaponBroken(gunItemId) : false;
         if (gunBrokenResult) {
             brokenWeapon.push(gunBrokenResult.brokenResultItemId || gunBrokenResult.itemId || gunItemId);
         }
 
-        var weaponItemId = player.equip.getEquip(EquipmentPos.WEAPON);
+        var weaponItemId = runtimePlayer.equip.getEquip(EquipmentPos.WEAPON);
         var weaponBrokenResult = weaponItemId && weaponItemId != Equipment.HAND && sumRes.weapon2 > 0
-            ? player.bag.testWeaponBroken(weaponItemId)
+            ? runtimePlayer.bag.testWeaponBroken(weaponItemId)
             : false;
         if (weaponBrokenResult) {
             brokenWeapon.push(weaponBrokenResult.brokenResultItemId || weaponBrokenResult.itemId || weaponItemId);
@@ -65,13 +77,14 @@ var BattleSettlementService = {
 
     _applyWinRecovery: function (summary) {
         var recoverHp = TalentService.getBattleWinRecoverHp();
+        var runtimePlayer = getBattleSettlementRuntimePlayer();
         if (recoverHp <= 0) {
             return;
         }
 
-        var hpBeforeRecover = memoryUtil.decode(player.hp);
-        player.changeHp(recoverHp);
-        summary.setTalentHealHp(memoryUtil.decode(player.hp) - hpBeforeRecover);
+        var hpBeforeRecover = memoryUtil.decode(runtimePlayer.hp);
+        runtimePlayer.changeHp(recoverHp);
+        summary.setTalentHealHp(memoryUtil.decode(runtimePlayer.hp) - hpBeforeRecover);
     }
 };
 

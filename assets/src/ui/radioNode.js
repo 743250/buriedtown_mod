@@ -1,6 +1,14 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getRadioNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getRadioNodeRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var RadioNode = BuildNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -17,7 +25,7 @@ var RadioNode = BuildNode.extend({
     afterUpgrade: function () {
         this.updateAllView();
 
-        this.title.setString(player.room.getBuildCurrentName(this.build.id));
+        this.title.setString(getRadioNodeRuntimePlayer().room.getBuildCurrentName(this.build.id));
 
         this.checkVisible();
     },
@@ -113,8 +121,9 @@ var RadioNode = BuildNode.extend({
         }
     },
     sendMsg: function (msg) {
+        var runtimeRecord = getRadioNodeRuntimeRecord();
         var msgData = {
-            uid: Record.getUUID(),
+            uid: runtimeRecord.getUUID(),
             msg: msg,
             time: new Date().getTime()
         };

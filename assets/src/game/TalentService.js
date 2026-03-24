@@ -242,7 +242,8 @@ var TalentService = {
     getPreciseEffect: function (precise) {
         var level120 = this._getActiveTalentLevel(120);
         if (level120 >= 1) {
-            return precise * this._getTalentValueByLevel(120, "preciseMultiplierValues", level120, 1);
+            var multiplier = this._getTalentValueByLevel(120, "preciseMultiplierValues", level120, 1);
+            return precise + (1 - precise) * (multiplier - 1);
         }
         return precise;
     },
@@ -348,13 +349,13 @@ var TalentService = {
         if (isLikelyEnglish) {
             return {
                 title: "Sharpshooter's Beloved Pistol",
-                des: "A tuned sidearm from your old range days. It never breaks and stays deadly steady (+15% precision, +12% headshot chance)."
+                des: "A tuned sidearm from your old range days. It never breaks and stays deadly steady (+15% precision, +5% headshot chance)."
             };
         }
 
         return {
             title: "神射手珍爱的手枪",
-            des: "这是你在靶场时代就用惯的配枪，准星和扳机都校到了你的节奏上。它永不损坏，也更容易把子弹送进要害。（额外精准+15%，额外爆头率+12%）"
+            des: "这是你在靶场时代就用惯的配枪，准星和扳机都校到了你的节奏上。它永不损坏，也更容易把子弹送进要害。（精准+15%，爆头+5%）"
         };
     },
     getElitePistolAtkCdMultiplier: function () {

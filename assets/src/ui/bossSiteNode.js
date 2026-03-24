@@ -1,6 +1,10 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getBossSiteRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var BossSiteNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -42,7 +46,7 @@ var BossSiteNode = BottomFrameNode.extend({
     },
     updateBtn: function (siteId) {
         var btn = this.btnList[siteId];
-        var site = player.map.getSite(siteId);
+        var site = getBossSiteRuntimePlayer().map.getSite(siteId);
         var iconName;
         if (site) {
             btn.changeType(ButtonAtSiteType.WHITE);

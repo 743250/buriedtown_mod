@@ -82,17 +82,33 @@ var PlayerAttrService = {
         cc.d(blockedBuffInfo.logMsg);
         return true;
     },
-    normalizeAttrChangeValue: function (key, value) {
+    applyAdverseAttrChangeRate: function (playerInstance, key, value) {
+        if (value === 0 || this.isAttrChangeGood(key, value)) {
+            return value;
+        }
+        if (!playerInstance
+            || !playerInstance.buffManager
+            || typeof playerInstance.buffManager.getAdverseAttrChangeRate !== "function") {
+            return value;
+        }
+
+        var rate = playerInstance.buffManager.getAdverseAttrChangeRate(key);
+        if (!isFinite(rate) || rate === 1) {
+            return value;
+        }
+        return value * rate;
+    },
+    normalizeAttrChangeValue: function (playerInstance, key, value) {
         if (key === "infect" && value > 0) {
             if (typeof TalentService !== "undefined"
                 && TalentService
                 && typeof TalentService.getInfectIncreaseEffect === "function") {
-                return SafetyHelper.safeCall(function (infectValue) {
+                value = SafetyHelper.safeCall(function (infectValue) {
                     return TalentService.getInfectIncreaseEffect(infectValue);
                 }, value, value);
             }
         }
-        return value;
+        return this.applyAdverseAttrChangeRate(playerInstance, key, value);
     },
     applyAttrChangeValue: function (playerInstance, key, value) {
         var beforeRangeInfo = playerInstance.getAttrRangeInfo(key, playerInstance[key]);
@@ -148,7 +164,7 @@ var PlayerAttrService = {
             return;
         }
 
-        value = this.normalizeAttrChangeValue(key, value);
+        value = this.normalizeAttrChangeValue(playerInstance, key, value);
         var changeInfo = this.applyAttrChangeValue(playerInstance, key, value);
 
         cc.i("changeAttr " + key + " value:" + value + " after:" + changeInfo.currentVal);

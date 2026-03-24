@@ -3,6 +3,22 @@
  * Date: 15/1/5
  * Time: 下午4:07
  */
+var getTopFrameRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getTopFrameRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getTopFrameRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getTopFrameRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var formatTemperatureValue = function (value) {
     value = Number(value) || 0;
     value = value < 0 ? Math.ceil(value) : Math.floor(value);
@@ -12,6 +28,7 @@ var formatTemperatureValue = function (value) {
 var TopFrameNode = cc.Node.extend({
     ctor: function () {
         this._super();
+        var runtimePlayer = getTopFrameRuntimePlayer();
 
         var bg = autoSpriteFrameController.getSpriteFromSpriteName("#frame_bg_top.png")
         bg.setAnchorPoint(0.5, 1);
@@ -39,7 +56,7 @@ var TopFrameNode = cc.Node.extend({
         season.setName("season");
         this.firstLine.addChild(season);
 
-        var weather = new StatusButton(btnSize, "#icon_weather_" + player.weather.weatherId + ".png", player.weather.getWeatherName(), {
+        var weather = new StatusButton(btnSize, "#icon_weather_" + runtimePlayer.weather.weatherId + ".png", runtimePlayer.weather.getWeatherName(), {
             scale: 0.5,
             noLabel: true
         });
@@ -51,14 +68,14 @@ var TopFrameNode = cc.Node.extend({
         //weather.setPosition(btnSize.width*3.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         weather.setName("weather");
         this.firstLine.addChild(weather);
-        utils.emitter.on("weather_change", function (weatherId) {
-            weather.updateView("icon_weather_" + weatherId + ".png", player.weather.getWeatherName());
+        getTopFrameRuntimeEmitter().on("weather_change", function (weatherId) {
+            weather.updateView("icon_weather_" + weatherId + ".png", getTopFrameRuntimePlayer().weather.getWeatherName());
         });
 
         var day = new StatusButton(btnSize, "#icon_day.png", "", {scale: 0.5});
         day.setClickListener(this, function (sender) {
             var label = sender.getChildByName("label");
-            showStatusDialog(1, cc.timer.getTimeDayStr(), sender.spriteFrameName);
+            showStatusDialog(1, getTopFrameRuntimeTimer().getTimeDayStr(), sender.spriteFrameName);
         });
         day.setPosition(this.firstLine.getContentSize().width / 12 * 1, this.firstLine.getContentSize().height / 2);
         //day.setPosition(btnSize.width*0.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
@@ -85,7 +102,7 @@ var TopFrameNode = cc.Node.extend({
 
         this.updateByTime();
 
-        var temperature = new StatusButton(btnSize, "#icon_temperature_0.png", formatTemperatureValue(memoryUtil.decode(player.temperature)), {scale: 0.5});
+        var temperature = new StatusButton(btnSize, "#icon_temperature_0.png", formatTemperatureValue(memoryUtil.decode(runtimePlayer.temperature)), {scale: 0.5});
         temperature.setClickListener(this, function (sender) {
             var label = sender.getChildByName("label");
             showStatusDialog(3, label.getString() + "℃", sender.spriteFrameName);
@@ -94,8 +111,8 @@ var TopFrameNode = cc.Node.extend({
         //temperature.setPosition(btnSize.width*4.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         temperature.setName("temperature");
         this.firstLine.addChild(temperature);
-        utils.emitter.on("temperature_change", function (value) {
-            temperature.updateView(null, formatTemperatureValue(memoryUtil.decode(player.temperature)));
+        getTopFrameRuntimeEmitter().on("temperature_change", function (value) {
+            temperature.updateView(null, formatTemperatureValue(memoryUtil.decode(getTopFrameRuntimePlayer().temperature)));
         });
 
         //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域
@@ -123,12 +140,16 @@ var TopFrameNode = cc.Node.extend({
                 showAttrStatusDialog(stringId, attr);
             });
             btn.setName(attr);
-            utils.emitter.on(attr + "_change", function (value) {
+            getTopFrameRuntimeEmitter().on(attr + "_change", function (value) {
                 btn.updateAttrBtn();
             });
             btn.updateAttrBtn = function () {
                 if (cc.sys.isObjectValid(btn)) {
-                    btn.updateView(reversPercentage ? 1 - player.getAttrPercentage(attr) : player.getAttrPercentage(attr), needStatusStr ? player.getAttrStr(attr) : null);
+                    var buttonPlayer = getTopFrameRuntimePlayer();
+                    btn.updateView(
+                        reversPercentage ? 1 - buttonPlayer.getAttrPercentage(attr) : buttonPlayer.getAttrPercentage(attr),
+                        needStatusStr ? buttonPlayer.getAttrStr(attr) : null
+                    );
                 }
             };
             btn.updateAttrBtn();
@@ -168,7 +189,7 @@ var TopFrameNode = cc.Node.extend({
         this.createLogBar();
 
         var self = this;
-        utils.emitter.on("logChanged", function (msg) {
+        getTopFrameRuntimeEmitter().on("logChanged", function (msg) {
             if (cc.sys.isObjectValid(self.thirdLine)) {
                 self.thirdLine.updateLog(msg.txt);
                 self.logTablebg.getChildByName("logView").addLog(msg);
@@ -178,34 +199,36 @@ var TopFrameNode = cc.Node.extend({
         return true;
     },
     updateByTime: function () {
-        var timeObj = cc.timer.formatTime();
+        var runtimeTimer = getTopFrameRuntimeTimer();
+        var timeObj = runtimeTimer.formatTime();
 
         var seasonStr = stringUtil.getString(3000);
-        var s = cc.timer.getSeason(timeObj);
+        var s = runtimeTimer.getSeason(timeObj);
         this.firstLine.getChildByName("season").updateView("#icon_season_" + s + ".png", seasonStr[s]);
-        this.firstLine.getChildByName("day").updateView(null, cc.timer.formatTime().d + 1);
-        this.firstLine.getChildByName("time").updateView(null, cc.timer.getTimeHourStr());
+        this.firstLine.getChildByName("day").updateView(null, runtimeTimer.formatTime().d + 1);
+        this.firstLine.getChildByName("time").updateView(null, runtimeTimer.getTimeHourStr());
     },
 
     onExit: function () {
         this._super();
-        utils.emitter.off("logChanged");
+        getTopFrameRuntimeEmitter().off("logChanged");
         if (this.tcb) {
-            cc.timer.removeTimerCallback(this.tcb);
+            getTopFrameRuntimeTimer().removeTimerCallback(this.tcb);
         }
     },
 
     onEnter: function () {
         this._super();
         var self = this;
-        if (utils.emitter.listeners("logChanged").length < 1) {
-            utils.emitter.on("logChanged", function (msg) {
+        var runtimeEmitter = getTopFrameRuntimeEmitter();
+        if (runtimeEmitter.listeners("logChanged").length < 1) {
+            runtimeEmitter.on("logChanged", function (msg) {
                 self.thirdLine.updateLog(msg.txt);
                 self.logTablebg.getChildByName("logView").addLog(msg);
             });
         }
 
-        this.tcb = cc.timer.addTimerCallback(new TimerCallback(60, this, {
+        this.tcb = getTopFrameRuntimeTimer().addTimerCallback(new TimerCallback(60, this, {
             end: function () {
                 self.updateByTime();
             }
@@ -306,11 +329,12 @@ var showStatusDialog = function (stringId, value, iconName) {
 };
 
 var pauseTimeWhileDialogVisible = function (dialog) {
-    if (!cc.timer) {
+    var runtimeTimer = getTopFrameRuntimeTimer();
+    if (!runtimeTimer) {
         return;
     }
 
-    cc.timer.pause();
+    runtimeTimer.pause();
     var oldDismissListener = dialog.onDismissListener;
     dialog.setOnDismissListener({
         target: dialog,
@@ -318,7 +342,7 @@ var pauseTimeWhileDialogVisible = function (dialog) {
             if (oldDismissListener && oldDismissListener.cb) {
                 oldDismissListener.cb.call(oldDismissListener.target);
             }
-            cc.timer.resume();
+            runtimeTimer.resume();
         }
     });
 };
@@ -335,7 +359,8 @@ var showRoleTalentDialog = function () {
         sprite.setScale(scale);
     };
 
-    var currentRoleType = Number(player.roleType);
+    var runtimePlayer = getTopFrameRuntimePlayer();
+    var currentRoleType = Number(runtimePlayer.roleType);
     if (isNaN(currentRoleType) || currentRoleType <= 0) {
         currentRoleType = RoleType.STRANGER;
     }
@@ -602,10 +627,11 @@ var showAttrStatusDialog = function (stringId, attr) {
         infect: true,
         injury: true
     };
+    var runtimePlayer = getTopFrameRuntimePlayer();
     if (attrWithMaxValue[attr]) {
-        config.title.txt_1 = cc.formatStr(config.title.txt_1, memoryUtil.decode(player[attr]) + "/" + memoryUtil.decode(player[attr + "Max"]));
+        config.title.txt_1 = cc.formatStr(config.title.txt_1, memoryUtil.decode(runtimePlayer[attr]) + "/" + memoryUtil.decode(runtimePlayer[attr + "Max"]));
     } else {
-        config.title.txt_1 = player.getAttrStr(attr);
+        config.title.txt_1 = runtimePlayer.getAttrStr(attr);
     }
     config.content.des = strConfig.des;
     var dialog = new DialogSmall(config);
@@ -640,8 +666,8 @@ var showAttrStatusDialog = function (stringId, attr) {
         clearBuffRows();
 
         var displayBuffs = [];
-        if (player.buffManager && typeof player.buffManager.getDisplayBuffsByAttr === "function") {
-            displayBuffs = player.buffManager.getDisplayBuffsByAttr(attr);
+        if (runtimePlayer.buffManager && typeof runtimePlayer.buffManager.getDisplayBuffsByAttr === "function") {
+            displayBuffs = runtimePlayer.buffManager.getDisplayBuffsByAttr(attr);
         }
         if (!displayBuffs || displayBuffs.length === 0) {
             return;
@@ -666,18 +692,18 @@ var showAttrStatusDialog = function (stringId, attr) {
     updateBuff();
 
     var storage;
-    if (player.isAtHome()) {
-        storage = player.storage;
+    if (runtimePlayer.isAtHome()) {
+        storage = runtimePlayer.storage;
     } else {
-        if (player.tmpBag) {
-            storage = player.tmpBag;
+        if (runtimePlayer.tmpBag) {
+            storage = runtimePlayer.tmpBag;
         } else {
-            storage = player.bag;
+            storage = runtimePlayer.bag;
         }
     }
 
     //fix bug: NPC交易时快捷使用物品带来的不正确
-    if (!player.tmpBag) {
+    if (!runtimePlayer.tmpBag) {
         var itemList = [];
         if (attr === 'starve') {
             itemList = storage.getItemsByType("1103");
@@ -716,21 +742,21 @@ var showAttrStatusDialog = function (stringId, attr) {
         var onItemUse = function (itemId, source) {
             if (source !== 'top')
                 return;
-            var res = player.useItem(storage, itemId);
+            var res = runtimePlayer.useItem(storage, itemId);
             if (res.result) {
                 itemTableView.updateData();
                 itemTableView.reloadData();
                 updateBuff();
-                Record.saveAll();
+                getTopFrameRuntimeRecord().saveAll();
             } else {
                 cc.e("useItem fail " + res.msg);
             }
         };
 
-        utils.emitter.on("btn_1_click", onItemUse);
+        getTopFrameRuntimeEmitter().on("btn_1_click", onItemUse);
         dialog.setOnDismissListener({
             target: dialog, cb: function () {
-                utils.emitter.off('btn_1_click', onItemUse);
+                getTopFrameRuntimeEmitter().off('btn_1_click', onItemUse);
             }
         });
     }

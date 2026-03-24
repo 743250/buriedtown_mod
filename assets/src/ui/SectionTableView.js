@@ -1,6 +1,14 @@
 /**
  * Created by lancelot on 15/4/21.
  */
+var getSectionTableViewRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getSectionTableViewRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var SectionTableView = cc.ScrollView.extend({
     ctor: function (size, id) {
         this.mycontainer = new cc.Layer();
@@ -106,9 +114,10 @@ var ItemCell = cc.Node.extend({
         this.btn.addChild(numLabel);
         numLabel.enableStroke(UITheme.colors.TEXT_TITLE, 2);
 
-        if (player.getSetting("inGate", false) && userGuide.isStep(userGuide.stepName.GATE_ITEM) && userGuide.isItemCreate(itemId)) {
+        var runtimePlayer = getSectionTableViewRuntimePlayer();
+        if (runtimePlayer.getSetting("inGate", false) && userGuide.isStep(userGuide.stepName.GATE_ITEM) && userGuide.isItemCreate(itemId)) {
             uiUtil.createIconWarn(this.btn);
-        } else if (player.getSetting("inStorage", false) && userGuide.isStep(userGuide.stepName.STORAGE_ITEM) && userGuide.isItemEat(itemId)) {
+        } else if (runtimePlayer.getSetting("inStorage", false) && userGuide.isStep(userGuide.stepName.STORAGE_ITEM) && userGuide.isItemEat(itemId)) {
             uiUtil.createIconWarn(this.btn);
         }
 
@@ -119,15 +128,16 @@ var ItemCell = cc.Node.extend({
             if (this.scrollView.id == "top" && userGuide.equipNeedGuide2(itemId)) {
                 userGuide.resetGuide2Step(itemId);
                 this.scheduleOnce(function () {
-                    utils.emitter.emit("equip_item_need_guide", itemId);
+                    getSectionTableViewRuntimeEmitter().emit("equip_item_need_guide", itemId);
                 }, 0.01);
             }
         }
     },
     onItemClick: function (sender, isLongPressed) {
-        if (player.getSetting("inGate", false) && userGuide.isStep(userGuide.stepName.GATE_ITEM) && userGuide.isItemCreate(this.storageCell.item.id)) {
+        var runtimePlayer = getSectionTableViewRuntimePlayer();
+        if (runtimePlayer.getSetting("inGate", false) && userGuide.isStep(userGuide.stepName.GATE_ITEM) && userGuide.isItemCreate(this.storageCell.item.id)) {
             userGuide.step();
-        } else if (player.getSetting("inStorage", false) && userGuide.isStep(userGuide.stepName.STORAGE_ITEM) && userGuide.isItemEat(this.storageCell.item.id)) {
+        } else if (runtimePlayer.getSetting("inStorage", false) && userGuide.isStep(userGuide.stepName.STORAGE_ITEM) && userGuide.isItemEat(this.storageCell.item.id)) {
             userGuide.step();
             uiUtil.removeIconWarn(this.btn);
         }
@@ -139,7 +149,7 @@ var ItemCell = cc.Node.extend({
             }
         }
 
-        utils.emitter.emit("item_click", this.storageCell, this.id, isLongPressed);
+        getSectionTableViewRuntimeEmitter().emit("item_click", this.storageCell, this.id, isLongPressed);
     },
     setBtnEnable: function (enabled) {
         this.btn.setEnabled(enabled);

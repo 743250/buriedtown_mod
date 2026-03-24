@@ -185,6 +185,10 @@ function runLoadChainSmoke() {
         && playerSource.indexOf("return Record;") === -1
         && playerSource.indexOf("return utils.emitter;") === -1,
         "player.js should resolve timer/record/emitter through GameRuntime");
+    assert(playerSource.indexOf("HP_INIT: 240") === -1
+        && playerSource.indexOf("saveAttrs: function") === -1
+        && playerSource.indexOf("restoreAttrs: function") === -1,
+        "player.js should no longer embed shadow runtime fallback helpers");
     assert(battleActorsSource.indexOf("player.weather.getValue") === -1
         && battleActorsSource.indexOf("player.changeAttr") === -1
         && battleActorsSource.indexOf("player.log.addMsg") === -1,

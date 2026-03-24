@@ -2,6 +2,10 @@
  * Centralizes zipline build/remove side effects so UI controllers only handle
  * presentation and user feedback.
  */
+var getZiplineActionRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var ZiplineActionService = {
     getBuildCost: function (roleType) {
         return RoleRuntimeService.getZiplineBuildCost
@@ -14,7 +18,8 @@ var ZiplineActionService = {
             : [];
     },
     canFitItemsInBag: function (itemList) {
-        var tempBag = player.bag.clone();
+        var runtimePlayer = getZiplineActionRuntimePlayer();
+        var tempBag = runtimePlayer.bag.clone();
         for (var i = 0; i < itemList.length; i++) {
             var itemInfo = itemList[i];
             if (!tempBag.validateItemWeight(itemInfo.itemId, itemInfo.num)) {
@@ -29,7 +34,7 @@ var ZiplineActionService = {
             return;
         }
 
-        player.costItemsInBag(buildCost);
+        getZiplineActionRuntimePlayer().costItemsInBag(buildCost);
         if (typeof Achievement !== "undefined" && Achievement && typeof Achievement.checkCost === "function") {
             buildCost.forEach(function (itemInfo) {
                 Achievement.checkCost(itemInfo.itemId, itemInfo.num);
@@ -43,7 +48,7 @@ var ZiplineActionService = {
         }
 
         if (this.canFitItemsInBag(refundItems)) {
-            player.gainItemsInBag(refundItems);
+            getZiplineActionRuntimePlayer().gainItemsInBag(refundItems);
             return "bag";
         }
 
@@ -57,8 +62,9 @@ var ZiplineActionService = {
         return "none";
     },
     createLink: function (startEntityRef, endEntityRef, map) {
-        var buildCost = this.getBuildCost(player.roleType);
-        if (buildCost.length > 0 && !player.validateItemsInBag(buildCost)) {
+        var runtimePlayer = getZiplineActionRuntimePlayer();
+        var buildCost = this.getBuildCost(runtimePlayer.roleType);
+        if (buildCost.length > 0 && !runtimePlayer.validateItemsInBag(buildCost)) {
             return {
                 ok: false,
                 reason: "missing-cost",
@@ -66,7 +72,7 @@ var ZiplineActionService = {
             };
         }
 
-        var result = player.ziplineNetwork.createLink(startEntityRef, endEntityRef, map);
+        var result = runtimePlayer.ziplineNetwork.createLink(startEntityRef, endEntityRef, map);
         if (!result.ok) {
             return result;
         }
@@ -82,12 +88,13 @@ var ZiplineActionService = {
         return this.createLink(HOME_SITE, entityRef, map);
     },
     removeLink: function (startEntityRef, endEntityRef, map, refundTargetEntity) {
-        var result = player.ziplineNetwork.removeLinkBetween(startEntityRef, endEntityRef, map);
+        var runtimePlayer = getZiplineActionRuntimePlayer();
+        var result = runtimePlayer.ziplineNetwork.removeLinkBetween(startEntityRef, endEntityRef, map);
         if (!result.ok) {
             return result;
         }
 
-        var refundItems = this.getRefundCost(player.roleType);
+        var refundItems = this.getRefundCost(runtimePlayer.roleType);
         return {
             ok: true,
             link: result.link,

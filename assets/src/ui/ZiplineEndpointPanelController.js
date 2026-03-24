@@ -2,6 +2,13 @@
  * Shared panel controller for building/removing Home-linked ziplines from
  * either a site page or an NPC page.
  */
+var getZiplineEndpointRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+var getZiplineEndpointRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var ZiplineEndpointPanelController = cc.Class.extend({
     ctor: function (options) {
         options = options || {};
@@ -33,7 +40,7 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         this.hostNode.removeChildByName(this.sectionName);
-        if (!RoleRuntimeService.isZiplineFrameworkAvailable(player)) {
+        if (!RoleRuntimeService.isZiplineFrameworkAvailable(getZiplineEndpointRuntimePlayer())) {
             return;
         }
 
@@ -43,11 +50,12 @@ var ZiplineEndpointPanelController = cc.Class.extend({
             return;
         }
 
-        var links = player.ziplineNetwork.getLinksForEntity(entityRef, player.map);
-        var totalLinks = player.ziplineNetwork.getLinkCount
-            ? player.ziplineNetwork.getLinkCount(player.map)
-            : player.ziplineNetwork.listLinks().length;
-        var maxLinks = player.ziplineNetwork.getMaxLinks ? player.ziplineNetwork.getMaxLinks() : 3;
+        var runtimePlayer = getZiplineEndpointRuntimePlayer();
+        var links = runtimePlayer.ziplineNetwork.getLinksForEntity(entityRef, runtimePlayer.map);
+        var totalLinks = runtimePlayer.ziplineNetwork.getLinkCount
+            ? runtimePlayer.ziplineNetwork.getLinkCount(runtimePlayer.map)
+            : runtimePlayer.ziplineNetwork.listLinks().length;
+        var maxLinks = runtimePlayer.ziplineNetwork.getMaxLinks ? runtimePlayer.ziplineNetwork.getMaxLinks() : 3;
         var panelWidth = this.rightEdge - this.leftEdge;
         var headerHeight = 34;
         var rowHeight = 42;
@@ -121,14 +129,14 @@ var ZiplineEndpointPanelController = cc.Class.extend({
         }
 
         var self = this;
-        var currentEntityKey = player.ziplineNetwork.getEntityKey(entityRef, player.map);
+        var currentEntityKey = runtimePlayer.ziplineNetwork.getEntityKey(entityRef, runtimePlayer.map);
         var removeBtnSize = cc.size(52, 24);
         var removeBtnRightPadding = 8;
         var removeBtnText = stringUtil.getString(1359) || "拆除";
         for (var i = 0; i < links.length; i++) {
             var link = links[i];
             var targetEntityKey = link.startEntityKey === currentEntityKey ? link.endEntityKey : link.startEntityKey;
-            var targetEntity = player.ziplineNetwork.resolveEntity(targetEntityKey, player.map);
+            var targetEntity = runtimePlayer.ziplineNetwork.resolveEntity(targetEntityKey, runtimePlayer.map);
             var targetName = this.buildTargetLabel(targetEntity, targetEntityKey);
             var rowBottom = footerHeight + rowCount * rowHeight - (i + 1) * rowHeight;
             var rowCenterY = rowBottom + rowHeight / 2;
@@ -166,36 +174,38 @@ var ZiplineEndpointPanelController = cc.Class.extend({
     shouldShowPanel: function () {
         var entity = this.getCurrentEntity();
         var entityRef = this.getCurrentEntityRef();
-        return !!(RoleRuntimeService.isZiplineFrameworkAvailable(player)
-            && RoleRuntimeService.isZiplineHomeOnly(player.roleType)
-            && RoleRuntimeService.isZiplineBuildFromSiteOnly(player.roleType)
+        var runtimePlayer = getZiplineEndpointRuntimePlayer();
+        return !!(RoleRuntimeService.isZiplineFrameworkAvailable(runtimePlayer)
+            && RoleRuntimeService.isZiplineHomeOnly(runtimePlayer.roleType)
+            && RoleRuntimeService.isZiplineBuildFromSiteOnly(runtimePlayer.roleType)
             && entity
             && entityRef
             && entity.id !== HOME_SITE
-            && player.ziplineNetwork
-            && typeof player.ziplineNetwork.isEligibleEntity === "function"
-            && player.ziplineNetwork.isEligibleEntity(entityRef, player.map));
+            && runtimePlayer.ziplineNetwork
+            && typeof runtimePlayer.ziplineNetwork.isEligibleEntity === "function"
+            && runtimePlayer.ziplineNetwork.isEligibleEntity(entityRef, runtimePlayer.map));
     },
     hasHomeLink: function () {
         var entityRef = this.getCurrentEntityRef();
+        var runtimePlayer = getZiplineEndpointRuntimePlayer();
         return !!(entityRef
-            && player.ziplineNetwork
-            && typeof player.ziplineNetwork.hasHomeLink === "function"
-            && player.ziplineNetwork.hasHomeLink(entityRef, player.map));
+            && runtimePlayer.ziplineNetwork
+            && typeof runtimePlayer.ziplineNetwork.hasHomeLink === "function"
+            && runtimePlayer.ziplineNetwork.hasHomeLink(entityRef, runtimePlayer.map));
     },
     getActionService: function () {
         return ZiplineActionService;
     },
     getBuildCost: function () {
-        return this.getActionService().getBuildCost(player.roleType);
+        return this.getActionService().getBuildCost(getZiplineEndpointRuntimePlayer().roleType);
     },
     getRefundCost: function () {
-        return this.getActionService().getRefundCost(player.roleType);
+        return this.getActionService().getRefundCost(getZiplineEndpointRuntimePlayer().roleType);
     },
     buildDisplayItems: function (itemList, compareWithBag, defaultColor) {
         var items = utils.clone(itemList || []);
         if (compareWithBag) {
-            player.validateItemsInBag(items);
+            getZiplineEndpointRuntimePlayer().validateItemsInBag(items);
         }
         return items.map(function (itemInfo) {
             return {
@@ -296,62 +306,64 @@ var ZiplineEndpointPanelController = cc.Class.extend({
 
         var entity = this.getCurrentEntity();
         var entityRef = this.getCurrentEntityRef();
-        var result = this.getActionService().createHomeLink(entityRef, player.map);
+        var runtimePlayer = getZiplineEndpointRuntimePlayer();
+        var result = this.getActionService().createHomeLink(entityRef, runtimePlayer.map);
         if (!result.ok) {
             switch (result.reason) {
             case "missing-cost":
-                player.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
+                runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_cost_missing") || "随身材料不足，无法建立滑索");
                 break;
             case "duplicate":
-                player.log.addMsg(1355);
+                runtimePlayer.log.addMsg(1355);
                 break;
             case "max-links":
-                player.log.addMsg(1367);
+                runtimePlayer.log.addMsg(1367);
                 break;
             case "same-site":
-                player.log.addMsg(1354);
+                runtimePlayer.log.addMsg(1354);
                 break;
             case "home-only":
-                player.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
+                runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_home_only") || "滑索只能连接家与地点或NPC");
                 break;
             case "invalid-site":
-                player.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
+                runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_invalid_target") || "当前目标不能建立滑索");
                 break;
             default:
-                player.log.addMsg(1357);
+                runtimePlayer.log.addMsg(1357);
                 break;
             }
             return;
         }
 
-        var homeSite = player.map.getSite(HOME_SITE);
-        player.log.addMsg(1356, homeSite ? homeSite.getName() : "家", entity ? entity.getName() : "");
-        Record.saveAll();
+        var homeSite = runtimePlayer.map.getSite(HOME_SITE);
+        runtimePlayer.log.addMsg(1356, homeSite ? homeSite.getName() : "家", entity ? entity.getName() : "");
+        getZiplineEndpointRuntimeRecord().saveAll();
         this.refresh();
         this.onRefreshHeader();
     },
     onClickRemove: function (targetEntityKey) {
+        var runtimePlayer = getZiplineEndpointRuntimePlayer();
         if (!targetEntityKey || !this.hasHomeLink()) {
-            player.log.addMsg(1364);
+            runtimePlayer.log.addMsg(1364);
             return;
         }
 
         var entity = this.getCurrentEntity();
         var entityRef = this.getCurrentEntityRef();
-        var homeSite = player.map.getSite(HOME_SITE);
-        var result = this.getActionService().removeHomeLink(entityRef, player.map, entity);
+        var homeSite = runtimePlayer.map.getSite(HOME_SITE);
+        var result = this.getActionService().removeHomeLink(entityRef, runtimePlayer.map, entity);
         if (!result.ok) {
-            player.log.addMsg(result.reason === "not-found" ? 1364 : 1357);
+            runtimePlayer.log.addMsg(result.reason === "not-found" ? 1364 : 1357);
             return;
         }
 
-        player.log.addMsg(1360, (homeSite ? homeSite.getName() : "家") + " <-> " + (entity ? entity.getName() : entityRef));
+        runtimePlayer.log.addMsg(1360, (homeSite ? homeSite.getName() : "家") + " <-> " + (entity ? entity.getName() : entityRef));
         if (result.refundTarget === "bag") {
-            player.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_refund_received") || "已返还50%滑索材料");
         } else if (result.refundTarget === "storage") {
-            player.log.addMsg(stringUtil.getString("zipline_site_refund_to_site_storage") || "背包空间不足，返还材料已放入当前地点存放");
+            runtimePlayer.log.addMsg(stringUtil.getString("zipline_site_refund_to_site_storage") || "背包空间不足，返还材料已放入当前地点存放");
         }
-        Record.saveAll();
+        getZiplineEndpointRuntimeRecord().saveAll();
         this.refresh();
         this.onRefreshHeader();
     },

@@ -114,13 +114,7 @@ var ShopLayer = cc.Layer.extend({
         }
         var heightPadding = 10;
 
-        var data = PurchaseService.getMainShopPurchaseIds
-            ? PurchaseService.getMainShopPurchaseIds()
-            : [];
-        if (!data || data.length === 0) {
-            data = [108, 109, 110, 111, 112, 113, 114, 105, 106, 107, 101, 102, 103, 104, 120, 121, 122, 123, 124];
-        }
-        data = data.filter(function (purchaseId) {
+        var data = PurchaseService.getMainShopPurchaseIds().filter(function (purchaseId) {
             return !!PurchaseList[purchaseId];
         });
         this.payData = data.slice();

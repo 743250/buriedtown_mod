@@ -3,6 +3,14 @@
  * Date: 15/1/5
  * Time: 下午4:07
  */
+var getDaySceneRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getDaySceneRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
 var DayLayer = cc.Layer.extend({
     ctor: function (res) {
         this._super();
@@ -55,11 +63,13 @@ var DayLayer = cc.Layer.extend({
         btnBg.setClickListener(this, function () {
             btnBg.setEnabled(false);
             self.dismiss();
-            cc.timer.resume();
+            getDaySceneRuntimeTimer().resume();
         });
         btnBg.setEnabled(false);
 
-        var electricFenceBuild = player.room.getBuild(19);
+        var runtimePlayer = getDaySceneRuntimePlayer();
+        var runtimeTimer = getDaySceneRuntimeTimer();
+        var electricFenceBuild = runtimePlayer.room.getBuild(19);
         var bgName;
         if (this.res.happened) {
             if (this.res.defend) {
@@ -83,7 +93,7 @@ var DayLayer = cc.Layer.extend({
         this.addChild(bg);
         bg.setOpacity(0);
 
-        var label1 = new cc.LabelTTF(stringUtil.getString(1000, cc.timer.formatTime().d + 1), uiUtil.fontFamily.normal, 60);
+        var label1 = new cc.LabelTTF(stringUtil.getString(1000, runtimeTimer.formatTime().d + 1), uiUtil.fontFamily.normal, 60);
         label1.x = bg.width / 2;
         label1.y = 922;
         bg.addChild(label1);
@@ -186,4 +196,3 @@ var DayLayer = cc.Layer.extend({
         this.removeFromParent();
     }
 });
-

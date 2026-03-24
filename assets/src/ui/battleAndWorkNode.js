@@ -1,15 +1,31 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getBattleAndWorkRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getBattleAndWorkRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getBattleAndWorkRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getBattleAndWorkRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var BattleAndWorkNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
 
         this.updateView();
-        Record.saveAll();
+        getBattleAndWorkRuntimeRecord().saveAll();
     },
     _init: function () {
-        this.site = player.map.getSite(this.userData);
+        this.site = getBattleAndWorkRuntimePlayer().map.getSite(this.userData);
         this.setName(Navigation.nodeName.BATTLE_AND_WORK_NODE);
         this.uiConfig = {
             title: this.site.getName(),
@@ -211,7 +227,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
             label2.x = node.width;
         }
 
-        if (!player.equip.haveWeapon()) {
+        if (!getBattleAndWorkRuntimePlayer().equip.haveWeapon()) {
             var label3 = new cc.LabelTTF(stringUtil.getString(1207), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(node.width, 0));
             label3.setAnchorPoint(0, 1);
             label3.setPosition(0, label2.getPositionY() - label2.getContentSize().height - 15);
@@ -219,7 +235,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
             label3.setColor(UITheme.colors.TEXT_ERROR);
         }
 
-        if (player.isLowVigour()) {
+        if (getBattleAndWorkRuntimePlayer().isLowVigour()) {
             var label4 = new cc.LabelTTF(stringUtil.getString(1206), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(node.width, 0));
             label4.setAnchorPoint(0, 1);
             if (label3) {
@@ -247,12 +263,13 @@ var BattleAndWorkNode = BottomFrameNode.extend({
     createBattleProcessView: function () {
         this.bg.getChildByName("des").setString("");
 
-        utils.emitter.emit("left_btn_enabled", false);
+        var runtimeEmitter = getBattleAndWorkRuntimeEmitter();
+        runtimeEmitter.emit("left_btn_enabled", false);
         var battle = new Battle({id: 0, monsterList: this.room.list});
         var self = this;
         battle.setGameEndListener(function (sumRes) {
-            utils.emitter.off(Battle.EVENTS.PROCESS_LOG);
-            utils.emitter.off(Battle.EVENTS.MONSTER_LENGTH);
+            runtimeEmitter.off(Battle.EVENTS.PROCESS_LOG);
+            runtimeEmitter.off(Battle.EVENTS.MONSTER_LENGTH);
             if (sumRes.win) {
                 self._applyScavengerBattleLoot(sumRes);
             }
@@ -264,7 +281,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
             }
 
             self.scheduleOnce(function () {
-                utils.emitter.emit("left_btn_enabled", true);
+                runtimeEmitter.emit("left_btn_enabled", true);
 
                 if (cc.sys.isObjectValid(node.getParent())) {
                     node.removeFromParent();
@@ -329,7 +346,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
                 }
             }
         };
-        utils.emitter.on(Battle.EVENTS.PROCESS_LOG, function (log) {
+        runtimeEmitter.on(Battle.EVENTS.PROCESS_LOG, function (log) {
             node.updateLog(log);
         });
 
@@ -356,7 +373,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         node.addChild(labelNum);
         labelNum.setString(stringUtil.getString(1139) + cc.formatStr("%s/%s", monsterLenTotal, monsterLenTotal));
 
-        utils.emitter.on(Battle.EVENTS.MONSTER_LENGTH, function (monsterLen) {
+        runtimeEmitter.on(Battle.EVENTS.MONSTER_LENGTH, function (monsterLen) {
             pb.setPercentage((monsterLenTotal - monsterLen) / monsterLenTotal * 100);
             labelNum.setString(stringUtil.getString(1139) + cc.formatStr("%s/%s", monsterLen, monsterLenTotal));
         });
@@ -399,7 +416,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         if (!battleLoot) {
             return;
         }
-        player.gainItems(battleLoot.lootItems);
+        getBattleAndWorkRuntimePlayer().gainItems(battleLoot.lootItems);
         sumRes.scavengerLootItems = battleLoot.lootItems;
         sumRes.scavengerDoubleTriggered = battleLoot.scavengerDoubleTriggered;
     },
@@ -537,7 +554,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         btn.setPosition(node.getContentSize().width / 2, 60);
         node.addChild(btn);
         btn.setName("btn");
-        Record.saveAll();
+        getBattleAndWorkRuntimeRecord().saveAll();
     },
     createWorkBeginView: function () {
         if (this.bg.getChildByName("dig_des")) {
@@ -558,7 +575,8 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         this.bg.addChild(node);
 
         var itemType = 1302;
-        var itemList = player.bag.getItemsByType(itemType);
+        var runtimePlayer = getBattleAndWorkRuntimePlayer();
+        var itemList = runtimePlayer.bag.getItemsByType(itemType);
         itemList = itemList.filter(function (storageCell) {
             return itemConfig[storageCell.item.id].effect_tool;
         });
@@ -591,7 +609,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
             } else {
                 time = itemConfig[itemId].effect_tool.workingTime;
             }
-            time *= player.vigourEffect();
+            time *= runtimePlayer.vigourEffect();
             btn.time = time;
             btn.itemId = itemId;
 
@@ -618,7 +636,10 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         }
         this._isWorkProcessing = true;
 
-        utils.emitter.emit("left_btn_enabled", false);
+        var runtimeEmitter = getBattleAndWorkRuntimeEmitter();
+        var runtimeTimer = getBattleAndWorkRuntimeTimer();
+        var runtimePlayer = getBattleAndWorkRuntimePlayer();
+        runtimeEmitter.emit("left_btn_enabled", false);
         var node = new cc.Node();
         node.setContentSize(this.rightEdge - this.leftEdge, 600);
         node.setAnchorPoint(0.5, 0);
@@ -643,7 +664,7 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         var passTime = 0;
         time *= 60;
         var self = this;
-        cc.timer.addTimerCallback(new TimerCallback(time, this, {
+        runtimeTimer.addTimerCallback(new TimerCallback(time, this, {
             process: function (dt) {
                 passTime += dt;
                 pb.setPercentage(passTime / time * 100);
@@ -658,25 +679,26 @@ var BattleAndWorkNode = BottomFrameNode.extend({
                 }
                 self._showWorkScavengerDoubleTip();
 
-                player.bag.testWeaponBroken(itemId);
+                runtimePlayer.bag.testWeaponBroken(itemId);
 
                 // 重置工作处理标志
                 self._isWorkProcessing = false;
 
                 self.gotoWorkRoomStorage();
-                utils.emitter.emit("left_btn_enabled", true);
+                runtimeEmitter.emit("left_btn_enabled", true);
             }
         }));
-        cc.timer.accelerateWorkTime(time);
+        runtimeTimer.accelerateWorkTime(time);
     },
     gotoWorkRoomStorage: function () {
         // 确保时间加速被停止
-        if (cc.timer.isAccelerated) {
-            cc.timer.isAccelerated = false;
-            cc.timer.timeScale = cc.timer.timeScaleOrigin;
+        var runtimeTimer = getBattleAndWorkRuntimeTimer();
+        if (runtimeTimer.isAccelerated) {
+            runtimeTimer.isAccelerated = false;
+            runtimeTimer.timeScale = runtimeTimer.timeScaleOrigin;
         }
 
-        Record.saveAll();
+        getBattleAndWorkRuntimeRecord().saveAll();
         this.replace(Navigation.nodeName.WORK_ROOM_STORAGE_NODE, {
             siteId: this.site.id,
             room: this.room

@@ -1,6 +1,18 @@
 /**
  * Created by lancelot on 15/4/25.
  */
+var getEquipNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getEquipNodeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getEquipNodeRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var EquipNode = cc.Node.extend({
     // 获取详情图标名称
     _getContentIconName: function(itemId) {
@@ -103,6 +115,7 @@ var EquipNode = cc.Node.extend({
     },
 
     openDropDownView: function (pos) {
+        var runtimePlayer = getEquipNodeRuntimePlayer();
         var itemType = 0;
         switch (pos) {
             case EquipmentPos.GUN:
@@ -118,7 +131,9 @@ var EquipNode = cc.Node.extend({
                 itemType = 1303;
                 break;
         }
-        var itemList = player.tmpBag ? player.tmpBag.getItemsByType(itemType) : player.bag.getItemsByType(itemType);
+        var itemList = runtimePlayer.tmpBag
+            ? runtimePlayer.tmpBag.getItemsByType(itemType)
+            : runtimePlayer.bag.getItemsByType(itemType);
         itemList = itemList.map(function (storageCell) {
             return storageCell.item.id;
         });
@@ -191,14 +206,14 @@ var EquipNode = cc.Node.extend({
             normal: "tab_content_btn_normal.png",
             pressed: "tab_content_btn_pressed.png"
         }, this, function () {
-            player.equip.equip(self.selectedPos, itemId);
+            getEquipNodeRuntimePlayer().equip.equip(self.selectedPos, itemId);
             self.closeDropDownView();
             self.updateTabView();
-            Record.saveAll();
+            getEquipNodeRuntimeRecord().saveAll();
 
             if (userGuide.isStep(userGuide.stepName.GATE_EQUIP_2) && userGuide.isItemCreate(itemId)) {
                 userGuide.step();
-                utils.emitter.emit("nextStep");
+                getEquipNodeRuntimeEmitter().emit("nextStep");
             }
 
             if (userGuide.equipNeedGuide2(itemId)) {
@@ -241,7 +256,7 @@ var EquipNode = cc.Node.extend({
             weight.setAnchorPoint(0, 1);
             node.addChild(weight);
 
-            var num = new cc.LabelTTF(stringUtil.getString(1026) + player.bag.getNumByItemId(itemId), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
+            var num = new cc.LabelTTF(stringUtil.getString(1026) + getEquipNodeRuntimePlayer().bag.getNumByItemId(itemId), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
             num.setPosition(name.x, weight.y - weight.height - 10);
             num.setAnchorPoint(0, 1);
             node.addChild(num);
@@ -275,7 +290,7 @@ var EquipNode = cc.Node.extend({
             } else if (i === 3) {
                 equipPos = EquipmentPos.TOOL;
             }
-            var itemId = player.equip.getEquip(equipPos);
+            var itemId = getEquipNodeRuntimePlayer().equip.getEquip(equipPos);
             var iconName = this._getTabIconName(itemId, equipPos);
             tabBg.updateIcon(iconName);
         }
@@ -283,11 +298,11 @@ var EquipNode = cc.Node.extend({
     onEnter: function () {
         this._super();
         var self = this;
-        utils.emitter.on("equiped_item_decrease_in_bag", function () {
+        getEquipNodeRuntimeEmitter().on("equiped_item_decrease_in_bag", function () {
             self.updateTabView();
         });
 
-        utils.emitter.on("equip_item_need_guide", function (itemId) {
+        getEquipNodeRuntimeEmitter().on("equip_item_need_guide", function (itemId) {
             var itemType = ("" + itemId).substr(0, 4);
             var equipPos = EquipmentPos.GUN;
             if (itemType == 1301) {
@@ -304,8 +319,8 @@ var EquipNode = cc.Node.extend({
     },
     onExit: function () {
         this._super();
-        utils.emitter.off("equiped_item_decrease_in_bag");
-        utils.emitter.off("equip_item_need_guide");
+        getEquipNodeRuntimeEmitter().off("equiped_item_decrease_in_bag");
+        getEquipNodeRuntimeEmitter().off("equip_item_need_guide");
     },
 
     updateIconWarn: function () {

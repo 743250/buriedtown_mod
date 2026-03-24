@@ -1,6 +1,23 @@
 /**
  * Created by lancelot on 15/1/27.
  */
+var getLogRuntimeTimer = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getTimer === "function") {
+        return GameRuntime.getTimer();
+    }
+    return typeof cc !== "undefined" && cc ? cc.timer : null;
+};
+
+var getLogRuntimeEmitter = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getEmitter === "function") {
+        return GameRuntime.getEmitter();
+    }
+    return typeof utils !== "undefined" && utils ? utils.emitter : null;
+};
 
 var Log = cc.Class.extend({
     ctor: function () {
@@ -17,10 +34,10 @@ var Log = cc.Class.extend({
             }
             var msg = {
                 txt: msg,
-                time: cc.timer.getTimeDayStr() + " " + cc.timer.getTimeHourStr()
+                time: getLogRuntimeTimer().getTimeDayStr() + " " + getLogRuntimeTimer().getTimeHourStr()
             };
             this.logList.push(msg);
-            utils.emitter.emit("logChanged", msg);
+            getLogRuntimeEmitter().emit("logChanged", msg);
         }
     }
 });

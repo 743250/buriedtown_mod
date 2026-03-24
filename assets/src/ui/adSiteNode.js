@@ -1,6 +1,10 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getAdSiteRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var AdSiteNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -92,7 +96,10 @@ var AdSiteNode = BottomFrameNode.extend({
             items.forEach(function (item) {
                 self.site.increaseItem(item.itemId, item.num);
             });
-            Record.saveAll();
+            var runtimeRecord = getAdSiteRuntimeRecord();
+            if (runtimeRecord) {
+                runtimeRecord.saveAll();
+            }
         }
 
         var canPlay = adStatus === adHelper.AD_STATUS_READY;

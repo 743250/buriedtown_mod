@@ -1,6 +1,10 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getGateOutRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var GateOutNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -48,7 +52,7 @@ var GateOutNode = BottomFrameNode.extend({
 
     },
     goOut: function () {
-        player.map.deleteUnusableSite();
+        getGateOutRuntimePlayer().map.deleteUnusableSite();
         this.forward(Navigation.nodeName.MAP_NODE);
     },
     onEnter: function () {

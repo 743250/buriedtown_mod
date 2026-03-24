@@ -217,7 +217,10 @@ var createTimedEffectBuildAction = function (options) {
             return getBuildActionEffectService().showBuildActionDialog(this);
         },
         clickAction1: function () {
-            return getBuildActionEffectService().runTimedEffectAction(this, {logMessageId: options.logMessageId});
+            return getBuildActionEffectService().runTimedEffectAction(this, {
+                logMessageId: options.logMessageId,
+                afterComplete: options.afterComplete
+            });
         },
         _getUpdateViewInfo: function () {
             return getBuildActionEffectService().buildTimedEffectViewInfo(this, {
@@ -1042,6 +1045,11 @@ var DrinkBuildAction = createTimedEffectBuildAction({
     iconIndex: 1,
     actionTextId: 1308,
     logMessageId: 1309,
+    afterComplete: function (action, runtimePlayer) {
+        if (runtimePlayer && typeof runtimePlayer.drinkAlcohol === "function") {
+            runtimePlayer.drinkAlcohol();
+        }
+    },
     progressHintIds: {
         1: 1306,
         2: 1307,

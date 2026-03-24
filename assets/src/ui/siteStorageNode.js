@@ -1,12 +1,17 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getSiteStorageRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
 var SiteStorageNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
-        this.site = player.map.getSite(this.userData);
+        var runtimePlayer = getSiteStorageRuntimePlayer();
+        this.site = runtimePlayer.map.getSite(this.userData);
         this.setName(Navigation.nodeName.SITE_STORAGE_NODE);
         this.uiConfig = {
             title: this.site.getName(),
@@ -19,7 +24,7 @@ var SiteStorageNode = BottomFrameNode.extend({
         equipNode.setPosition(this.bgRect.width / 2, this.contentTopLineHeight);
         this.bg.addChild(equipNode, 1);
 
-        var itemChangeNode = new ItemChangeNode(player.bag, stringUtil.getString(1034), this.site.storage, stringUtil.getString(1032), true);
+        var itemChangeNode = new ItemChangeNode(runtimePlayer.bag, stringUtil.getString(1034), this.site.storage, stringUtil.getString(1032), true);
         itemChangeNode.setAnchorPoint(0.5, 0);
         itemChangeNode.setPosition(this.bgRect.width / 2, 0);
         this.bg.addChild(itemChangeNode);

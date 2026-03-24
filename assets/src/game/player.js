@@ -1,61 +1,13 @@
-// Runtime fallback: some script packs may miss constants.js in load order.
-var PlayerAttrRuntime = (typeof PlayerAttr !== "undefined" && PlayerAttr) ? PlayerAttr : {
-    HP_INIT: 240,
-    HP_MAX: 240,
-    SPIRIT_INIT: 100,
-    SPIRIT_MAX: 100,
-    STARVE_INIT: 50,
-    STARVE_MAX: 100,
-    VIGOUR_INIT: 100,
-    VIGOUR_MAX: 100,
-    INJURY_INIT: 0,
-    INJURY_MAX: 100,
-    INFECT_INIT: 0,
-    INFECT_MAX: 100,
-    TEMPERATURE_MAX: 100
-};
-
-var PlayerAttrEffectRuntime = (typeof playerAttrEffect !== "undefined" && playerAttrEffect) ? playerAttrEffect : {};
-
-var AttrHelperRuntime = (typeof AttrHelper !== "undefined" && AttrHelper) ? AttrHelper : {
-    get: function (obj, key) {
-        return memoryUtil.decode(obj[key]);
-    },
-    set: function (obj, key, value) {
-        var max = memoryUtil.decode(obj[key + "Max"]);
-        obj[key] = memoryUtil.encode(Math.max(0, Math.min(value, max)));
-    },
-    change: function (obj, key, delta) {
-        var current = this.get(obj, key);
-        this.set(obj, key, current + delta);
-    },
-    getPercentage: function (obj, key) {
-        return this.get(obj, key) / this.get(obj, key + "Max");
-    },
-    isMax: function (obj, key) {
-        return this.get(obj, key) === this.get(obj, key + "Max");
-    },
-    saveAttrs: function (obj, keys) {
-        var result = {};
-        keys.forEach(function (key) {
-            result[key] = memoryUtil.decode(obj[key]);
-            if (obj[key + "Max"] !== undefined) {
-                result[key + "Max"] = memoryUtil.decode(obj[key + "Max"]);
-            }
-        });
-        return result;
-    },
-    restoreAttrs: function (obj, data, keys) {
-        keys.forEach(function (key) {
-            if (data[key] !== undefined) {
-                obj[key] = memoryUtil.encode(data[key]);
-            }
-            if (data[key + "Max"] !== undefined) {
-                obj[key + "Max"] = memoryUtil.encode(data[key + "Max"]);
-            }
-        });
+var requirePlayerDependency = function (dependencyName, dependency) {
+    if (dependency) {
+        return dependency;
     }
+    throw new Error("player.js requires dependency: " + dependencyName);
 };
+var PlayerAttrRuntime = requirePlayerDependency("PlayerAttr", typeof PlayerAttr !== "undefined" ? PlayerAttr : null);
+var PlayerAttrEffectRuntime = requirePlayerDependency("playerAttrEffect", typeof playerAttrEffect !== "undefined" ? playerAttrEffect : null);
+var AttrHelperRuntime = requirePlayerDependency("AttrHelper", typeof AttrHelper !== "undefined" ? AttrHelper : null);
+var PlayerConfigRuntime = requirePlayerDependency("playerConfig", typeof playerConfig !== "undefined" ? playerConfig : null);
 
 var getPlayerPersistenceService = function () {
     return GameKernel.require("PlayerPersistenceService", "player.js");
@@ -63,7 +15,7 @@ var getPlayerPersistenceService = function () {
 
 var Player = cc.Class.extend({
     ctor: function () {
-        this.config = utils.clone(playerConfig);
+        this.config = utils.clone(PlayerConfigRuntime);
         this.navigationState = new PlayerNavigationState();
         this.runtime = GameRuntime;
 
@@ -126,6 +78,9 @@ var Player = cc.Class.extend({
 
     getTimer: function () {
         var runtime = this.getRuntime();
+        if (runtime && typeof runtime.requireTimer === "function") {
+            return runtime.requireTimer();
+        }
         if (runtime && typeof runtime.getTimer === "function") {
             return runtime.getTimer();
         }
@@ -134,6 +89,9 @@ var Player = cc.Class.extend({
 
     getRecord: function () {
         var runtime = this.getRuntime();
+        if (runtime && typeof runtime.requireRecord === "function") {
+            return runtime.requireRecord();
+        }
         if (runtime && typeof runtime.getRecord === "function") {
             return runtime.getRecord();
         }
@@ -142,21 +100,31 @@ var Player = cc.Class.extend({
 
     getEmitter: function () {
         var runtime = this.getRuntime();
+        if (runtime && typeof runtime.requireEmitter === "function") {
+            return runtime.requireEmitter();
+        }
         if (runtime && typeof runtime.getEmitter === "function") {
             return runtime.getEmitter();
         }
         return null;
     },
 
+    persistRuntimeState: function () {
+        var runtimeRecord = this.getRecord();
+        if (!runtimeRecord || typeof runtimeRecord.saveAll !== "function") {
+            throw new Error("Player.persistRuntimeState requires a runtime record with saveAll()");
+        }
+        runtimeRecord.saveAll();
+    },
+
     getTimedTreatmentDurationSeconds: function () {
         return 24 * 60 * 60;
     },
-    _applyTimedTreatmentBuff: function (buffKey, lastTime) {
+    _applyTimedRuntimeBuff: function (buffKey, lastTime) {
         if (!this.buffManager || typeof this.buffManager.upsertRuntimeBuff !== "function") {
             return;
         }
         this.buffManager.upsertRuntimeBuff(buffKey, {
-            slot: BuffSlotType.TREATMENT,
             lastTime: lastTime === undefined || lastTime === null
                 ? this.getTimedTreatmentDurationSeconds()
                 : lastTime,
@@ -166,7 +134,7 @@ var Player = cc.Class.extend({
 
     //包扎
     bindUp: function () {
-        this._applyTimedTreatmentBuff(RuntimeBuffType.BIND_TREATMENT);
+        this._applyTimedRuntimeBuff(RuntimeBuffType.BIND_TREATMENT);
     },
     //包扎状态不可以再包扎
     isInBind: function () {
@@ -178,7 +146,12 @@ var Player = cc.Class.extend({
 
     //服药
     cure: function () {
-        this._applyTimedTreatmentBuff(RuntimeBuffType.CURE_TREATMENT);
+        this._applyTimedRuntimeBuff(RuntimeBuffType.CURE_TREATMENT);
+    },
+
+    //喝酒后的情绪缓冲
+    drinkAlcohol: function () {
+        this._applyTimedRuntimeBuff(RuntimeBuffType.DRINK_SPIRIT_PROTECT);
     },
 
     //服药状态可以再服药
@@ -248,7 +221,7 @@ var Player = cc.Class.extend({
     },
 
     _normalizeAttrChangeValue: function (key, value) {
-        return PlayerAttrService.normalizeAttrChangeValue(key, value);
+        return PlayerAttrService.normalizeAttrChangeValue(this, key, value);
     },
 
     _applyAttrChangeValue: function (key, value) {
@@ -649,7 +622,6 @@ var Player = cc.Class.extend({
     },
     underAttackInNight: function () {
         var timer = this.getTimer();
-        var record = this.getRecord();
         var homeRes = {};
         var rand = Math.random();
         if (timer.formatTime().d < 2) {
@@ -693,7 +665,7 @@ var Player = cc.Class.extend({
             homeRes.happened = false;
         }
 
-        record.saveAll();
+        this.persistRuntimeState();
         timer.pause();
         new DayLayer(homeRes).show();
     },
@@ -875,7 +847,7 @@ var Player = cc.Class.extend({
         this.room.forEach(function (build) {
             build.resetActiveBtnIndex();
         });
-        this.getRecord().saveAll();
+        this.persistRuntimeState();
     },
 
     isLowVigour: function () {
@@ -896,7 +868,7 @@ var Player = cc.Class.extend({
 
     setSetting: function (key, value) {
         this.setting[key] = value;
-        this.getRecord().saveAll();
+        this.persistRuntimeState();
     },
     getSetting: function (key, defaultValue) {
         if (this.setting.hasOwnProperty(key)) {
@@ -992,7 +964,7 @@ var Dog = cc.Class.extend({
         if (emitter && typeof emitter.emit === "function") {
             emitter.emit(buildNodeUpdateEvent);
         }
-        playerInstance.getRecord().saveAll();
+        playerInstance.persistRuntimeState();
         return true;
     },
     save: function () {

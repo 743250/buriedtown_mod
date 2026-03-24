@@ -28,7 +28,7 @@ var RoleConfigTable = {
         temperatureBuild: {id: 5},
         restActionTypes: ["drink"],
         buildLevelCaps: {
-            6: 0
+            6: 1
         },
         unlockSites: [20, 21],
         battleModifiers: {

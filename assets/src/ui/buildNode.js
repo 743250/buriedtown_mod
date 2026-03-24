@@ -1,14 +1,23 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getBuildNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getBuildNodeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var BuildNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
         var bid = this.userData.bid;
-        this.build = player.room.getBuild(bid);
-        var title = player.room.getBuildCurrentName(bid);
+        var runtimePlayer = getBuildNodeRuntimePlayer();
+        this.build = runtimePlayer.room.getBuild(bid);
+        var title = runtimePlayer.room.getBuildCurrentName(bid);
         this.setName(Navigation.nodeName.BUILD_NODE);
         this.uiConfig = {
             title: title,
@@ -27,14 +36,14 @@ var BuildNode = BottomFrameNode.extend({
                 target: this, cb: function () {
                 if (!uiUtil.checkVigour())
                     return;
-                utils.emitter.emit("left_btn_enabled", false);
+                getBuildNodeRuntimeEmitter().emit("left_btn_enabled", false);
                 self.build.upgrade(function (percentage) {
                     self.upgradeView.updatePercentage(percentage);
                     if (bid === 9 && userGuide.isStep(userGuide.stepName.MAKE_BED)) {
                         uiUtil.removeIconWarn(self.upgradeView.getChildByName("action1"));
                     }
                 }, function () {
-                    utils.emitter.emit("left_btn_enabled", true);
+                    getBuildNodeRuntimeEmitter().emit("left_btn_enabled", true);
                     if (bid === 9 && userGuide.isStep(userGuide.stepName.MAKE_BED)) {
                         userGuide.step();
                     }
@@ -48,7 +57,7 @@ var BuildNode = BottomFrameNode.extend({
         );
 
         if (bid === 9 && userGuide.isStep(userGuide.stepName.MAKE_BED)) {
-            if (player.room.getBuildLevel(9) > -1) {
+            if (runtimePlayer.room.getBuildLevel(9) > -1) {
                 userGuide.step();
             } else {
                 uiUtil.createIconWarn(this.upgradeView.getChildByName("action1"));
@@ -100,7 +109,7 @@ var BuildNode = BottomFrameNode.extend({
     onEnter: function () {
         this._super();
         this.updateFunc = this.buildNodeUpdate();
-        utils.emitter.on(GameEvents.BUILD_NODE_UPDATE, this.updateFunc);
+        getBuildNodeRuntimeEmitter().on(GameEvents.BUILD_NODE_UPDATE, this.updateFunc);
 
         if (this.build.id === 10) {
             audioManager.insertMusic(audioManager.music.HOME_REST);
@@ -108,7 +117,7 @@ var BuildNode = BottomFrameNode.extend({
     },
     onExit: function () {
         this._super();
-        utils.emitter.off(GameEvents.BUILD_NODE_UPDATE, this.updateFunc);
+        getBuildNodeRuntimeEmitter().off(GameEvents.BUILD_NODE_UPDATE, this.updateFunc);
 
         this.cleanBuildAction();
 
@@ -133,7 +142,7 @@ var BuildNode = BottomFrameNode.extend({
     afterUpgrade: function () {
         this.updateAllView();
 
-        this.title.setString(player.room.getBuildCurrentName(this.build.id));
+        this.title.setString(getBuildNodeRuntimePlayer().room.getBuildCurrentName(this.build.id));
     },
 
     updateAllView: function () {
@@ -286,7 +295,9 @@ var BuildNode = BottomFrameNode.extend({
                 var upgradeConfig = this.build.getUpgradeConfig();
                 var action1Txt = this.build.needBuild() ? stringUtil.getString(1005, upgradeConfig.upgradeTime) : stringUtil.getString(1001, upgradeConfig.upgradeTime);
 
-                var hint = upgradeInfo.buildUpgradeType === BuildUpgradeType.CONDITION ? stringUtil.getString(1006, player.room.getBuildName(upgradeInfo.condition["bid"], upgradeInfo.condition["level"])) : "";
+                var hint = upgradeInfo.buildUpgradeType === BuildUpgradeType.CONDITION
+                    ? stringUtil.getString(1006, getBuildNodeRuntimePlayer().room.getBuildName(upgradeInfo.condition["bid"], upgradeInfo.condition["level"]))
+                    : "";
                 var items = null;
                 if (upgradeInfo.buildUpgradeType === BuildUpgradeType.UPGRADABLE) {
                     items = upgradeConfig.upgradeCost;

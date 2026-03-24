@@ -3,6 +3,18 @@
  * Date: 15/1/5
  * Time: 下午4:07
  */
+var getBottomFrameRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getBottomFrameRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getBottomFrameRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var Navigation = {
     _array: null,
     _map: {},
@@ -159,11 +171,18 @@ var Navigation = {
         var saveObj = {
             _array: this._array
         };
-        Record.save("navigation", saveObj);
-        Record.saveAll();
+        var runtimeRecord = getBottomFrameRuntimeRecord();
+        if (!runtimeRecord) {
+            return;
+        }
+        runtimeRecord.save("navigation", saveObj);
+        runtimeRecord.saveAll();
     },
     restore: function () {
-        var saveObj = Record.restore("navigation");
+        var runtimeRecord = getBottomFrameRuntimeRecord();
+        var saveObj = runtimeRecord && typeof runtimeRecord.restore === "function"
+            ? runtimeRecord.restore("navigation")
+            : null;
         if (saveObj) {
             this._array = saveObj._array;
         }
@@ -248,8 +267,9 @@ var BottomFrameNode = cc.Node.extend({
     },
     initSiteNodeContext: function (options) {
         options = options || {};
+        var runtimePlayer = getBottomFrameRuntimePlayer();
 
-        this.site = options.site || player.map.getSite(this.userData);
+        this.site = options.site || runtimePlayer.map.getSite(this.userData);
         this.setName(Navigation.nodeName.SITE_NODE);
         this.uiConfig = {
             title: options.title !== undefined && options.title !== null
@@ -260,7 +280,7 @@ var BottomFrameNode = cc.Node.extend({
         };
 
         if (this.site) {
-            player.enterSite(this.site.id);
+            runtimePlayer.enterSite(this.site.id);
         }
         return this.site;
     },
@@ -272,26 +292,28 @@ var BottomFrameNode = cc.Node.extend({
     },
     exitCurrentSiteNode: function (options) {
         options = options || {};
+        var runtimePlayer = getBottomFrameRuntimePlayer();
 
         var site = options.site || this.site;
         if (site
             && options.closeIfPossible !== false
             && typeof site.canClose === "function"
             && site.canClose()) {
-            player.map.closeSite(site.id);
+            runtimePlayer.map.closeSite(site.id);
         }
 
         this.back();
 
         if (options.leaveSite !== false) {
-            player.leaveSite();
+            runtimePlayer.leaveSite();
         }
     },
 
     onExit: function () {
         this._super();
-        utils.emitter.off("left_btn_enabled", this.func);
-        utils.emitter.off("nextStep");
+        var runtimeEmitter = getBottomFrameRuntimeEmitter();
+        runtimeEmitter.off("left_btn_enabled", this.func);
+        runtimeEmitter.off("nextStep");
         this.releaseRes();
     },
 
@@ -299,7 +321,7 @@ var BottomFrameNode = cc.Node.extend({
         var self = this;
         this._super();
         this.func = this.setLeftBtnEnabled();
-        utils.emitter.on("left_btn_enabled", this.func);
+        getBottomFrameRuntimeEmitter().on("left_btn_enabled", this.func);
     },
 
     buildNodeUpdate: function () {

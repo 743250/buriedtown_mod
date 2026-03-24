@@ -4,6 +4,10 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getShopNodeRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
 var ShopNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
@@ -30,12 +34,7 @@ var ShopNode = BottomFrameNode.extend({
         var viewHeight = this.contentTopLineHeight - 20;
         var widthPadding = (viewWidth - 2 * NODE_WIDTH) / 3;
         var heightPadding = 5;
-        var data = PurchaseService.getConsumablePurchaseIds
-            ? PurchaseService.getConsumablePurchaseIds()
-            : [];
-        if (!data || data.length === 0) {
-            data = [201, 202, 203, 204, 205, 206, 207, 208, 209];
-        }
+        var data = PurchaseService.getConsumablePurchaseIds();
         var row = Math.ceil(data.length / 2);
         var totalHeight = NODE_HEIGHT * row + (heightPadding * (row - 1));
 
@@ -88,11 +87,11 @@ var ShopNode = BottomFrameNode.extend({
     onEnter: function () {
         this._super();
         this._bindShopStateListener();
-        cc.timer.pause();
+        getShopNodeRuntimeTimer().pause();
     },
     onExit: function () {
         this._unbindShopStateListener();
         this._super();
-        cc.timer.resume();
+        getShopNodeRuntimeTimer().resume();
     }
 });

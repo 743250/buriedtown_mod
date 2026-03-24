@@ -4,20 +4,33 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getStorageNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getStorageNodeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
+var getStorageNodeRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var StorageNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
         this.setName(Navigation.nodeName.STORAGE_NODE);
-        this.build = player.room.getBuild(this.userData.bid);
+        var runtimePlayer = getStorageNodeRuntimePlayer();
+        this.build = runtimePlayer.room.getBuild(this.userData.bid);
         this.uiConfig = {
-            title: player.room.getBuildCurrentName(this.build.id),
+            title: runtimePlayer.room.getBuildCurrentName(this.build.id),
             leftBtn: true,
             rightBtn: false
         };
 
-        player.setSetting("inStorage", true);
+        runtimePlayer.setSetting("inStorage", true);
 
         this.tableView = new SectionTableView(cc.size(640, 750));
         this.tableView.setPosition((this.bgRect.width - this.tableView.getViewSize().width) / 2, 10);
@@ -40,27 +53,29 @@ var StorageNode = BottomFrameNode.extend({
     },
     onEnter: function () {
         this._super();
+        var runtimePlayer = getStorageNodeRuntimePlayer();
 
         this.onItemClick = this.onItemClickFunc();
-        utils.emitter.on("item_click", this.onItemClick);
+        getStorageNodeRuntimeEmitter().on("item_click", this.onItemClick);
 
         this.onItemUse = this.onItemUseFunc();
-        utils.emitter.on("btn_1_click", this.onItemUse);
+        getStorageNodeRuntimeEmitter().on("btn_1_click", this.onItemUse);
 
         var self = this;
-        player.storage.setOnItemChangeListener(function (itemId) {
+        runtimePlayer.storage.setOnItemChangeListener(function (itemId) {
             self.updateView();
         });
     },
     onExit: function () {
         this._super();
+        var runtimePlayer = getStorageNodeRuntimePlayer();
 
-        utils.emitter.off("item_click", this.onItemClick);
-        utils.emitter.off("btn_1_click", this.onItemUse);
+        getStorageNodeRuntimeEmitter().off("item_click", this.onItemClick);
+        getStorageNodeRuntimeEmitter().off("btn_1_click", this.onItemUse);
 
-        player.setSetting("inStorage", false);
+        runtimePlayer.setSetting("inStorage", false);
 
-        player.storage.removeOnItemChangeListener();
+        runtimePlayer.storage.removeOnItemChangeListener();
     },
     onItemClickFunc: function () {
         return function (storageCell) {
@@ -72,7 +87,8 @@ var StorageNode = BottomFrameNode.extend({
         return function (itemId, source) {
             if (source !== 'storage')
                 return;
-            var res = player.useItem(player.storage, itemId);
+            var runtimePlayer = getStorageNodeRuntimePlayer();
+            var res = runtimePlayer.useItem(runtimePlayer.storage, itemId);
             if (res.result) {
                 self.updateView();
             } else {
@@ -81,6 +97,7 @@ var StorageNode = BottomFrameNode.extend({
         }
     },
     updateView: function () {
+        var runtimePlayer = getStorageNodeRuntimePlayer();
 
         var typeStrArray = stringUtil.getString(3006);
         var typeArray = [
@@ -92,7 +109,7 @@ var StorageNode = BottomFrameNode.extend({
             "13",
             "other"
         ];
-        var itemsGroup = player.storage.getItemsByTypeGroup(typeArray);
+        var itemsGroup = runtimePlayer.storage.getItemsByTypeGroup(typeArray);
         var data = typeArray.map(function (key, index) {
             return {title: typeStrArray[index], itemList: itemsGroup[key]};
         });
@@ -103,14 +120,14 @@ var StorageNode = BottomFrameNode.extend({
             uiUtil.createIconWarn(this.leftBtn);
         }
 
-        Record.saveAll();
+        getStorageNodeRuntimeRecord().saveAll();
     },
 
     onClickLeftBtn: function () {
         if (userGuide.isStep(userGuide.stepName.STORAGE_BACK)) {
             userGuide.step();
-            player.room.createBuild(1, 0);
-            utils.emitter.emit("nextStep");
+            getStorageNodeRuntimePlayer().room.createBuild(1, 0);
+            getStorageNodeRuntimeEmitter().emit("nextStep");
         }
         this.back();
     },

@@ -1,6 +1,33 @@
 /**
  * Created by lancelot on 15/7/10.
  */
+var getWeatherRuntimeTimer = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getTimer === "function") {
+        return GameRuntime.getTimer();
+    }
+    return typeof cc !== "undefined" && cc ? cc.timer : null;
+};
+
+var getWeatherRuntimeEmitter = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getEmitter === "function") {
+        return GameRuntime.getEmitter();
+    }
+    return typeof utils !== "undefined" && utils ? utils.emitter : null;
+};
+
+var getWeatherRuntimePlayer = function () {
+    if (typeof GameRuntime !== "undefined"
+        && GameRuntime
+        && typeof GameRuntime.getPlayer === "function") {
+        return GameRuntime.getPlayer();
+    }
+    return typeof player !== "undefined" ? player : null;
+};
+
 var Weather = {
     CLOUDY: 0,
     SUNSHINY: 1,
@@ -31,7 +58,7 @@ var WeatherSystem = cc.Class.extend({
     },
     checkWeather: function () {
         if (this.weatherId == Weather.CLOUDY) {
-            var season = cc.timer.getSeason();
+            var season = getWeatherRuntimeTimer().getSeason();
             var randomWeather = weatherSystemConfig[season];
             var weatherInfo = utils.getRoundRandom(randomWeather);
             cc.d("check weather " + weatherInfo.weatherId);
@@ -48,10 +75,10 @@ var WeatherSystem = cc.Class.extend({
         this.weatherConfig = weatherConfig[this.weatherId];
         this.lastDays = 0;
         cc.d("change weather " + this.weatherId);
-        utils.emitter.emit("weather_change", weatherId);
+        getWeatherRuntimeEmitter().emit("weather_change", weatherId);
 
         if (sendLog) {
-            player.log.addMsg(stringUtil.getString(3015)[this.weatherId]);
+            getWeatherRuntimePlayer().log.addMsg(stringUtil.getString(3015)[this.weatherId]);
         }
     },
     getValue: function (key) {

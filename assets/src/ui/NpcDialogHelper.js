@@ -1,9 +1,21 @@
+var getNpcDialogRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getNpcDialogRuntimeTimer = function () {
+    return GameRuntime.getTimer();
+};
+
+var getNpcDialogRuntimeRecord = function () {
+    return GameRuntime.getRecord();
+};
+
 var NpcDialogHelper = {
     createBaseConfig: function (npc) {
         return {
             title: {
                 title: npc.getName(),
-                txt: cc.timer.getTimeDayStr() + " " + cc.timer.getTimeHourStr(),
+                txt: getNpcDialogRuntimeTimer().getTimeDayStr() + " " + getNpcDialogRuntimeTimer().getTimeHourStr(),
                 icon: "#icon_npc.png",
                 heart: memoryUtil.decode(npc.reputation)
             },
@@ -45,7 +57,8 @@ var NpcDialogHelper = {
         log.addChild(label);
 
         var needItems = npc.getNeedHelpItems();
-        var pass = player.validateItems(needItems);
+        var runtimePlayer = getNpcDialogRuntimePlayer();
+        var pass = runtimePlayer.validateItems(needItems);
 
         needItems = needItems.map(function (itemInfo) {
             return {
@@ -76,6 +89,7 @@ var NpcDialogHelper = {
 
     showSendGiftDialog: function (npc) {
         var config = this.createBaseConfig(npc);
+        var runtimePlayer = getNpcDialogRuntimePlayer();
         config.action.btn_1 = {
             txt: stringUtil.getString(1073),
             target: npc
@@ -103,7 +117,7 @@ var NpcDialogHelper = {
 
             config.content.des = stringUtil.getString(1068);
             gifts.forEach(function (gift) {
-                player.log.addMsg(1103, gift.num, stringUtil.getString(gift.itemId).title, player.storage.getNumByItemId(gift.itemId));
+                runtimePlayer.log.addMsg(1103, gift.num, stringUtil.getString(gift.itemId).title, runtimePlayer.storage.getNumByItemId(gift.itemId));
             });
         } else {
             config.content.des = stringUtil.getString(1070);
@@ -116,15 +130,18 @@ var NpcDialogHelper = {
         config.action.btn_1.cb = function () {
             gifts.forEach(function (gift) {
                 if (gift.hasOwnProperty("itemId")) {
-                    player.gainItems([gift]);
+                    runtimePlayer.gainItems([gift]);
                 } else {
-                    player.map.unlockSite(gift.siteId);
+                    runtimePlayer.map.unlockSite(gift.siteId);
                 }
             });
             if (npc.needSendGift()) {
                 npc.sendGift();
             }
-            Record.saveAll();
+            var runtimeRecord = getNpcDialogRuntimeRecord();
+            if (runtimeRecord) {
+                runtimeRecord.saveAll();
+            }
         };
 
         var dialog = new NpcDialog(config);

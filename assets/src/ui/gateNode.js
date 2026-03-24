@@ -1,13 +1,22 @@
 /**
  * Created by lancelot on 15/4/22.
  */
+var getGateNodeRuntimePlayer = function () {
+    return GameRuntime.getPlayer();
+};
+
+var getGateNodeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
+
 var GateNode = BottomFrameNode.extend({
     ctor: function (userData) {
         this._super(userData);
     },
     _init: function () {
-        this.build = player.room.getBuild(this.userData.bid);
-        var title = player.room.getBuildCurrentName(this.build.id);
+        var runtimePlayer = getGateNodeRuntimePlayer();
+        this.build = runtimePlayer.room.getBuild(this.userData.bid);
+        var title = runtimePlayer.room.getBuildCurrentName(this.build.id);
         this.setName(Navigation.nodeName.GATE_NODE);
         this.uiConfig = {
             title: title,
@@ -16,7 +25,7 @@ var GateNode = BottomFrameNode.extend({
         };
 
         //区分仓库
-        player.setSetting("inGate", true);
+        runtimePlayer.setSetting("inGate", true);
 
         var equipNode = new EquipNode();
         equipNode.setAnchorPoint(0.5, 1);
@@ -24,7 +33,7 @@ var GateNode = BottomFrameNode.extend({
         this.bg.addChild(equipNode, 1);
         equipNode.setName("equipNode");
 
-        var itemChangeNode = new ItemChangeNode(player.bag, stringUtil.getString(1034), player.storage, stringUtil.getString(1035));
+        var itemChangeNode = new ItemChangeNode(runtimePlayer.bag, stringUtil.getString(1034), runtimePlayer.storage, stringUtil.getString(1035));
         itemChangeNode.setAnchorPoint(0.5, 0);
         itemChangeNode.setPosition(this.bgRect.width / 2, 0);
         this.bg.addChild(itemChangeNode);
@@ -37,14 +46,14 @@ var GateNode = BottomFrameNode.extend({
         this._super();
 
         this.onItemClick = this.onItemClickFunc();
-        utils.emitter.on("item_click", this.onItemClick);
+        getGateNodeRuntimeEmitter().on("item_click", this.onItemClick);
 
         var self = this;
         if(userGuide.isStep(userGuide.stepName.GATE_OUT)){
             uiUtil.createIconWarn(self.rightBtn);
         }
 
-        utils.emitter.on("nextStep", function () {
+        getGateNodeRuntimeEmitter().on("nextStep", function () {
             if (userGuide.isStep(userGuide.stepName.GATE_OUT)) {
                 uiUtil.createIconWarn(self.rightBtn);
             }
@@ -53,9 +62,9 @@ var GateNode = BottomFrameNode.extend({
     onExit: function () {
         this._super();
 
-        player.setSetting("inGate", false);
-        utils.emitter.off("item_click", this.onItemClick);
-        utils.emitter.off("nextStep");
+        getGateNodeRuntimePlayer().setSetting("inGate", false);
+        getGateNodeRuntimeEmitter().off("item_click", this.onItemClick);
+        getGateNodeRuntimeEmitter().off("nextStep");
     },
     onItemClickFunc: function () {
         var self = this;
@@ -77,8 +86,8 @@ var GateNode = BottomFrameNode.extend({
         }
 
         this.forward(Navigation.nodeName.GATE_OUT_NODE);
-        player.log.addMsg(1110);
-        player.enterWorldMap();
+        getGateNodeRuntimePlayer().log.addMsg(1110);
+        getGateNodeRuntimePlayer().enterWorldMap();
 
         audioManager.playEffect(audioManager.sound.FOOT_STEP);
 

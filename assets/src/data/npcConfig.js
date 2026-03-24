@@ -124,6 +124,9 @@ var npcConfig = {
             [{
                 "itemId": 1303022,
                 "num": 1
+            }, {
+                "itemId": 1102011,
+                "num": 2
             }],
             [{
                 "itemId": 1305011,
@@ -140,6 +143,9 @@ var npcConfig = {
             [{
                 "itemId": 1303012,
                 "num": 1
+            }, {
+                "itemId": 1102022,
+                "num": 2
             }],
             [{
                 "itemId": 1305011,
@@ -162,6 +168,9 @@ var npcConfig = {
             }, {
                 "itemId": 1303012,
                 "num": 1
+            }, {
+                "itemId": 1102033,
+                "num": 3
             }]
         ],
         "needItem": [{

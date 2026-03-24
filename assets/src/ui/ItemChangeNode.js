@@ -1,6 +1,9 @@
 /**
  * Created by lancelot on 15/4/27.
  */
+var getItemChangeNodeRuntimeEmitter = function () {
+    return GameRuntime.getEmitter();
+};
 
 var ItemChangeNode = cc.Node.extend({
     ctor: function (topStorage, topStorageName, bottomStorage, bottomStorageName, withTakeAll, smallSize) {
@@ -46,7 +49,7 @@ var ItemChangeNode = cc.Node.extend({
                 if (userGuide.isStep(userGuide.stepName.ALL_GET)) {
                     userGuide.step();
                     uiUtil.removeIconWarn(btnTakeAll);
-                    utils.emitter.emit("guideNextRoom");
+                    getItemChangeNodeRuntimeEmitter().emit("guideNextRoom");
                 }
             });
             btnTakeAll.setAnchorPoint(0.5, 0.5);
@@ -75,7 +78,7 @@ var ItemChangeNode = cc.Node.extend({
         this._super();
 
         this.onItemClick = this.onItemClickFunc();
-        utils.emitter.on("item_click", this.onItemClick);
+        getItemChangeNodeRuntimeEmitter().on("item_click", this.onItemClick);
 
         if (this.topData instanceof Bag) {
             var self = this;
@@ -87,7 +90,7 @@ var ItemChangeNode = cc.Node.extend({
     onExit: function () {
         this._super();
 
-        utils.emitter.off("item_click", this.onItemClick);
+        getItemChangeNodeRuntimeEmitter().off("item_click", this.onItemClick);
 
         this.topData.removeOnItemChangeListener();
 
