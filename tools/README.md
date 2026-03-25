@@ -52,3 +52,25 @@
 
 - `tools/smoke/startup`
   启动装配、`jsList`、场景交接和启动链契约。
+## Git Hook Integration
+
+Use repository-managed Git hooks:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Hook wrappers:
+
+- `.githooks/pre-commit` runs `node tools/precommit/run-tests.js`
+- `.githooks/pre-push` runs `node tools/precommit/run-pre-push.js`
+
+The hook scripts only delegate to existing Node entrypoints; they do not carry
+business logic. Add new checks in `tools/validate-content.js` or
+`tools/run-smoke.js`, then orchestrate them via precommit/pre-push.
+
+Emergency escape hatches:
+
+- `SKIP_PRECOMMIT=1` (or `true`)
+- `PRECOMMIT_CONTENT=1` (or `true`)
+- `SKIP_PREPUSH=1` (or `true`)

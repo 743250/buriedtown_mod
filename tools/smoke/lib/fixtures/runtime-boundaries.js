@@ -42,6 +42,7 @@ function createVmSandbox() {
         unscheduleUpdateForTarget: function () {}
     };
     const localStorageState = {};
+    const slotMetaState = {};
     const sandbox = {
         console: console,
         require: require,
@@ -63,7 +64,49 @@ function createVmSandbox() {
             saveAll: function () {},
             init: function () {},
             restore: function () { return null; },
-            getCurrentRecordName: function () { return "slot1"; }
+            getCurrentRecordName: function () { return "slot1"; },
+            getCurrentSlot: function () { return 1; },
+            hasRecord: function () { return false; },
+            getSlotMeta: function (slot) {
+                slot = slot || this.getCurrentSlot();
+                const meta = slotMetaState[slot] || {};
+                return JSON.parse(JSON.stringify(meta));
+            },
+            getSelectedRoleType: function (slot) {
+                slot = slot || this.getCurrentSlot();
+                const meta = slotMetaState[slot] || {};
+                return meta.selectedRoleType === undefined ? null : meta.selectedRoleType;
+            },
+            setSelectedRoleType: function (slot, roleType) {
+                if (roleType === undefined) {
+                    roleType = slot;
+                    slot = null;
+                }
+                slot = slot || this.getCurrentSlot();
+                slotMetaState[slot] = slotMetaState[slot] || {};
+                slotMetaState[slot].selectedRoleType = Number(roleType);
+                return slotMetaState[slot].selectedRoleType;
+            },
+            getChosenTalentIds: function (slot) {
+                slot = slot || this.getCurrentSlot();
+                const meta = slotMetaState[slot] || {};
+                return Array.isArray(meta.chosenTalentIds) ? meta.chosenTalentIds.slice() : [];
+            },
+            setChosenTalentIds: function (slot, chosenTalentIds) {
+                if (chosenTalentIds === undefined) {
+                    chosenTalentIds = slot;
+                    slot = null;
+                }
+                slot = slot || this.getCurrentSlot();
+                slotMetaState[slot] = slotMetaState[slot] || {};
+                slotMetaState[slot].chosenTalentIds = Array.isArray(chosenTalentIds)
+                    ? chosenTalentIds.slice()
+                    : [];
+                return slotMetaState[slot].chosenTalentIds.slice();
+            },
+            clearCurrentSlotCompatibilityState: function () {
+                delete slotMetaState[this.getCurrentSlot()];
+            }
         },
         cc: {
             Class: createExtendableBaseClass(),

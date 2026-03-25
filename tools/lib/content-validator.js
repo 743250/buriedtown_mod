@@ -367,6 +367,17 @@ function addToListMap(map, key, value) {
     map[key].push(value);
 }
 
+function hasNonEmptyText(value) {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasSpriteFrame(context, spriteName) {
+    return !!(context
+        && context.autoSpriteFrameController
+        && typeof context.autoSpriteFrameController.getSpriteFrameFromSpriteName === "function"
+        && context.autoSpriteFrameController.getSpriteFrameFromSpriteName(spriteName));
+}
+
 function buildRolePurchaseMap(context) {
     const purchaseMap = {};
     Object.keys(context.RoleConfigTable || {}).forEach(function (roleType) {
@@ -443,6 +454,9 @@ function getExpectedExchangeIdsForPurchaseId(context, purchaseId, rolePurchaseMa
 
 function validatePurchaseLinkEntry(context, purchaseId, rolePurchaseMap, talentPurchaseMap) {
     const purchaseInfo = context.PurchaseList && context.PurchaseList[purchaseId];
+    const purchaseString = context.stringUtil && typeof context.stringUtil.getString === "function"
+        ? (context.stringUtil.getString("p_" + purchaseId) || {})
+        : {};
     const entry = {
         id: purchaseId,
         valid: true,
@@ -452,9 +466,30 @@ function validatePurchaseLinkEntry(context, purchaseId, rolePurchaseMap, talentP
     const roleTypes = rolePurchaseMap[purchaseId] || [];
     const talentIds = talentPurchaseMap[purchaseId] || [];
     const expectedExchangeIds = getExpectedExchangeIdsForPurchaseId(context, purchaseId, rolePurchaseMap, talentPurchaseMap);
-    const actualExchangeIds = context.IAPPackage.getExchangeIdsByPurchaseId(purchaseId) || [];
+    const actualExchangeIds = context.PurchaseService.getExchangeIdsByPurchaseId(purchaseId) || [];
     const expectedIsExchange = expectedExchangeIds.length > 0;
-    const actualIsExchange = !!context.IAPPackage.isExchangePurchase(purchaseId);
+    const actualIsExchange = !!context.PurchaseService.isExchangePurchase(purchaseId);
+
+    const shouldRequirePurchaseString = roleTypes.length === 0;
+    if (!hasNonEmptyText(purchaseString.name)) {
+        if (shouldRequirePurchaseString) {
+            entry.valid = false;
+            entry.errors.push("Missing purchase name text - data/string/string_zh.js");
+        } else {
+            entry.warnings.push("Purchase name will fall back to role/talent metadata - data/string/string_zh.js");
+        }
+    }
+    if (!hasNonEmptyText(purchaseString.des) && !hasNonEmptyText(purchaseString.effect)) {
+        if (shouldRequirePurchaseString) {
+            entry.valid = false;
+            entry.errors.push("Missing purchase description/effect text - data/string/string_zh.js");
+        } else {
+            entry.warnings.push("Purchase description/effect will fall back to role/talent metadata - data/string/string_zh.js");
+        }
+    }
+    if (!hasSpriteFrame(context, "icon_iap_" + purchaseId + ".png")) {
+        entry.warnings.push("Purchase icon could not be resolved - res/icon.plist / assets/res/icon");
+    }
 
     if (!purchaseInfo) {
         entry.valid = false;
@@ -477,11 +512,11 @@ function validatePurchaseLinkEntry(context, purchaseId, rolePurchaseMap, talentP
 
     if (JSON.stringify(actualExchangeIds) !== JSON.stringify(expectedExchangeIds)) {
         entry.valid = false;
-        entry.errors.push("IAPPackage 兑换映射与配置期望不一致 - game/IAPPackage.js / game/medal.js");
+        entry.errors.push("PurchaseService 兑换映射与配置期望不一致 - game/PurchaseService.js / game/medal.js");
     }
     if (actualIsExchange !== expectedIsExchange) {
         entry.valid = false;
-        entry.errors.push("IAPPackage 兑换购买判定与配置期望不一致 - game/IAPPackage.js");
+        entry.errors.push("PurchaseService 兑换购买判定与配置期望不一致 - game/PurchaseService.js");
     }
 
     if (roleTypes.length === 1) {
@@ -489,6 +524,21 @@ function validatePurchaseLinkEntry(context, purchaseId, rolePurchaseMap, talentP
         const roleConfig = context.RoleConfigTable[roleType] || {};
         const configuredExchangeId = normalizeNumericId(roleConfig.exchangeId);
         const actualRoleType = context.role.getRoleTypeByPurchaseId(purchaseId);
+        const roleInfo = context.role && typeof context.role.getRoleInfo === "function"
+            ? (context.role.getRoleInfo(roleType) || {})
+            : {};
+
+        if (!hasNonEmptyText(roleInfo.name)) {
+            entry.valid = false;
+            entry.errors.push("Missing role name text - game/role.js / data/string/string_zh.js");
+        }
+        if (!hasNonEmptyText(roleInfo.des) && !hasNonEmptyText(roleInfo.effect)) {
+            entry.valid = false;
+            entry.errors.push("Missing role description/effect text - game/role.js / data/string/string_zh.js");
+        }
+        if (!hasSpriteFrame(context, "npc_dig_" + roleType + ".png")) {
+            entry.warnings.push("Role portrait could not be resolved - assets/res/npc / res/icon.plist");
+        }
 
         if (actualRoleType !== roleType) {
             entry.valid = false;

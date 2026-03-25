@@ -1,12 +1,19 @@
 const {
     assert,
-    loadIntoSandbox
+    loadIntoSandbox,
+    readRepoFile
 } = require("../../lib/core");
 const {
     createVmSandbox,
     createCountStorage,
     createPurchaseRewardPlayer
 } = require("../../lib/fixtures/runtime-boundaries");
+
+function stripComments(source) {
+    return (source || "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
 
 function bootstrapRuntimeSandbox(sandbox, runtimeOptions) {
     runtimeOptions = runtimeOptions || {};
@@ -291,10 +298,12 @@ function createSyntheticExchangeAchievementConfig() {
 function runPurchaseUnlockRewardSmoke() {
     const sandbox = createVmSandbox();
     sandbox.IAPPackage = {
-        isIAPUnlocked: function (purchaseId) {
+        getPurchaseRecordCount: function (purchaseId) {
             return purchaseId === SYNTHETIC_PURCHASE_IDS.ITEM_REWARD
                 || purchaseId === SYNTHETIC_PURCHASE_IDS.ITEM_TOOL
-                || purchaseId === SYNTHETIC_PURCHASE_IDS.BUILD_REWARD;
+                || purchaseId === SYNTHETIC_PURCHASE_IDS.BUILD_REWARD
+                ? 1
+                : 0;
         }
     };
     sandbox.PurchaseList = createSyntheticPurchaseList();
@@ -422,31 +431,31 @@ function runPurchaseExchangeConfigSmoke() {
     loadIntoSandbox(sandbox, "assets/src/game/IAPPackage.js");
     loadIntoSandbox(sandbox, "assets/src/game/PurchaseService.js");
 
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA)) === "[4001]",
-        "IAPPackage should resolve synthetic paid role exchanges from ExchangeAchievementConfig via role config");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_BETA)) === "[4002]",
-        "IAPPackage should resolve additional paid role exchanges from synthetic role config");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.ITEM_REWARD)) === "[5001]",
-        "IAPPackage should resolve exchange-only item purchases from ExchangeAchievementConfig");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.BUILD_REWARD)) === "[5003]",
-        "IAPPackage should resolve synthetic build unlock purchases from ExchangeAchievementConfig");
-    assert(JSON.stringify(sandbox.IAPPackage.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA)) === "[6001,6101,6201]",
-        "IAPPackage should resolve ordered talent exchange levels from ExchangeAchievementConfig");
-    assert(sandbox.IAPPackage.getExchangeIdByPurchaseId(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === SYNTHETIC_EXCHANGE_IDS.TALENT_ALPHA_LV2,
-        "IAPPackage should return the next unexchanged talent level after configured exchange sorting");
-    assert(sandbox.IAPPackage.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA) === true,
-        "IAPPackage should keep exchange-role purchases on config-driven exchange flow");
-    assert(sandbox.IAPPackage.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW) === false,
-        "IAPPackage should not treat consumable support packs as exchange-config purchases");
+    assert(JSON.stringify(sandbox.PurchaseService.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA)) === "[4001]",
+        "PurchaseService should resolve synthetic paid role exchanges from ExchangeAchievementConfig via role config");
+    assert(JSON.stringify(sandbox.PurchaseService.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_BETA)) === "[4002]",
+        "PurchaseService should resolve additional paid role exchanges from synthetic role config");
+    assert(JSON.stringify(sandbox.PurchaseService.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.ITEM_REWARD)) === "[5001]",
+        "PurchaseService should resolve exchange-only item purchases from ExchangeAchievementConfig");
+    assert(JSON.stringify(sandbox.PurchaseService.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.BUILD_REWARD)) === "[5003]",
+        "PurchaseService should resolve synthetic build unlock purchases from ExchangeAchievementConfig");
+    assert(JSON.stringify(sandbox.PurchaseService.getExchangeIdsByPurchaseId(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA)) === "[6001,6101,6201]",
+        "PurchaseService should resolve ordered talent exchange levels from ExchangeAchievementConfig");
+    assert(sandbox.PurchaseService.getExchangeIdByPurchaseId(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === SYNTHETIC_EXCHANGE_IDS.TALENT_ALPHA_LV2,
+        "PurchaseService should return the next unexchanged talent level after configured exchange sorting");
+    assert(sandbox.PurchaseService.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.PAID_ROLE_ALPHA) === true,
+        "PurchaseService should keep exchange-role purchases on config-driven exchange flow");
+    assert(sandbox.PurchaseService.isExchangePurchase(SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW) === false,
+        "PurchaseService should not treat consumable support packs as exchange-config purchases");
     assert(sandbox.PurchaseService.isTalentPurchase(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
         "PurchaseService should source talent purchase detection from TalentService");
     sandbox.Medal.getTalentLevel = function () {
         throw new Error("purchase chain should source talent level state from TalentService");
     };
-    assert(sandbox.IAPPackage.isIAPUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
-        "IAPPackage should delegate talent unlock checks to TalentService");
-    assert(sandbox.IAPPackage.isPurchaseFullyUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === false,
-        "IAPPackage should delegate talent max-level checks to TalentService");
+    assert(sandbox.PurchaseService.isUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === true,
+        "PurchaseService should delegate talent unlock checks to TalentService");
+    assert(sandbox.PurchaseService.isPurchaseFullyUnlocked(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA) === false,
+        "PurchaseService should delegate talent max-level checks to TalentService");
     assert(sandbox.PurchaseService.getShopUiState(SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA).currentTalentLevel === 2,
         "PurchaseService should source current talent level from TalentService when building shop state");
     assert(sandbox.PurchaseService.getPriceOff(SYNTHETIC_PURCHASE_IDS.DISCOUNT_PACK) === 50,
@@ -726,9 +735,17 @@ function runSentinelPurchaseIdSnapshotSmoke() {
 
 function runTalentSelectionScopedStorageSmoke() {
     const sandbox = createVmSandbox();
+    let chosenTalentIds = [SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA];
     sandbox.Record = {
         getCurrentSlot: function () {
             return 2;
+        },
+        getChosenTalentIds: function () {
+            return chosenTalentIds.slice();
+        },
+        setChosenTalentIds: function (nextChosenTalentIds) {
+            chosenTalentIds = nextChosenTalentIds.slice();
+            return chosenTalentIds.slice();
         }
     };
     sandbox.TalentConfigTable = createSyntheticTalentConfigTable();
@@ -746,32 +763,29 @@ function runTalentSelectionScopedStorageSmoke() {
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
     loadIntoSandbox(sandbox, "assets/src/game/TalentService.js");
 
-    sandbox.cc.sys.localStorage.setItem("chosenTalents_slot_2", "[160]");
-    sandbox.cc.sys.localStorage.setItem("chosenTalent_slot_2", "161");
-    sandbox.cc.sys.localStorage.setItem("chosenTalents", "[162]");
-
     assert(JSON.stringify(sandbox.TalentService.getChosenTalentPurchaseIds()) === "[160]",
-        "TalentService should only restore current slot talent selections from chosenTalents_slot storage");
+        "TalentService should restore current slot talent selections from Record slot meta");
     sandbox.TalentService.chooseTalents([
         SYNTHETIC_PURCHASE_IDS.TALENT_ALPHA,
         SYNTHETIC_PURCHASE_IDS.TALENT_BETA
     ]);
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === "[160,161]",
-        "TalentService should write the normalized slot-scoped talent selection only to chosenTalents_slot");
-    assert(sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === "161"
-        && sandbox.cc.sys.localStorage.getItem("chosenTalents") === "[162]",
-        "TalentService should ignore legacy talent-selection keys instead of migrating them");
+    assert(JSON.stringify(chosenTalentIds) === "[160,161]",
+        "TalentService should persist normalized talent selections through Record slot meta only");
+    assert(sandbox.cc.sys.localStorage.getItem("chosenTalents_slot_2") === null
+        && sandbox.cc.sys.localStorage.getItem("chosenTalent_slot_2") === null,
+        "TalentService should stop writing slot-scoped localStorage keys directly");
 
     return {
         name: "talent-selection-scoped-storage",
         ok: true,
-        detail: "validated TalentService only reads and writes slot-scoped chosenTalents storage"
+        detail: "validated TalentService reads and writes chosen talents through Record slot meta ownership"
     };
 }
 
 function runRoleSelectionScopedStorageSmoke() {
     const sandbox = createVmSandbox();
     let roleUnlocked = false;
+    let chosenRoleType = sandbox.RoleType ? sandbox.RoleType.BELL : 8;
 
     sandbox.Record = {
         getCurrentSlot: function () {
@@ -779,6 +793,13 @@ function runRoleSelectionScopedStorageSmoke() {
         },
         hasRecord: function () {
             return false;
+        },
+        getSelectedRoleType: function () {
+            return chosenRoleType;
+        },
+        setSelectedRoleType: function (nextRoleType) {
+            chosenRoleType = Number(nextRoleType);
+            return chosenRoleType;
         }
     };
     sandbox.PurchaseService = {
@@ -790,24 +811,544 @@ function runRoleSelectionScopedStorageSmoke() {
 
     loadIntoSandbox(sandbox, "assets/src/game/role.js");
 
-    sandbox.cc.sys.localStorage.setItem("roleType", String(sandbox.RoleType.BELL));
     assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.STRANGER,
-        "role.getChoosenRoleType should ignore legacy global roleType storage for the current slot");
-    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
-    assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.STRANGER,
-        "role.getChoosenRoleType should fall back to stranger when the slot-scoped role is locked on a fresh run");
-    assert(sandbox.cc.sys.localStorage.getItem("roleType_slot_2") === String(sandbox.RoleType.STRANGER),
-        "role.getChoosenRoleType should rewrite fresh-run slot selection to stranger when the stored role is locked");
+        "role.getChoosenRoleType should ignore locked Record slot-meta role selections on a fresh run");
+    assert(chosenRoleType === sandbox.RoleType.STRANGER,
+        "role.getChoosenRoleType should rewrite fresh-run locked selections through Record slot meta");
 
     roleUnlocked = true;
-    sandbox.cc.sys.localStorage.setItem("roleType_slot_2", String(sandbox.RoleType.BELL));
+    chosenRoleType = sandbox.RoleType.BELL;
     assert(sandbox.role.getChoosenRoleType() === sandbox.RoleType.BELL,
-        "role.getChoosenRoleType should keep unlocked slot-scoped role selections");
+        "role.getChoosenRoleType should keep unlocked role selections from Record slot meta");
 
     return {
         name: "role-selection-scoped-storage",
         ok: true,
-        detail: "validated role selection only uses slot-scoped storage and ignores legacy global role keys"
+        detail: "validated role selection only uses Record slot meta ownership"
+    };
+}
+
+function runSelectionSourceBoundarySmoke() {
+    const roleSource = readRepoFile("assets/src/game/role.js");
+    const talentSource = readRepoFile("assets/src/game/TalentService.js");
+
+    assert(roleSource.indexOf("cc.sys.localStorage") === -1,
+        "role.js should no longer read or write localStorage directly");
+    assert(talentSource.indexOf("cc.sys.localStorage") === -1,
+        "TalentService.js should no longer read or write localStorage directly");
+    assert(/getSelectedRoleType/.test(roleSource) && /setSelectedRoleType/.test(roleSource),
+        "role.js should delegate slot selection persistence through Record slot-meta helpers");
+    assert(/getChosenTalentIds/.test(talentSource) && /setChosenTalentIds/.test(talentSource),
+        "TalentService.js should delegate chosen-talent persistence through Record slot-meta helpers");
+
+    return {
+        name: "selection-source-boundaries",
+        ok: true,
+        detail: "validated role/talent selection ownership moved behind Record slot meta helpers"
+    };
+}
+
+function runPurchaseUiBoundarySourceSmoke() {
+    const shopSource = stripComments(readRepoFile("assets/src/ui/shopScene.js"));
+    const deathSource = stripComments(readRepoFile("assets/src/ui/deathNode.js"));
+    const uiUtilSource = stripComments(readRepoFile("assets/src/ui/uiUtil.js"));
+    const buildSource = stripComments(readRepoFile("assets/src/ui/buildNode.js"));
+    const homeSource = stripComments(readRepoFile("assets/src/ui/home.js"));
+
+    assert(shopSource.indexOf("utils.updatePayInfo") === -1
+        && deathSource.indexOf("utils.updatePayInfo") === -1
+        && uiUtilSource.indexOf("utils.updatePayInfo") === -1,
+        "UI purchase entrypoints should stop calling utils.updatePayInfo directly");
+    assert(shopSource.indexOf("cc.purchase.restoreIAP") === -1,
+        "shopScene restore flow should route through PurchaseService instead of calling cc.purchase.restoreIAP directly");
+    assert(shopSource.indexOf("PurchaseService.restoreRemotePurchases") !== -1
+        && shopSource.indexOf("PurchaseService.refreshRemotePayInfo") === -1
+        && shopSource.indexOf("PurchaseUiHelper.refreshRemotePayInfoIfNeeded(") !== -1
+        && shopSource.indexOf("PurchaseUiHelper.getRemotePayInfoRequestIds(") !== -1
+        && shopSource.indexOf("PurchaseUiHelper.getRemotePayInfoPurchaseIds(") === -1
+        && deathSource.indexOf("PurchaseUiHelper.showPayDialogWithRefresh(") !== -1
+        && uiUtilSource.indexOf("PurchaseService.refreshRemotePayInfo") === -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.createLockNode(") !== -1,
+        "PurchaseService should own remote catalog refresh while Shop/uiUtil route through PurchaseUiHelper orchestration");
+    assert(buildSource.indexOf("PurchaseUiHelper.showPurchaseFailedTip") !== -1
+        && homeSource.indexOf("PurchaseUiHelper.showPurchaseFailedTip") !== -1
+        && deathSource.indexOf("PurchaseUiHelper.showPurchaseFailedTip") !== -1
+        && buildSource.indexOf("failedReason") === -1
+        && homeSource.indexOf("failedReason") === -1
+        && deathSource.indexOf("failedReason") === -1,
+        "Purchase failure UX should route through PurchaseUiHelper.showPurchaseFailedTip");
+
+    return {
+        name: "purchase-ui-boundaries",
+        ok: true,
+        detail: "validated purchase UI delegates remote sync/restore and failure UX to service/helper boundaries"
+    };
+}
+
+function runRoleTalentUiBoundarySmoke() {
+    const chooseSource = stripComments(readRepoFile("assets/src/ui/ChooseScene.js"));
+    const topFrameSource = stripComments(readRepoFile("assets/src/ui/topFrame.js"));
+    const buttonSource = stripComments(readRepoFile("assets/src/ui/button.js"));
+    const roleTalentHelperSource = stripComments(readRepoFile("assets/src/ui/RoleTalentUiHelper.js"));
+
+    assert(roleTalentHelperSource.indexOf("getRoleTalentSnapshot: function") !== -1
+        && roleTalentHelperSource.indexOf("getRoleInfoViewModel: function") !== -1
+        && roleTalentHelperSource.indexOf("getTalentRowViewModels: function") !== -1
+        && roleTalentHelperSource.indexOf("showRoleInfoDialog: function") !== -1
+        && roleTalentHelperSource.indexOf("showRoleTalentDialog: function") !== -1,
+        "RoleTalentUiHelper should expose the role/talent snapshot and dialog boundary");
+    assert(chooseSource.indexOf("RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(") !== -1
+        && chooseSource.indexOf("RoleTalentUiHelper.showTalentInfoDialog(") !== -1
+        && chooseSource.indexOf("RoleTalentUiHelper.showRoleInfoDialog(") !== -1
+        && chooseSource.indexOf("uiUtil.getPurchaseStringConfig(") === -1
+        && chooseSource.indexOf("uiUtil.showRoleInfoDialog(") === -1,
+        "ChooseScene should consume RoleTalentUiHelper instead of rebuilding role/talent strings locally");
+    assert(topFrameSource.indexOf("RoleTalentUiHelper.showRoleTalentDialog(") !== -1
+        && topFrameSource.indexOf("stringUtil.getString(\"p_") === -1
+        && topFrameSource.indexOf("TalentService.getTalentTierEffectTextList") === -1
+        && topFrameSource.indexOf(" Lv.") === -1,
+        "topFrame should no longer assemble role/talent dialog copy inline");
+    assert(buttonSource.indexOf("setInfoClickHandler: function") !== -1
+        && buttonSource.indexOf("setLockClickHandler: function") !== -1
+        && buttonSource.indexOf("showInfoDialog") === -1
+        && buttonSource.indexOf("uiUtil.showUnlockDialog(") === -1,
+        "ButtonAtChooseScene should act as a render primitive with delegated info/lock handlers");
+
+    return {
+        name: "role-talent-ui-boundaries",
+        ok: true,
+        detail: "validated RoleTalentUiHelper owns role/talent view models while Choose/topFrame/button consume delegated UI semantics"
+    };
+}
+
+function runRoleTalentUiProjectionSmoke() {
+    const sandbox = createVmSandbox();
+    const dialogCalls = [];
+    const createNode = function (width, height) {
+        return {
+            width: width || 0,
+            height: height || 0,
+            children: [],
+            namedChildren: {},
+            setContentSize: function (sizeOrWidth, nextHeight) {
+                if (typeof sizeOrWidth === "object") {
+                    this.width = sizeOrWidth.width || 0;
+                    this.height = sizeOrWidth.height || 0;
+                    return;
+                }
+                this.width = sizeOrWidth || 0;
+                this.height = nextHeight || 0;
+            },
+            getContentSize: function () {
+                return {
+                    width: this.width || 0,
+                    height: this.height || 0
+                };
+            },
+            setAnchorPoint: function () {},
+            setPosition: function (x, y) {
+                this.x = x;
+                this.y = y;
+            },
+            addChild: function (child) {
+                this.children.push(child);
+                if (child && child._name) {
+                    this.namedChildren[child._name] = child;
+                }
+            },
+            getChildByName: function (name) {
+                return this.namedChildren[name] || null;
+            },
+            setName: function (name) {
+                this._name = name;
+            },
+            setScale: function (scale) {
+                this.scale = scale;
+            }
+        };
+    };
+    const createLabel = function (text, width) {
+        const label = createNode(width || 120, Math.max(24, Math.ceil(String(text || "").length / 14) * 20));
+        label.text = text || "";
+        label.setString = function (nextText) {
+            this.text = nextText || "";
+        };
+        label.getString = function () {
+            return this.text;
+        };
+        label.setColor = function () {};
+        label.enableStroke = function () {};
+        return label;
+    };
+
+    sandbox.cc.size = function (width, height) {
+        return { width: width, height: height };
+    };
+    sandbox.cc.p = function (x, y) {
+        return { x: x, y: y };
+    };
+    sandbox.cc.color = function () {
+        return {};
+    };
+    sandbox.cc.TEXT_ALIGNMENT_LEFT = 0;
+    sandbox.cc.TEXT_ALIGNMENT_CENTER = 1;
+    sandbox.cc.Node = function () {
+        return createNode(0, 0);
+    };
+    sandbox.cc.Layer = function () {
+        return createNode(0, 0);
+    };
+    sandbox.cc.DrawNode = function () {
+        return {
+            drawRect: function () {}
+        };
+    };
+    sandbox.cc.ScrollView = function (viewSize, container) {
+        const scrollView = createNode(viewSize.width, viewSize.height);
+        scrollView.container = container;
+        scrollView._contentOffset = { x: 0, y: 0 };
+        scrollView.setDirection = function () {};
+        scrollView.setBounceable = function () {};
+        scrollView.setClippingToBounds = function () {};
+        scrollView.getViewSize = function () {
+            return viewSize;
+        };
+        scrollView.setContentSize = function (sizeOrWidth, nextHeight) {
+            if (typeof sizeOrWidth === "object") {
+                this.contentWidth = sizeOrWidth.width || 0;
+                this.contentHeight = sizeOrWidth.height || 0;
+                return;
+            }
+            this.contentWidth = sizeOrWidth || 0;
+            this.contentHeight = nextHeight || 0;
+        };
+        scrollView.getContentOffset = function () {
+            return this._contentOffset;
+        };
+        scrollView.setContentOffset = function (offset) {
+            this._contentOffset = offset;
+        };
+        return scrollView;
+    };
+    sandbox.cc.sys.LANGUAGE_ENGLISH = "en";
+    sandbox.cc.sys.localStorage.getItem = function () {
+        return "zh";
+    };
+
+    sandbox.UITheme = {
+        statusColors: {
+            accent: "accent",
+            panelFill: "panelFill",
+            panelFillAlt: "panelFillAlt",
+            panelBorder: "panelBorder",
+            divider: "divider"
+        },
+        cards: {
+            panelOpacity: 88,
+            rowOpacity: 84
+        },
+        typographyPresets: {
+            sectionTitle: {
+                color: "sectionTitle"
+            }
+        }
+    };
+    sandbox.uiUtil = {
+        spacing: {
+            XXS: 4,
+            XS: 8,
+            SM: 12,
+            MD: 16,
+            LG: 24
+        },
+        createLabel: function (text, presetName, opt) {
+            return createLabel(text, opt && opt.width);
+        },
+        createColorRect: function (size) {
+            return createNode(size.width, size.height);
+        },
+        getNodeLayoutHeight: function (node) {
+            return node && node.height ? node.height : 0;
+        },
+        createVStack: function () {
+            return {
+                add: function () {}
+            };
+        },
+        getDefaultSpriteName: function (type) {
+            return type + "_default.png";
+        },
+        getRolePortraitFrameName: function (roleType) {
+            return "npc_dig_" + roleType + ".png";
+        },
+        getTalentIconFrameName: function (purchaseId) {
+            return "icon_iap_" + purchaseId + ".png";
+        },
+        getNpcMapFrameName: function (roleType) {
+            return "npc_" + roleType + ".png";
+        },
+        getCharacterPortraitSpriteByRoleType: function () {
+            return createNode(64, 64);
+        },
+        getSpriteByNameSafe: function () {
+            return createNode(64, 64);
+        }
+    };
+    sandbox.GameRuntime = {
+        getPlayer: function () {
+            return { roleType: 7 };
+        },
+        getTimer: function () {
+            return null;
+        }
+    };
+    sandbox.RoleType = {
+        STRANGER: 6
+    };
+    sandbox.role = {
+        getRoleSelectionConfig: function () {
+            return {
+                roleList: [{ id: 6 }, { id: 7 }],
+                positionToRoleType: { 0: 6, 1: 7 },
+                roleTypeToPosition: { 6: 0, 7: 1 },
+                randomRoleTypeList: [6, 7]
+            };
+        },
+        getChoosenRoleType: function () {
+            return 7;
+        },
+        getRoleInfo: function (roleType) {
+            if (Number(roleType) === 7) {
+                return {
+                    name: "Scout",
+                    des: "Locked role description",
+                    effect: "Locked role effect"
+                };
+            }
+            return {
+                name: "Stranger",
+                des: "Default role description",
+                effect: ""
+            };
+        },
+        getPurchaseIdByRoleType: function (roleType) {
+            return Number(roleType) === 7 ? 150 : null;
+        },
+        isRoleUnlocked: function (roleType) {
+            return Number(roleType) !== 7;
+        },
+        isRolePurchaseRequired: function (roleType) {
+            return Number(roleType) === 7;
+        },
+        getAvatarFallbackByRoleType: function (roleType) {
+            return "npc_dig_" + roleType + ".png";
+        }
+    };
+    sandbox.TalentService = {
+        getChosenTalentPurchaseIds: function () {
+            return [160];
+        },
+        getMaxChosenTalentCount: function () {
+            return 2;
+        },
+        getTalentPurchaseIdList: function () {
+            return [0, 160, 161];
+        }
+    };
+    sandbox.PurchaseUiHelper = {
+        getPurchaseDisplayContext: function (purchaseId) {
+            purchaseId = Number(purchaseId);
+            if (purchaseId === 160) {
+                return {
+                    titleText: "Focus",
+                    displayBaseName: "Focus",
+                    detailDescriptionText: "Focus description",
+                    detailEffectText: "Focus effect",
+                    infoDialogContentText: "Focus effect",
+                    purchaseUiState: {
+                        purchaseId: 160,
+                        isUnlocked: true,
+                        currentTalentLevel: 2,
+                        maxTalentLevel: 3
+                    }
+                };
+            }
+            return {
+                titleText: "Locked Talent",
+                displayBaseName: "Locked Talent",
+                detailDescriptionText: "Locked talent description",
+                detailEffectText: "Locked talent effect",
+                infoDialogContentText: "Locked talent effect",
+                purchaseUiState: {
+                    purchaseId: 161,
+                    isUnlocked: false,
+                    currentTalentLevel: 0,
+                    maxTalentLevel: 3
+                }
+            };
+        }
+    };
+    sandbox.stringUtil = {
+        getString: function (id) {
+            return "string-" + id;
+        }
+    };
+    sandbox.ShopScene = function (opt) {
+        this.opt = opt;
+    };
+    sandbox.cc.director.pushScene = function () {};
+    sandbox.DialogBig = function (config) {
+        this.config = config;
+        this.leftEdge = 12;
+        this.rightEdge = 312;
+        this.titleNode = createNode(320, 60);
+        this.actionNode = createNode(320, 60);
+        this.contentNode = createNode(320, 220);
+        const descriptionLabel = createLabel((config.content && config.content.des) || "", 300);
+        descriptionLabel.y = 180;
+        descriptionLabel.setName("des");
+        this.contentNode.addChild(descriptionLabel);
+        this.show = function () {
+            dialogCalls.push({ type: "big", config: config });
+        };
+        this.setOnDismissListener = function () {};
+    };
+    sandbox.DialogSmall = function (config) {
+        this.config = config;
+        this.leftEdge = 12;
+        this.rightEdge = 312;
+        this.titleNode = createNode(320, 60);
+        this.actionNode = createNode(320, 60);
+        this.contentNode = createNode(320, 220);
+        this.show = function () {
+            dialogCalls.push({ type: "small", config: config });
+        };
+        this.setOnDismissListener = function () {};
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/ui/RoleTalentUiHelper.js");
+
+    const snapshot = sandbox.RoleTalentUiHelper.getRoleTalentSnapshot({ roleType: 7 }, [160]);
+    const lockedRoleViewModel = sandbox.RoleTalentUiHelper.getRoleInfoViewModel(7, snapshot);
+    const selectedTalentViewModel = sandbox.RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(160, snapshot);
+    const lockedTalentViewModel = sandbox.RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(161, snapshot);
+
+    assert(snapshot.currentRoleType === 7
+        && JSON.stringify(snapshot.chosenTalentIds) === "[160]",
+        "RoleTalentUiHelper snapshot should reflect the current role and chosen talents");
+    assert(lockedRoleViewModel.roleType === 7
+        && lockedRoleViewModel.isLocked === true
+        && lockedRoleViewModel.purchaseId === 150,
+        "RoleTalentUiHelper role view model should expose locked role purchase state");
+    assert(selectedTalentViewModel.purchaseId === 160
+        && selectedTalentViewModel.isSelected === true
+        && selectedTalentViewModel.currentTalentLevel === 2
+        && selectedTalentViewModel.infoDialogText.indexOf("Focus") !== -1,
+        "RoleTalentUiHelper talent row view model should expose chosen talent level and dialog copy");
+    assert(lockedTalentViewModel.purchaseId === 161
+        && lockedTalentViewModel.isSelected === false
+        && lockedTalentViewModel.isUnlocked === false,
+        "RoleTalentUiHelper talent row view model should expose unselected locked talents");
+
+    sandbox.RoleTalentUiHelper.showRoleInfoDialog(7, true);
+    sandbox.RoleTalentUiHelper.showTalentInfoDialog(161, snapshot);
+
+    assert(dialogCalls.length === 2
+        && dialogCalls[0].type === "big"
+        && dialogCalls[0].config.action.btn_2
+        && dialogCalls[1].type === "small"
+        && dialogCalls[1].config.action.btn_2,
+        "RoleTalentUiHelper dialogs should expose shop CTA for locked roles and talents");
+
+    return {
+        name: "role-talent-ui-projection",
+        ok: true,
+        detail: "validated RoleTalentUiHelper snapshot, row view models, and locked-role/talent dialog contracts"
+    };
+}
+
+function runPurchaseUiRemoteRefreshReuseSmoke() {
+    const sandbox = createVmSandbox();
+    let pendingRefresh = null;
+    const refreshCalls = [];
+    const dialogCalls = [];
+    let batchRefreshInfo = null;
+    let afterShowDialog = null;
+
+    sandbox.GameKernel = {
+        require: function (name) {
+            return sandbox[name];
+        }
+    };
+    sandbox.GameRuntime = {
+        getEmitter: function () {
+            return sandbox.utils.emitter;
+        }
+    };
+    sandbox.PurchaseService = {
+        getShopUiState: function (purchaseId) {
+            return {
+                purchaseId: Number(purchaseId),
+                isExchangePurchase: false,
+                canBuy: true
+            };
+        },
+        getPurchaseConfig: function () {
+            return {
+                productPriceStr: "$1.99"
+            };
+        },
+        refreshRemotePayInfo: function (target, cb, purchaseIdList) {
+            refreshCalls.push(purchaseIdList.slice());
+            pendingRefresh = {
+                target: target,
+                cb: cb,
+                purchaseIdList: purchaseIdList.slice()
+            };
+        }
+    };
+
+    loadIntoSandbox(sandbox, "assets/src/ui/PurchaseUiHelper.js");
+
+    sandbox.PurchaseUiHelper.showPayDialog = function (purchaseId) {
+        dialogCalls.push(Number(purchaseId));
+        return {
+            purchaseId: Number(purchaseId)
+        };
+    };
+
+    const refreshTarget = {};
+    sandbox.PurchaseUiHelper.refreshRemotePayInfoIfNeeded(refreshTarget, [150, 151], function (err, info) {
+        batchRefreshInfo = info;
+    });
+    sandbox.PurchaseUiHelper.showPayDialogWithRefresh(150, function () {}, refreshTarget, refreshTarget, function (err, dialog) {
+        afterShowDialog = dialog;
+    });
+
+    assert(refreshCalls.length === 1
+        && JSON.stringify(refreshCalls[0]) === "[150,151]"
+        && dialogCalls.length === 0,
+        "PurchaseUiHelper should reuse an in-flight batch refresh before opening a pay dialog");
+
+    pendingRefresh.cb.call(pendingRefresh.target, null, {
+        products: {
+            150: "$1.99",
+            151: "$2.99"
+        }
+    });
+
+    assert(batchRefreshInfo
+        && JSON.stringify(batchRefreshInfo.requestedIds) === "[150,151]"
+        && dialogCalls.length === 1
+        && dialogCalls[0] === 150
+        && afterShowDialog
+        && afterShowDialog.purchaseId === 150,
+        "PurchaseUiHelper should open the dialog after the reused refresh completes without issuing a second refresh");
+
+    return {
+        name: "purchase-ui-remote-refresh-reuse",
+        ok: true,
+        detail: "validated PurchaseUiHelper reuses in-flight shop refreshes for deep-link pay dialogs"
     };
 }
 
@@ -852,23 +1393,24 @@ function runPurchaseStructuredResultSmoke() {
         }
     };
     sandbox.IAPPackage = {
-        getExchangeIdsByPurchaseId: function (purchaseId) {
-            return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.ITEM_REWARD ? [5001] : [];
+        getPurchaseRecordCount: function () {
+            return 0;
         },
-        getExchangeIdByPurchaseId: function (purchaseId) {
-            return Number(purchaseId) === SYNTHETIC_PURCHASE_IDS.ITEM_REWARD ? 5001 : null;
-        },
-        isIAPUnlocked: function () {
-            return false;
-        },
-        syncIAPPurchased: function () {
+        syncPurchaseRecord: function () {
             return true;
         },
-        onIAPPaied: function (purchaseId) {
+        recordPurchase: function (purchaseId) {
             paidPurchaseIds.push(Number(purchaseId));
+            return true;
         },
         isPaySdkBypassedForTest: function () {
             return true;
+        },
+        isAutoUnlockEnabledForTest: function () {
+            return false;
+        },
+        isPurchaseForceLockedForTest: function () {
+            return false;
         },
         getPurchaseConfig: function (purchaseId) {
             return {
@@ -876,10 +1418,6 @@ function runPurchaseStructuredResultSmoke() {
                 productPriceStr: "$9.99",
                 priceIndex: 0
             };
-        },
-        payConsumeIAP: function (purchaseId) {
-            paidPurchaseIds.push(Number(purchaseId));
-            return true;
         }
     };
 
@@ -891,8 +1429,12 @@ function runPurchaseStructuredResultSmoke() {
 
     const exchangeResult = capturePurchaseResult(sandbox, SYNTHETIC_PURCHASE_IDS.ITEM_REWARD);
     assert(exchangeResult && exchangeResult.isSuccess === true
+        && exchangeResult.success === true
+        && exchangeResult.code === sandbox.PurchaseGatewayResultCode.SUCCESS
         && exchangeResult.isExchangePurchase === true
-        && exchangeResult.unlockRewardGranted === true,
+        && exchangeResult.unlockRewardGranted === true
+        && exchangeResult.shopUiState
+        && exchangeResult.failureReason === null,
         "PurchaseService should return a structured success result for exchange purchases");
     assert(runtimePlayer.storage.getNumByItemId(SYNTHETIC_ITEM_IDS.BAG) === 1,
         "PurchaseService exchange purchases should still grant unlock rewards through the runtime player");
@@ -900,7 +1442,9 @@ function runPurchaseStructuredResultSmoke() {
     achievementPoints = 0;
     const consumableResult = capturePurchaseResult(sandbox, SYNTHETIC_PURCHASE_IDS.CONSUMABLE_LOW);
     assert(consumableResult && consumableResult.isFailure === true
-        && consumableResult.failedReason === sandbox.PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS,
+        && consumableResult.code === sandbox.PurchaseGatewayResultCode.FAILED
+        && consumableResult.success === false
+        && consumableResult.failureReason === sandbox.PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS,
         "PurchaseService should return a structured insufficient-points failure for consumable purchases");
 
     achievementPoints = 100;
@@ -908,7 +1452,8 @@ function runPurchaseStructuredResultSmoke() {
     assert(bypassResult && bypassResult.isSuccess === true
         && bypassResult.isExchangePurchase === false
         && bypassResult.unlockRecorded === true
-        && bypassResult.failedReason === null,
+        && bypassResult.shopUiState
+        && bypassResult.failureReason === null,
         "PurchaseService should return a structured unlock result for bypassed direct purchases");
     assert(JSON.stringify(paidPurchaseIds) === "[151]",
         "PurchaseService should only invoke exchange payment side effects for the exchange path under this smoke");
@@ -1413,6 +1958,11 @@ module.exports = [
     runSentinelPurchaseIdSnapshotSmoke,
     runTalentSelectionScopedStorageSmoke,
     runRoleSelectionScopedStorageSmoke,
+    runSelectionSourceBoundarySmoke,
+    runPurchaseUiBoundarySourceSmoke,
+    runRoleTalentUiBoundarySmoke,
+    runRoleTalentUiProjectionSmoke,
+    runPurchaseUiRemoteRefreshReuseSmoke,
     runPurchaseStructuredResultSmoke,
     runPlayerPersistenceContractSmoke,
     runPlayerPersistenceUnsupportedSaveSmoke,

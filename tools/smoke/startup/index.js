@@ -148,6 +148,7 @@ function runManifestSmoke() {
     const preloadingSource = readFile("assets/src/util/preloading.js");
     const assetsManagerSource = readFile("assets/src/util/AssetsManager.js");
     const menuSource = readFile("assets/src/ui/MenuScene.js");
+    const storySource = readFile("assets/src/ui/StoryScene.js");
 
     assert(Array.isArray(project.jsList) && project.jsList.length > 0, "project.json jsList is missing");
     assert(project.jsList[0] === "src/util/preloading.js", "project.json must bootstrap via preloading.js");
@@ -178,7 +179,10 @@ function runManifestSmoke() {
     assert(/cc\.director\.runScene\(new MenuScene\(\)\);/.test(preloadingSource), "preloading.js must hand off H5 startup to MenuScene");
     assert(/cc\.loader\.loadJs\(\["src\/jsList\.js"\]/.test(assetsManagerSource), "AssetsManager.js must load jsList.js");
     assert(/cc\.director\.runScene\(new SplashScene\(\)\);/.test(assetsManagerSource) || /cc\.director\.runScene\(new MenuScene\(\)\);/.test(assetsManagerSource), "AssetsManager.js must hand off native startup to SplashScene or MenuScene");
-    assert(/game\.init\(\);\s*game\.start\(\);\s*cc\.director\.runScene\(new MainScene\(\)\);/m.test(menuSource), "MenuScene continue-flow must call game.init/start and enter MainScene");
+    assert(/game\.bootstrapRun\(\);\s*game\.startRun\(\);\s*cc\.director\.runScene\(new MainScene\(\)\);/m.test(menuSource),
+        "MenuScene continue-flow must call shared game.bootstrapRun/startRun and enter MainScene");
+    assert(/game\.bootstrapRun\(\);\s*game\.startRun\(\);\s*userGuide\.initUserGuide\(\);\s*cc\.director\.runScene\(new MainScene\(\)\);/m.test(storySource),
+        "StoryScene start-flow must call shared game.bootstrapRun/startRun before entering MainScene");
 
     return {
         name: "manifest",
@@ -305,6 +309,14 @@ function runPreloadingFlowSmoke() {
 
 function runGameBootstrapSmoke() {
     const calls = {
+        paramInit: 0,
+        packageInit: 0,
+        adInit: [],
+        networkInit: 0,
+        dataLogLoad: 0,
+        medalInit: 0,
+        nativePayInit: 0,
+        accountId: null,
         recordInitNames: [],
         boundRuntime: null,
         navInit: 0,
@@ -325,6 +337,60 @@ function runGameBootstrapSmoke() {
         module: { exports: {} },
         exports: {},
         globalThis: null,
+        ClientData: {},
+        CommonUtil: {
+            getMetaDataInt: function () {
+                return 0;
+            },
+            getMetaData: function (key) {
+                if (key === "versionName") {
+                    return "1.0.0";
+                }
+                if (key === "sdk_type") {
+                    return "test";
+                }
+                return "";
+            }
+        },
+        paramManager: {
+            init: function () {
+                calls.paramInit += 1;
+            },
+            getAdType: function () {
+                return "smoke-ad";
+            }
+        },
+        PurchaseService: {
+            initPackage: function () {
+                calls.packageInit += 1;
+            },
+            isPaySdkBypassedForTest: function () {
+                return true;
+            }
+        },
+        PurchaseAndroid: {
+            PAY_TYPE_GOOGLE_PLAY: "google_play",
+            PAY_TYPE_TEST: "test",
+            payType: null,
+            init: function () {
+                calls.nativePayInit += 1;
+            }
+        },
+        adHelper: {
+            init: function (adType) {
+                calls.adInit.push(adType);
+            }
+        },
+        networkUtil: {
+            init: function () {
+                calls.networkInit += 1;
+            }
+        },
+        DataLog: {
+            loadFromLocal: function () {
+                calls.dataLogLoad += 1;
+            }
+        },
         utils: {
             getRandomInt: function (min, max) {
                 return max;
@@ -339,6 +405,9 @@ function runGameBootstrapSmoke() {
             },
             getCurrentRecordName: function () {
                 return "slot1";
+            },
+            getUUID: function () {
+                return "record-uuid";
             },
             restore: function (key) {
                 return false;
@@ -380,6 +449,9 @@ function runGameBootstrapSmoke() {
             }
         },
         Medal: {
+            init: function () {
+                calls.medalInit += 1;
+            },
             initCompletedForOneGame: function (flag) {
                 calls.medalFlags.push(flag);
             },
@@ -391,7 +463,19 @@ function runGameBootstrapSmoke() {
             }
         },
         cc: {
-            timer: null
+            timer: null,
+            sys: {
+                localStorage: {
+                    getItem: function () {
+                        return calls.accountId;
+                    },
+                    setItem: function (key, value) {
+                        if (key === "AccountId") {
+                            calls.accountId = value;
+                        }
+                    }
+                }
+            }
         }
     };
 
@@ -403,28 +487,61 @@ function runGameBootstrapSmoke() {
 
     assert(sandbox.game && typeof sandbox.game.init === "function", "game.init is missing");
     assert(typeof sandbox.game.start === "function", "game.start is missing");
+    assert(typeof sandbox.game.initApp === "function", "game.initApp is missing");
+    assert(typeof sandbox.game.bootstrapRun === "function", "game.bootstrapRun is missing");
+    assert(typeof sandbox.game.startRun === "function", "game.startRun is missing");
 
-    sandbox.game.init();
-    sandbox.game.start();
+    sandbox.game.bootstrapRun();
+    sandbox.game.startRun();
 
-    assert(calls.recordInitNames.length === 1 && calls.recordInitNames[0] === "slot1", "game.init must initialize Record with current slot");
-    assert(calls.boundRuntime === sandbox.GameRuntime, "game.init must bind Record to GameRuntime once runtime is ready");
-    assert(calls.navInit === 1, "game.init must initialize Navigation once");
-    assert(calls.emitters === 1, "game.init must create one runtime emitter");
-    assert(calls.timers === 1, "game.init must create one timer manager");
-    assert(calls.players === 1, "game.init must create one player instance");
-    assert(calls.playerRestore === 1, "game.init must restore player state once");
-    assert(calls.userGuideInit === 1, "game.init must initialize userGuide once");
-    assert(calls.medalFlags.length === 1 && calls.medalFlags[0] === false, "game.init must reset Medal completion flag for current game");
-    assert(Array.isArray(calls.randomPackSaved) && calls.randomPackSaved[0] === "randomPack", "game.init must backfill randomPack when missing");
-    assert(sandbox.GameRuntime.getPlayer() === sandbox.player, "game.init must sync global player through GameRuntime");
-    assert(sandbox.cc.timer === sandbox.GameRuntime.getTimer(), "game.init must sync timer through GameRuntime");
-    assert(calls.playerStart === 1, "game.start must invoke player.start once");
+    assert(calls.paramInit === 1 && calls.packageInit === 1, "game.initApp must initialize app services once");
+    assert(JSON.stringify(calls.adInit) === "[\"smoke-ad\"]" && calls.networkInit === 1 && calls.dataLogLoad === 1,
+        "game.initApp must initialize ad/network/log services once");
+    assert(calls.medalInit === 1 && calls.nativePayInit === 0 && calls.accountId === "record-uuid",
+        "game.initApp must initialize Medal, skip bypassed native pay init, and backfill AccountId");
+    assert(calls.recordInitNames.length === 1 && calls.recordInitNames[0] === "slot1", "game.bootstrapRun must initialize Record with current slot");
+    assert(calls.boundRuntime === sandbox.GameRuntime, "game.bootstrapRun must bind Record to GameRuntime once runtime is ready");
+    assert(calls.navInit === 1, "game.bootstrapRun must initialize Navigation once");
+    assert(calls.emitters === 1, "game.bootstrapRun must create one runtime emitter");
+    assert(calls.timers === 1, "game.bootstrapRun must create one timer manager");
+    assert(calls.players === 1, "game.bootstrapRun must create one player instance");
+    assert(calls.playerRestore === 1, "game.bootstrapRun must restore player state once");
+    assert(calls.userGuideInit === 1, "game.bootstrapRun must initialize userGuide once");
+    assert(calls.medalFlags.length === 1 && calls.medalFlags[0] === false, "game.bootstrapRun must reset Medal completion flag for current game");
+    assert(Array.isArray(calls.randomPackSaved) && calls.randomPackSaved[0] === "randomPack", "game.bootstrapRun must backfill randomPack when missing");
+    assert(sandbox.GameRuntime.getPlayer() === sandbox.player, "game.bootstrapRun must sync global player through GameRuntime");
+    assert(sandbox.cc.timer === sandbox.GameRuntime.getTimer(), "game.bootstrapRun must sync timer through GameRuntime");
+    assert(calls.playerStart === 1, "game.startRun must invoke player.start once");
 
     return {
         name: "game-bootstrap",
         ok: true,
-        detail: "validated game.init/game.start bootstrap contract against stub runtime"
+        detail: "validated app init and shared bootstrapRun/startRun runtime contract against stub runtime"
+    };
+}
+
+function runRuntimeEntrySourceSmoke() {
+    const gameSource = readFile("assets/src/game/game.js");
+    const playerSource = readFile("assets/src/game/player.js");
+    const menuSource = readFile("assets/src/ui/MenuScene.js");
+
+    assert(/initApp:\s*function/.test(gameSource)
+        && /bootstrapRun:\s*function/.test(gameSource)
+        && /startRun:\s*function/.test(gameSource)
+        && /resetCurrentRun:\s*function/.test(gameSource)
+        && /reliveRun:\s*function/.test(gameSource),
+        "game.js should expose explicit app/bootstrap/start/reset/relive stages");
+    assert(/game\.initApp\(\);/.test(menuSource),
+        "MenuScene should trigger shared game.initApp instead of owning app bootstrap");
+    assert(playerSource.indexOf("typeof runtime.getTimer") === -1
+        && playerSource.indexOf("typeof runtime.getRecord") === -1
+        && playerSource.indexOf("typeof runtime.getEmitter") === -1,
+        "player.js runtime accessors should no longer fall back from require*() to get*()");
+
+    return {
+        name: "runtime-entry-sources",
+        ok: true,
+        detail: "validated shared runtime entrypoints and strict player runtime dependency access"
     };
 }
 
@@ -554,6 +671,7 @@ const CHECKS = [
     runManifestSmoke,
     runPreloadingFlowSmoke,
     runGameBootstrapSmoke,
+    runRuntimeEntrySourceSmoke,
     runSceneDefinitionSmoke
 ];
 

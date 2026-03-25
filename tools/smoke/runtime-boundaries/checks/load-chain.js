@@ -3,6 +3,12 @@ const {
     readRepoFile: readFile
 } = require("../../lib/core");
 
+function stripComments(source) {
+    return (source || "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
 function runLoadChainSmoke() {
     const jsListSource = readFile("assets/src/jsList.js");
     const gameKernelSource = readFile("assets/src/game/GameKernel.js");
@@ -24,15 +30,18 @@ function runLoadChainSmoke() {
     const ziplineNetworkSource = readFile("assets/src/game/ZiplineNetworkService.js");
     const mapActorSource = readFile("assets/src/ui/MapActor.js");
     const mapInteractionSource = readFile("assets/src/ui/MapInteractionController.js");
-    const purchaseUiHelperSource = readFile("assets/src/ui/PurchaseUiHelper.js");
-    const chooseSceneSource = readFile("assets/src/ui/ChooseScene.js");
-    const medalSceneViewSource = readFile("assets/src/ui/MedalSceneView.js");
-    const shopSceneSource = readFile("assets/src/ui/shopScene.js");
-    const topFrameSource = readFile("assets/src/ui/topFrame.js");
-    const homeSource = readFile("assets/src/ui/home.js");
-    const deathNodeSource = readFile("assets/src/ui/deathNode.js");
-    const dialogSource = readFile("assets/src/ui/dialog.js");
-    const uiUtilSource = readFile("assets/src/ui/uiUtil.js");
+    const buttonSource = stripComments(readFile("assets/src/ui/button.js"));
+    const purchaseUiHelperSource = stripComments(readFile("assets/src/ui/PurchaseUiHelper.js"));
+    const chooseSceneSource = stripComments(readFile("assets/src/ui/ChooseScene.js"));
+    const medalSceneViewSource = stripComments(readFile("assets/src/ui/MedalSceneView.js"));
+    const roleTalentUiHelperSource = stripComments(readFile("assets/src/ui/RoleTalentUiHelper.js"));
+    const buildNodeSource = stripComments(readFile("assets/src/ui/buildNode.js"));
+    const shopSceneSource = stripComments(readFile("assets/src/ui/shopScene.js"));
+    const topFrameSource = stripComments(readFile("assets/src/ui/topFrame.js"));
+    const homeSource = stripComments(readFile("assets/src/ui/home.js"));
+    const deathNodeSource = stripComments(readFile("assets/src/ui/deathNode.js"));
+    const dialogSource = stripComments(readFile("assets/src/ui/dialog.js"));
+    const uiUtilSource = stripComments(readFile("assets/src/ui/uiUtil.js"));
     const formulaSource = readFile("assets/src/data/formulaConfig.js");
     const itemConfigSource = readFile("assets/src/data/itemConfig.js");
     const contentBlueprintSource = readFile("assets/src/util/contentBlueprint.js");
@@ -71,6 +80,9 @@ function runLoadChainSmoke() {
         assert(getIndex("src/game/GameRuntime.js") < getIndex(relativePath),
             "GameRuntime.js must load before " + relativePath);
     });
+    assert(getIndex("src/ui/PurchaseUiHelper.js") < getIndex("src/ui/RoleTalentUiHelper.js")
+        && getIndex("src/ui/RoleTalentUiHelper.js") < getIndex("src/ui/topFrame.js"),
+        "RoleTalentUiHelper.js must load after PurchaseUiHelper.js and before topFrame.js");
     assert(battleSource.indexOf("Battle.EVENTS") !== -1, "Battle runtime event contract is missing");
     assert(gameKernelSource.indexOf("register: function") !== -1
         && gameKernelSource.indexOf("require: function") !== -1,
@@ -101,40 +113,78 @@ function runLoadChainSmoke() {
         && purchaseUiHelperSource.indexOf("shouldRequestRemotePayInfo") !== -1
         && purchaseUiHelperSource.indexOf("getPrimaryExchangeConfigByPurchaseId") !== -1,
         "PurchaseUiHelper should not rebuild purchase UI business state outside PurchaseService");
+    assert(roleTalentUiHelperSource.indexOf("getRoleTalentSnapshot: function") !== -1
+        && roleTalentUiHelperSource.indexOf("getRoleInfoViewModel: function") !== -1
+        && roleTalentUiHelperSource.indexOf("getTalentRowViewModels: function") !== -1
+        && roleTalentUiHelperSource.indexOf("showRoleTalentDialog: function") !== -1,
+        "RoleTalentUiHelper should expose the role/talent snapshot and dialog boundary");
     assert(chooseSceneSource.indexOf("PurchaseService.isUnlocked(") === -1
-        && chooseSceneSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1,
-        "ChooseScene should consume PurchaseUiHelper/PurchaseService shop state for talent unlock UI");
+        && chooseSceneSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1
+        && chooseSceneSource.indexOf("RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(") !== -1
+        && chooseSceneSource.indexOf("RoleTalentUiHelper.showTalentInfoDialog(") !== -1
+        && chooseSceneSource.indexOf("RoleTalentUiHelper.showRoleInfoDialog(") !== -1
+        && chooseSceneSource.indexOf("uiUtil.getPurchaseStringConfig(") === -1
+        && chooseSceneSource.indexOf("uiUtil.showRoleInfoDialog(") === -1,
+        "ChooseScene should consume RoleTalentUiHelper for role/talent UI semantics");
     assert(medalSceneViewSource.indexOf("Medal.getAchievementPoints(") === -1
         && medalSceneViewSource.indexOf("PurchaseUiHelper.getAchievementPoints(") !== -1,
         "MedalSceneView should consume PurchaseUiHelper for achievement point summary display");
     assert(topFrameSource.indexOf("Medal.getTalentLevel(") === -1
-        && topFrameSource.indexOf("PurchaseUiHelper.getPurchaseUiSnapshot(") !== -1,
-        "topFrame should consume PurchaseUiHelper shop state for chosen talent level display");
+        && topFrameSource.indexOf("RoleTalentUiHelper.showRoleTalentDialog(") !== -1
+        && topFrameSource.indexOf("stringUtil.getString(\"p_") === -1
+        && topFrameSource.indexOf("TalentService.getTalentTierEffectTextList") === -1
+        && topFrameSource.indexOf(" Lv.") === -1,
+        "topFrame should delegate role/talent dialog semantics to RoleTalentUiHelper");
     assert(homeSource.indexOf("PurchaseService.isUnlocked(") === -1
         && homeSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1,
         "home.js should consume PurchaseUiHelper for purchase-gated build unlock UI");
+    assert(buildNodeSource.indexOf("result.failedReason") === -1
+        && buildNodeSource.indexOf("uiUtil.createLockNode(") === -1
+        && buildNodeSource.indexOf("PurchaseUiHelper.createLockNode(") !== -1,
+        "buildNode.js should use PurchaseUiHelper lock nodes and failure UX without reading legacy failedReason");
+    assert(homeSource.indexOf("result.failedReason") === -1
+        && homeSource.indexOf("uiUtil.createLockNode(") === -1
+        && homeSource.indexOf("PurchaseUiHelper.createLockNode(") !== -1,
+        "home.js should use PurchaseUiHelper lock nodes and failure UX without reading legacy failedReason");
     assert(deathNodeSource.indexOf("PurchaseService.isUnlocked(") === -1
         && deathNodeSource.indexOf("PurchaseService.getPurchaseConfig(") === -1
         && deathNodeSource.indexOf("PurchaseUiHelper.isPurchaseUnlocked(") !== -1
-        && deathNodeSource.indexOf("PurchaseUiHelper.applyPayDialogState(") !== -1,
-        "deathNode.js should consume PurchaseUiHelper for revive purchase unlock and pay-dialog state");
+        && deathNodeSource.indexOf("result.failedReason") === -1
+        && deathNodeSource.indexOf("PurchaseUiHelper.showPayDialogWithRefresh(") !== -1,
+        "deathNode.js should consume PurchaseUiHelper for revive purchase unlock and pay-dialog orchestration");
+    assert(buttonSource.indexOf("uiUtil.showUnlockDialog(") === -1
+        && buttonSource.indexOf("showInfoDialog: function") === -1
+        && buttonSource.indexOf("setInfoClickHandler: function") !== -1
+        && buttonSource.indexOf("setLockClickHandler: function") !== -1,
+        "button.js should keep choose-scene purchase info/lock behavior as delegated handlers");
     assert(uiUtilSource.indexOf("Medal.getTalentLevel(") === -1,
         "uiUtil talent purchase display should not read Medal talent level directly");
     assert(dialogSource.indexOf("PurchaseService.isExchangePurchase(") === -1
         && dialogSource.indexOf("PurchaseService.getPriceOff(") === -1
+        && dialogSource.indexOf("purchaseId < 200") === -1
         && dialogSource.indexOf("PurchaseUiHelper.applyPayDialogState(") !== -1,
-        "dialog.js should consume PurchaseUiHelper shop state for pay-dialog price and discount display");
+        "dialog.js should consume PurchaseUiHelper shop state for pay-dialog CTA, price and discount display");
     assert(shopSceneSource.indexOf("PurchaseService.isExchangePurchase(") === -1
-        && shopSceneSource.indexOf("PurchaseUiHelper.shouldRequestRemotePayInfo(") !== -1,
-        "shopScene should consume PurchaseUiHelper when deciding which purchases need remote price refresh");
+        && shopSceneSource.indexOf("PurchaseService.refreshRemotePayInfo(") === -1
+        && shopSceneSource.indexOf("nonExchangeData") === -1
+        && shopSceneSource.indexOf("hasSdkPurchases") === -1
+        && shopSceneSource.indexOf("PurchaseUiHelper.refreshRemotePayInfoIfNeeded(") !== -1
+        && shopSceneSource.indexOf("PurchaseUiHelper.getRemotePayInfoRequestIds(") !== -1
+        && shopSceneSource.indexOf("PurchaseUiHelper.getRemotePayInfoPurchaseIds(") === -1
+        && shopSceneSource.indexOf("PurchaseUiHelper.showPayDialogWithRefresh(") !== -1,
+        "shopScene should consume PurchaseUiHelper when deciding shop-entry remote price refresh");
     assert(uiUtilSource.indexOf("PurchaseService.getPriceOff(") === -1
         && uiUtilSource.indexOf("PurchaseService.isTalentPurchase(") === -1
         && uiUtilSource.indexOf("PurchaseService.getExchangeIdsByPurchaseId(") === -1
         && uiUtilSource.indexOf("PurchaseService.getExchangeIdByPurchaseId(") === -1
-        && uiUtilSource.indexOf("PurchaseUiHelper.getPurchaseUiSnapshot(") !== -1
-        && uiUtilSource.indexOf("PurchaseUiHelper.isExchangePurchase(") !== -1
-        && uiUtilSource.indexOf("getPrimaryExchangeConfigByPurchaseId") !== -1,
-        "uiUtil should consume PurchaseUiHelper for purchase display and lock-state metadata");
+        && uiUtilSource.indexOf("PurchaseService.refreshRemotePayInfo(") === -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.getPurchaseStringConfig(") !== -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.getTalentDisplayInfo(") !== -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.createPayItemNode(") !== -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.createLockNode(") !== -1
+        && uiUtilSource.indexOf("PurchaseUiHelper.showUnlockDialog(") !== -1
+        && uiUtilSource.indexOf("RoleTalentUiHelper.showRoleInfoDialog(") !== -1,
+        "uiUtil should stay a thin wrapper over PurchaseUiHelper and RoleTalentUiHelper");
     assert(buildActionSource.indexOf(": player") === -1
         && buildActionSource.indexOf(": cc.timer") === -1
         && buildActionSource.indexOf(": utils.emitter") === -1
