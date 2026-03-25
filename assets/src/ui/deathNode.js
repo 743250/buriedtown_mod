@@ -96,21 +96,16 @@ var DeathNode = BottomFrameNode.extend({
 
         var self = this;
         var purchaseId = 203;
-        var payDialog = uiUtil.showPayDialog(purchaseId, function () {
+        PurchaseUiHelper.showPayDialogWithRefresh(purchaseId, function () {
             utils.pay(purchaseId, self, function (result) {
-                if (result.isSuccess) {
-                    runtimePlayer.storage.decreaseItem(RELIVE_ITEMID, 1);
-                    self.goHome();
-                } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
-                    uiUtil.showTip("成就点不足!");
+                if (!result || !result.isSuccess) {
+                    PurchaseUiHelper.showPurchaseFailedTip(result);
+                    return;
                 }
+                runtimePlayer.storage.decreaseItem(RELIVE_ITEMID, 1);
+                self.goHome();
             });
-        });
-
-        PurchaseUiHelper.applyPayDialogState(purchaseId, payDialog);
-        utils.updatePayInfo(this, function () {
-            PurchaseUiHelper.applyPayDialogState(purchaseId, payDialog);
-        }, [purchaseId]);
+        }, this, this);
 
     },
     onClickBtn2: function () {

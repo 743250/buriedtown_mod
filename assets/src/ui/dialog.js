@@ -1080,14 +1080,14 @@ var AboutUUIDDialog = DialogTiny.extend({
 });
 
 var PayDialog = DialogBig.extend({
-    ctor: function (purchaseId, cb, ownerLayer) {
+    ctor: function (purchaseId, cb, ownerLayer, purchaseDisplayContext) {
         var config = {
             title: {},
             content: {},
             action: {btn_1: {}, btn_2: {}}
         };
         this.purchaseId = purchaseId;
-        var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
+        purchaseDisplayContext = purchaseDisplayContext || PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
         var purchaseUiState = purchaseDisplayContext.purchaseUiState;
         var titleIconConfig = purchaseDisplayContext.titleIconConfig;
         config.title.title = purchaseDisplayContext.titleText;
@@ -1096,12 +1096,7 @@ var PayDialog = DialogBig.extend({
             config.title.iconFallback = titleIconConfig.fallbackName;
         }
         config.action.btn_1.txt = stringUtil.getString(1193);
-
-        if (purchaseId < 200) {
-            config.action.btn_2.txt = stringUtil.getString(1227);
-        } else {
-            config.action.btn_2.txt = stringUtil.getString(1213);
-        }
+        config.action.btn_2.txt = purchaseDisplayContext.buyButtonText || stringUtil.getString(1227);
         config.action.btn_2.target = null;
         config.action.btn_2.cb = cb;
 

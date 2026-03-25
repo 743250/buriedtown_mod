@@ -581,7 +581,9 @@ var ButtonAtChooseScene = Button.extend({
         this.addChild(info);
         info.setVisible(false);
         info.setClickListener(this, function () {
-            this.showInfoDialog(this.purchaseId);
+            if (this._infoClickHandler && this._infoClickHandler.cb) {
+                this._infoClickHandler.cb.call(this._infoClickHandler.target || this, this.purchaseId, this);
+            }
         });
 
         var mark = autoSpriteFrameController.getSpriteFromSpriteName('icon_iap_mark.png');
@@ -598,7 +600,9 @@ var ButtonAtChooseScene = Button.extend({
         this.addChild(lock);
         lock.setVisible(false);
         lock.setClickListener(this, function () {
-            uiUtil.showUnlockDialog(this.purchaseId);
+            if (this._lockClickHandler && this._lockClickHandler.cb) {
+                this._lockClickHandler.cb.call(this._lockClickHandler.target || this, this.purchaseId, this);
+            }
         });
 
         this.normalOpacity = 255;
@@ -634,24 +638,17 @@ var ButtonAtChooseScene = Button.extend({
         this.checked = checked;
         this.getChildByName("mark").setVisible(this.checked);
     },
-
-    showInfoDialog: function (purchaseId) {
-        var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
-
-        var config = {
-            title: {},
-            content: {},
-            action: {btn_1: {}}
+    setInfoClickHandler: function (target, cb) {
+        this._infoClickHandler = {
+            target: target || this,
+            cb: cb
         };
-        config.title.title = purchaseDisplayContext
-            ? purchaseDisplayContext.titleText
-            : ("ID " + purchaseId);
-        config.content.des = purchaseDisplayContext
-            ? purchaseDisplayContext.infoDialogContentText
-            : "";
-        config.action.btn_1.txt = stringUtil.getString(1030);
-        var d = new DialogSmall(config);
-        d.show();
+    },
+    setLockClickHandler: function (target, cb) {
+        this._lockClickHandler = {
+            target: target || this,
+            cb: cb
+        };
     }
 });
 

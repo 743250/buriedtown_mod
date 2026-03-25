@@ -10,29 +10,7 @@ var tempVersionConfig;
 var MenuLayer = cc.Layer.extend({
     ctor: function () {
         this._super();
-
-        ClientData.CHANNEL = "" + CommonUtil.getMetaDataInt("channelId");
-        ClientData.CLIENT_VERSION = CommonUtil.getMetaData("versionName");
-        paramManager.init();
-        PurchaseService.initPackage();
-        var sdkType = CommonUtil.getMetaData("sdk_type");
-        // Google Play native pay init will eagerly surface the platform profile/account prompt.
-        // Keep payType for UI branching, but skip startup init so launch stays silent.
-        var shouldBypassNativePayInit = PurchaseService.isPaySdkBypassedForTest()
-            || sdkType === PurchaseAndroid.PAY_TYPE_GOOGLE_PLAY;
-        if (shouldBypassNativePayInit) {
-            PurchaseAndroid.payType = sdkType || PurchaseAndroid.PAY_TYPE_TEST;
-        } else {
-            PurchaseAndroid.init(sdkType, {});
-        }
-        adHelper.init(paramManager.getAdType());
-        networkUtil.init();
-        DataLog.loadFromLocal();
-        Medal.init();
-        // Avoid startup platform-account popup (Google Play player info).
-        if (!cc.sys.localStorage.getItem("AccountId")) {
-            cc.sys.localStorage.setItem("AccountId", Record.getUUID());
-        }
+        game.initApp();
         return true;
     },
 
@@ -51,9 +29,9 @@ var MenuLayer = cc.Layer.extend({
 
         var logoName;
         if (cc.sys.localStorage.getItem("language") === cc.sys.LANGUAGE_CHINESE) {
-            logoName = 'top_logo_en.png';
+            logoName = "top_logo_zh.png";
         } else {
-            logoName = 'top_logo_en.png';
+            logoName = "top_logo_en.png";
         }
         var logo = autoSpriteFrameController.getSpriteFromSpriteName(logoName);
         logo.x = bg.width / 2;
@@ -107,7 +85,7 @@ var MenuLayer = cc.Layer.extend({
         });
         //btn3.setPosition(bg.width / 2, bg.height / 2 - 346);
         //bg.addChild(btn3);
-        btn2.setName("btn_3");
+        btn3.setName("btn_3");
 
         //var switchMusic = new SwitchMusicButton(audioManager.needSound());
         //switchMusic.x = bg.width - 106 + 15;
@@ -334,8 +312,8 @@ var MenuLayer = cc.Layer.extend({
             return;
         }
         audioManager.stopMusic(audioManager.music.MAIN_PAGE);
-        game.init();
-        game.start();
+        game.bootstrapRun();
+        game.startRun();
         cc.director.runScene(new MainScene());
     },
     castVersionConfig: function (versionConfig) {
@@ -438,10 +416,37 @@ var SaveSlotSelectLayer = cc.Layer.extend({
 
         this.addChild(new cc.LayerColor(cc.color(0, 0, 0, 220)));
 
+        var panel = uiUtil.createPaperPanel(cc.size(520, 680), {
+            fillColor: UITheme.statusColors.panelFillAlt,
+            fillOpacity: 244,
+            frameColor: UITheme.statusColors.panelBorder,
+            frameOpacity: 176,
+            shadowOpacity: 30
+        });
+        panel.setAnchorPoint(0.5, 0.5);
+        panel.setPosition(cc.winSize.width / 2, cc.winSize.height / 2 + 8);
+        this.addChild(panel);
+        this.panel = panel;
+
         var titleText = this.mode === "continue" ? this.lang.continueTitle : this.lang.newTitle;
-        var title = new cc.LabelTTF(titleText, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_1);
-        title.setPosition(cc.winSize.width / 2, cc.winSize.height / 2 + 280);
-        this.addChild(title);
+        var title = uiUtil.createLabel(titleText, "title", {
+            anchorX: 0.5,
+            anchorY: 0.5
+        });
+        title.setPosition(panel.width / 2, panel.height - 76);
+        panel.addChild(title);
+
+        var subtitle = uiUtil.createLabel(this.lang.slotPrefix + " 1-" + Record.SLOT_COUNT, "caption", {
+            anchorX: 0.5,
+            anchorY: 0.5
+        });
+        subtitle.setPosition(panel.width / 2, panel.height - 116);
+        panel.addChild(subtitle);
+
+        var divider = uiUtil.createColorRect(cc.size(panel.width - 56, 2), UITheme.statusColors.divider, 120);
+        divider.setAnchorPoint(0.5, 0.5);
+        divider.setPosition(panel.width / 2, panel.height - 148);
+        panel.addChild(divider);
 
         var self = this;
         for (var slot = 1; slot <= Record.SLOT_COUNT; slot++) {
@@ -457,18 +462,18 @@ var SaveSlotSelectLayer = cc.Layer.extend({
                 self.removeFromParent();
             });
             btn._slotIndex = slot;
-            btn.setPosition(cc.winSize.width / 2, cc.winSize.height / 2 + 160 - (slot - 1) * 110);
+            btn.setPosition(panel.width / 2, panel.height - 224 - (slot - 1) * 110);
             if (this.mode === "continue" && !Record.hasRecord(slot)) {
                 btn.setEnabled(false);
             }
-            this.addChild(btn);
+            panel.addChild(btn);
         }
 
         var btnCancel = uiUtil.createCommonBtnWhite(stringUtil.getString(1031), this, function () {
             self.removeFromParent();
         });
-        btnCancel.setPosition(cc.winSize.width / 2, cc.winSize.height / 2 - 220);
-        this.addChild(btnCancel);
+        btnCancel.setPosition(panel.width / 2, 72);
+        panel.addChild(btnCancel);
 
         cc.eventManager.addListener(cc.EventListener.create({
             event: cc.EventListener.TOUCH_ONE_BY_ONE,

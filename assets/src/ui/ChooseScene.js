@@ -10,14 +10,25 @@ var ChooseLayer = cc.Layer.extend({
         this._shopStateListener = null;
         var roleSelectionConfig = role.getRoleSelectionConfig();
 
-        var titleRole = new cc.LabelTTF(stringUtil.getString(1310), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_1);
+        var titleRole = uiUtil.createLabel(stringUtil.getString(1310), "title", {
+            anchorX: 0.5,
+            anchorY: 0.5
+        });
         titleRole.x = cc.winSize.width / 2;
-        titleRole.y = cc.visibleRect.height - 50;
+        titleRole.y = cc.visibleRect.height - 46;
         this.addChild(titleRole);
 
         var sliderView = new SlideView(cc.size(600, 320));
         sliderView.x = cc.visibleRect.width / 2;
         sliderView.y = 870;
+        var sliderPanel = uiUtil.createColorRect(
+            cc.size(644, 352),
+            UITheme.statusColors.panelFill,
+            UITheme.cards.panelOpacity
+        );
+        sliderPanel.setAnchorPoint(0.5, 0.5);
+        sliderPanel.setPosition(sliderView.x, sliderView.y);
+        this.addChild(sliderPanel, -1);
         this.addChild(sliderView);
         this.sliderView = sliderView;
 
@@ -30,9 +41,12 @@ var ChooseLayer = cc.Layer.extend({
         };
 
 
-        var title = new cc.LabelTTF(stringUtil.getString(1217), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_1);
+        var title = uiUtil.createLabel(stringUtil.getString(1217), "sectionTitle", {
+            anchorX: 0.5,
+            anchorY: 0.5
+        });
         title.x = cc.winSize.width / 2;
-        title.y = 740;
+        title.y = 744;
         this.addChild(title);
 
         var NODE_WIDTH = 160;
@@ -56,6 +70,14 @@ var ChooseLayer = cc.Layer.extend({
         talentScrollView.setClippingToBounds(true);
         talentScrollView.x = 0;
         talentScrollView.y = scrollViewBottomY;
+        var talentPanel = uiUtil.createColorRect(
+            cc.size(viewWidth - 32, viewHeight + 20),
+            UITheme.statusColors.panelFill,
+            UITheme.cards.panelOpacity
+        );
+        talentPanel.setAnchorPoint(0.5, 0);
+        talentPanel.setPosition(viewWidth / 2, scrollViewBottomY - 8);
+        this.addChild(talentPanel, -1);
         this.addChild(talentScrollView);
         talentScrollView.setContentSize(viewWidth, totalHeight);
         var talentOffset = talentScrollView.getContentOffset();
@@ -68,10 +90,23 @@ var ChooseLayer = cc.Layer.extend({
             TalentService.getMaxChosenTalentCount && TalentService.getMaxChosenTalentCount()
         );
         this.maxChosenTalentCount = isNaN(configuredMaxTalentCount) ? 1 : Math.max(1, configuredMaxTalentCount);
+        this.getRoleTalentSnapshot = function () {
+            return RoleTalentUiHelper.getRoleTalentSnapshot(null, self.selectedTalentIds);
+        };
 
         this.updateTalentCheckedState = function () {
             self.btnList.forEach(function (btn) {
                 btn.setChecked(self.selectedTalentIds.indexOf(parseInt(btn.purchaseId)) !== -1);
+            });
+        };
+        this.refreshTalentButtonCopy = function () {
+            var snapshot = self.getRoleTalentSnapshot();
+            self.btnList.forEach(function (btn) {
+                var talentViewModel = RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(btn.purchaseId, snapshot);
+                var nameLabel = btn.getChildByName("name");
+                if (nameLabel) {
+                    nameLabel.setString(talentViewModel.nameText || "");
+                }
             });
         };
 
@@ -99,6 +134,7 @@ var ChooseLayer = cc.Layer.extend({
 
             TalentService.chooseTalents(self.selectedTalentIds);
             self.updateTalentCheckedState();
+            self.refreshTalentButtonCopy();
         };
 
         data.forEach(function (purchaseId, index) {
@@ -118,11 +154,22 @@ var ChooseLayer = cc.Layer.extend({
             btn.setClickListener(self, function (sender) {
                 this.toggleTalentSelection(sender.purchaseId);
             });
+            btn.setInfoClickHandler(self, function (selectedPurchaseId) {
+                RoleTalentUiHelper.showTalentInfoDialog(selectedPurchaseId, self.getRoleTalentSnapshot());
+            });
+            btn.setLockClickHandler(self, function (lockedPurchaseId) {
+                PurchaseUiHelper.showUnlockDialog(lockedPurchaseId);
+            });
 
-            var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-
-            var name = new cc.LabelTTF(strConfig.name, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
-            name.anchorY = 0;
+            var talentViewModel = RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(purchaseId, self.getRoleTalentSnapshot());
+            var name = uiUtil.createLabel(talentViewModel.nameText, "meta", {
+                width: btn.width + 60,
+                anchorX: 0.5,
+                anchorY: 0,
+                hAlignment: cc.TEXT_ALIGNMENT_CENTER,
+                color: UITheme.typographyPresets.sectionTitle.color
+            });
+            name.setName("name");
             name.x = btn.width / 2;
             name.y = btn.height + 5;
             btn.addChild(name);
@@ -138,6 +185,7 @@ var ChooseLayer = cc.Layer.extend({
             btn.setEnabled(PurchaseUiHelper.isPurchaseUnlocked(btn.purchaseId));
         });
         this.updateTalentCheckedState();
+        this.refreshTalentButtonCopy();
         this.refreshUnlockState = function () {
             if (self.sliderView && self.sliderView.tableView) {
                 var offset = self.sliderView.tableView.getContentOffset();
@@ -161,6 +209,7 @@ var ChooseLayer = cc.Layer.extend({
             }
             TalentService.chooseTalents(self.selectedTalentIds);
             self.updateTalentCheckedState();
+            self.refreshTalentButtonCopy();
         };
 
         var btn1 = uiUtil.createCommonBtnWhite(stringUtil.getString(1193), this, function () {
@@ -189,7 +238,7 @@ var ChooseLayer = cc.Layer.extend({
             }
 
             if (role.isRolePurchaseRequired(chosenRoleType) && !role.isRoleUnlocked(chosenRoleType)) {
-                uiUtil.showRoleInfoDialog(chosenRoleType, true);
+                RoleTalentUiHelper.showRoleInfoDialog(chosenRoleType, true);
                 return;
             }
             role.chooseRoleType(chosenRoleType);
@@ -425,8 +474,12 @@ var SlideView = cc.Node.extend({
 
         var d = this.data[idx];
         if (d) {
+            var roleInfoViewModel = RoleTalentUiHelper.getRoleInfoViewModel(d.id);
 
-            var name = new cc.LabelTTF(d.name, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
+            var name = uiUtil.createLabel(roleInfoViewModel.name || d.name, "sectionTitle", {
+                anchorX: 0.5,
+                anchorY: 0.5
+            });
             name.setPosition(size.width / 2, size.height - 10);
             content.addChild(name);
 
@@ -434,12 +487,20 @@ var SlideView = cc.Node.extend({
             headerBg.setPosition(size.width / 2, size.height / 2);
             content.addChild(headerBg);
 
-            var header = uiUtil.getCharacterPortraitSpriteByRoleType(d.id, uiUtil.getDefaultSpriteName("character", false));
+            var header = uiUtil.getCharacterPortraitSpriteByRoleType(
+                d.id,
+                roleInfoViewModel.avatarFallback || uiUtil.getDefaultSpriteName("character", false)
+            );
             header.setPosition(headerBg.width / 2, headerBg.height / 2);
             headerBg.addChild(header);
             header.scale = 0.8;
 
-            var des = new cc.LabelTTF(d.des, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
+            var des = uiUtil.createLabel(roleInfoViewModel.effectText || roleInfoViewModel.descriptionText || d.des, "body", {
+                width: size.width - 20,
+                anchorX: 0.5,
+                anchorY: 0.5,
+                hAlignment: cc.TEXT_ALIGNMENT_CENTER
+            });
             des.setPosition(size.width / 2, 10);
             content.addChild(des);
 
@@ -448,10 +509,10 @@ var SlideView = cc.Node.extend({
             info.y = headerBg.height - 19;
             headerBg.addChild(info);
             info.setClickListener(this, function () {
-                uiUtil.showRoleInfoDialog(d.id);
+                RoleTalentUiHelper.showRoleInfoDialog(roleInfoViewModel.roleType, false);
             });
 
-            if (role.isRolePurchaseRequired(d.id) && !role.isRoleUnlocked(d.id)) {
+            if (roleInfoViewModel.isLocked) {
                 info.setVisible(false);
 
                 var lock = new SpriteButton(null, 'icon_iap_lock.png');
@@ -459,7 +520,7 @@ var SlideView = cc.Node.extend({
                 lock.y = headerBg.height - 27;
                 headerBg.addChild(lock);
                 lock.setClickListener(this, function () {
-                    uiUtil.showRoleInfoDialog(d.id, true);
+                    RoleTalentUiHelper.showRoleInfoDialog(roleInfoViewModel.roleType, true);
                 });
             }
 

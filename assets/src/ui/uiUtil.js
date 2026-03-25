@@ -14,7 +14,7 @@ uiUtil.fontSize = {
     COMMON_4: 16
 };
 
-uiUtil.spacing = {
+uiUtil.spacing = UITheme.spacing || {
     XXS: 4,
     XS: 8,
     SM: 12,
@@ -34,33 +34,33 @@ uiUtil.zOrder = {
 uiUtil.textPreset = {
     title: {
         fontFamily: uiUtil.fontFamily.normal,
-        fontSize: uiUtil.fontSize.COMMON_1,
-        color: UITheme.colors.TEXT_TITLE
+        fontSize: (UITheme.typographyPresets.title && UITheme.typographyPresets.title.fontSize) || uiUtil.fontSize.COMMON_1,
+        color: (UITheme.typographyPresets.title && UITheme.typographyPresets.title.color) || UITheme.colors.TEXT_TITLE
     },
     sectionTitle: {
         fontFamily: uiUtil.fontFamily.normal,
-        fontSize: uiUtil.fontSize.COMMON_2,
-        color: UITheme.colors.TEXT_TITLE
+        fontSize: (UITheme.typographyPresets.sectionTitle && UITheme.typographyPresets.sectionTitle.fontSize) || uiUtil.fontSize.COMMON_2,
+        color: (UITheme.typographyPresets.sectionTitle && UITheme.typographyPresets.sectionTitle.color) || UITheme.colors.TEXT_TITLE
     },
     body: {
         fontFamily: uiUtil.fontFamily.normal,
-        fontSize: uiUtil.fontSize.COMMON_3,
-        color: UITheme.colors.TEXT_TITLE
+        fontSize: (UITheme.typographyPresets.body && UITheme.typographyPresets.body.fontSize) || uiUtil.fontSize.COMMON_3,
+        color: (UITheme.typographyPresets.body && UITheme.typographyPresets.body.color) || UITheme.colors.TEXT_TITLE
     },
     meta: {
         fontFamily: uiUtil.fontFamily.normal,
-        fontSize: uiUtil.fontSize.COMMON_4,
-        color: cc.color(90, 82, 72, 255)
+        fontSize: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.fontSize) || uiUtil.fontSize.COMMON_4,
+        color: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.color) || cc.color(90, 82, 72, 255)
     },
     caption: {
         fontFamily: uiUtil.fontFamily.normal,
-        fontSize: uiUtil.fontSize.COMMON_4,
-        color: cc.color(96, 88, 78, 255)
+        fontSize: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.fontSize) || uiUtil.fontSize.COMMON_4,
+        color: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.color) || cc.color(96, 88, 78, 255)
     },
     inverse: {
         fontFamily: uiUtil.fontFamily.normal,
-        fontSize: uiUtil.fontSize.COMMON_4,
-        color: cc.color(245, 239, 228, 255)
+        fontSize: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.fontSize) || uiUtil.fontSize.COMMON_4,
+        color: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.color) || cc.color(245, 239, 228, 255)
     }
 };
 
@@ -453,30 +453,52 @@ uiUtil.createSpriteBtn = function (spriteState, target, cb, rect) {
 }
 
 uiUtil.createCommonBtnBlack = function (txt, target, cb) {
+    var commonButtonTheme = UITheme.buttons && UITheme.buttons.common ? UITheme.buttons.common : {};
     var btn = uiUtil.createSpriteBtn({
         normal: "btn_common_black_normal.png",
-        fontInfo: {txt: txt, fontSize: uiUtil.fontSize.COMMON_2}
+        fontInfo: {
+            txt: txt,
+            fontSize: commonButtonTheme.fontSize || (uiUtil.fontSize.COMMON_2 + 4)
+        }
     }, target, cb);
-    btn.setTitleColorForState(UITheme.colors.WHITE, cc.CONTROL_STATE_NORMAL);
-    btn.setTitleColorForState(UITheme.colors.GRAY, cc.CONTROL_STATE_DISABLED);
+    if (commonButtonTheme.preferredSize && btn.setPreferredSize) {
+        btn.setPreferredSize(commonButtonTheme.preferredSize);
+    }
+    if (commonButtonTheme.zoomOnTouchDown === false && btn.setZoomOnTouchDown) {
+        btn.setZoomOnTouchDown(false);
+    }
+    btn.setTitleColorForState(commonButtonTheme.blackTextColor || UITheme.colors.WHITE, cc.CONTROL_STATE_NORMAL);
+    btn.setTitleColorForState(commonButtonTheme.disabledColor || UITheme.colors.GRAY, cc.CONTROL_STATE_DISABLED);
     return btn;
 }
 
 uiUtil.createCommonBtnWhite = function (txt, target, cb) {
+    var commonButtonTheme = UITheme.buttons && UITheme.buttons.common ? UITheme.buttons.common : {};
     var btn = uiUtil.createSpriteBtn({
         normal: "btn_common_white_normal.png",
-        fontInfo: {txt: txt, fontSize: uiUtil.fontSize.COMMON_2}
+        fontInfo: {
+            txt: txt,
+            fontSize: commonButtonTheme.fontSize || (uiUtil.fontSize.COMMON_2 + 4)
+        }
     }, target, cb);
-    btn.setTitleColorForState(UITheme.colors.TEXT_TITLE, cc.CONTROL_STATE_NORMAL);
-    btn.setTitleColorForState(UITheme.colors.GRAY, cc.CONTROL_STATE_DISABLED);
+    if (commonButtonTheme.preferredSize && btn.setPreferredSize) {
+        btn.setPreferredSize(commonButtonTheme.preferredSize);
+    }
+    if (commonButtonTheme.zoomOnTouchDown === false && btn.setZoomOnTouchDown) {
+        btn.setZoomOnTouchDown(false);
+    }
+    btn.setTitleColorForState(commonButtonTheme.whiteTextColor || UITheme.colors.TEXT_TITLE, cc.CONTROL_STATE_NORMAL);
+    btn.setTitleColorForState(commonButtonTheme.disabledColor || UITheme.colors.GRAY, cc.CONTROL_STATE_DISABLED);
     return btn;
 }
 
 uiUtil.createSmallCommonBtnWhite = function (txt, target, cb, opt) {
     opt = opt || {};
 
-    var size = opt.size || cc.size(72, 30);
-    var fontSize = opt.fontSize || uiUtil.fontSize.COMMON_4;
+    var smallButtonTheme = UITheme.buttons && UITheme.buttons.small ? UITheme.buttons.small : {};
+    var commonButtonTheme = UITheme.buttons && UITheme.buttons.common ? UITheme.buttons.common : {};
+    var size = opt.size || smallButtonTheme.preferredSize || cc.size(72, 30);
+    var fontSize = opt.fontSize || smallButtonTheme.fontSize || uiUtil.fontSize.COMMON_4;
     if (opt.manualClick) {
         var manualBtn = new ButtonWithPressed(size);
         var bg = autoSpriteFrameController.getScale9Sprite("btn_common_white_normal.png", cc.rect(1, 1, 1, 1));
@@ -504,9 +526,11 @@ uiUtil.createSmallCommonBtnWhite = function (txt, target, cb, opt) {
         fontInfo: {txt: txt || "", fontSize: fontSize}
     }, target, cb, cc.rect(1, 1, 1, 1));
     btn.setPreferredSize(size);
-    btn.setZoomOnTouchDown(false);
-    btn.setTitleColorForState(UITheme.colors.TEXT_TITLE, cc.CONTROL_STATE_NORMAL);
-    btn.setTitleColorForState(UITheme.colors.GRAY, cc.CONTROL_STATE_DISABLED);
+    if (commonButtonTheme.zoomOnTouchDown === false && btn.setZoomOnTouchDown) {
+        btn.setZoomOnTouchDown(false);
+    }
+    btn.setTitleColorForState(commonButtonTheme.whiteTextColor || UITheme.colors.TEXT_TITLE, cc.CONTROL_STATE_NORMAL);
+    btn.setTitleColorForState(commonButtonTheme.disabledColor || UITheme.colors.GRAY, cc.CONTROL_STATE_DISABLED);
     return btn;
 }
 
@@ -1722,68 +1746,16 @@ uiUtil.createSaleOffIcon = function () {
 };
 
 uiUtil.getPurchaseStringConfig = function (purchaseId) {
-    purchaseId = parseInt(purchaseId);
-    var strConfig = stringUtil.getString("p_" + purchaseId);
-    var purchaseUiHelper = (typeof PurchaseUiHelper !== "undefined" && PurchaseUiHelper)
-        ? PurchaseUiHelper
-        : null;
-    if (!strConfig || typeof strConfig !== "object") {
-        strConfig = {};
-    } else {
-        strConfig = utils.clone(strConfig);
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.getPurchaseStringConfig === "function") {
+        return PurchaseUiHelper.getPurchaseStringConfig(purchaseId);
     }
-
-    if (typeof strConfig.name !== "string" || strConfig.name.length === 0) {
-        strConfig.name = "ID " + purchaseId;
-    }
-    if (typeof strConfig.des !== "string") {
-        strConfig.des = "";
-    }
-    if (typeof strConfig.effect !== "string") {
-        strConfig.effect = "";
-    }
-
-    if (/^ID\s+\d+$/.test(strConfig.name)
-        && typeof ConfigValidator !== "undefined"
-        && ConfigValidator
-        && typeof ConfigValidator.warnIfInvalid === "function") {
-        if (purchaseUiHelper
-            && typeof purchaseUiHelper.isTalentPurchase === "function"
-            && purchaseUiHelper.isTalentPurchase(purchaseId)) {
-            ConfigValidator.warnIfInvalid("talent", purchaseId, "uiUtil.getPurchaseStringConfig");
-        } else {
-            var roleType = uiUtil.getRoleTypeByPurchaseId(purchaseId);
-            if (roleType !== null && roleType !== undefined) {
-                ConfigValidator.warnIfInvalid("role", roleType, "uiUtil.getPurchaseStringConfig");
-            }
-        }
-    }
-
-    // For exchange-only character purchase ids without p_xxx string entries,
-    // fallback to role metadata so shop titles/descriptions remain meaningful.
-    if (/^ID\s+\d+$/.test(strConfig.name) && purchaseUiHelper) {
-        var exchangeConfig = typeof purchaseUiHelper.getPrimaryExchangeConfigByPurchaseId === "function"
-            ? purchaseUiHelper.getPrimaryExchangeConfigByPurchaseId(purchaseId)
-            : null;
-        if (exchangeConfig && exchangeConfig.type === "character") {
-            var roleInfo = null;
-            if (typeof role !== "undefined" && role && typeof role.getRoleInfo === "function") {
-                roleInfo = role.getRoleInfo(exchangeConfig.targetId);
-            }
-            if (roleInfo) {
-                strConfig.name = roleInfo.name || strConfig.name;
-                if (!strConfig.des) {
-                    strConfig.des = roleInfo.des || "";
-                }
-                if (!strConfig.effect) {
-                    strConfig.effect = roleInfo.effect || "";
-                }
-            } else if (exchangeConfig.name) {
-                strConfig.name = exchangeConfig.name;
-            }
-        }
-    }
-    return strConfig;
+    return {
+        name: "ID " + purchaseId,
+        des: "",
+        effect: ""
+    };
 };
 
 uiUtil.getRoleTypeByPurchaseId = function (purchaseId) {
@@ -1869,242 +1841,22 @@ uiUtil.createSupportPackPreviewIcon = function (effectList) {
     return node;
 };
 
-uiUtil._talentLevelTextMap = {
-    1: "一",
-    2: "二",
-    3: "三"
-};
-
 uiUtil.getTalentDisplayInfo = function (purchaseId, baseName, purchaseUiState) {
-    if (!purchaseUiState || !purchaseUiState.isTalentPurchase) {
-        return null;
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.getTalentDisplayInfo === "function") {
+        return PurchaseUiHelper.getTalentDisplayInfo(purchaseId, baseName, purchaseUiState);
     }
-
-    purchaseId = parseInt(purchaseId);
-    var currentLevel = Number(purchaseUiState.currentTalentLevel) || 0;
-    var maxLevel = (typeof TalentService !== "undefined"
-        && TalentService
-        && typeof TalentService.getTalentMaxLevel === "function")
-        ? TalentService.getTalentMaxLevel(purchaseId)
-        : 3;
-    var nextLevel = currentLevel >= maxLevel ? maxLevel : (currentLevel + 1);
-
-    var strConfig = uiUtil.getPurchaseStringConfig(purchaseId);
-    var levelTextMap = uiUtil._talentLevelTextMap;
-    var talentName = baseName || strConfig.name || "";
-    var baseDes = (strConfig.des || "").replace(/\\n/g, "\n");
-
-    var effectList = (typeof TalentService !== "undefined"
-        && TalentService
-        && typeof TalentService.getTalentTierEffectTextList === "function")
-        ? TalentService.getTalentTierEffectTextList(purchaseId)
-        : [];
-    if (effectList.length === 0) {
-        var fallbackEffect = (strConfig.effect || "").replace(/\\n/g, "\n") || "效果增强";
-        effectList = [];
-        for (var effectIndex = 0; effectIndex < maxLevel; effectIndex++) {
-            effectList.push(fallbackEffect);
-        }
-    }
-    var tierLines = [];
-    for (var level = 1; level <= maxLevel; level++) {
-        var tierEffectText = effectList[level - 1] || effectList[effectList.length - 1] || "效果增强";
-        tierLines.push((levelTextMap[level] || String(level)) + "级: " + tierEffectText);
-    }
-
-    var currentEffectText = currentLevel >= 1
-        ? (effectList[Math.max(0, Math.min(effectList.length - 1, currentLevel - 1))] || "")
-        : "无";
-    var nextEffectText = currentLevel >= maxLevel
-        ? "无"
-        : (effectList[Math.max(0, Math.min(effectList.length - 1, nextLevel - 1))] || "");
-
-    var desParts = [];
-    if (baseDes) {
-        desParts.push(baseDes);
-    }
-    if (desParts.length === 0) {
-        desParts.push("能力描述: 暂无");
-    }
-
-    var effectParts = [];
-    effectParts.push("当前能力效果: " + currentEffectText);
-    effectParts.push("下一阶段能力效果: " + nextEffectText);
-
-    var cardName = talentName;
-    if (currentLevel >= maxLevel) {
-        cardName = talentName + "（已满级）";
-    } else if (currentLevel >= 1) {
-        cardName = talentName + "（升至" + (levelTextMap[nextLevel] || String(nextLevel)) + "级）";
-    } else {
-        cardName = talentName + "（解锁" + (levelTextMap[nextLevel] || String(nextLevel)) + "级）";
-    }
-
-    return {
-        currentLevel: currentLevel,
-        nextLevel: nextLevel,
-        isMaxLevel: currentLevel >= maxLevel,
-        displayName: talentName,
-        cardName: cardName,
-        desText: desParts.join("\n\n"),
-        effectText: effectParts.join("\n"),
-        tierLines: tierLines
-    };
+    return null;
 };
 
 uiUtil.createPayItemNode = function (purchaseId, target, cb) {
-    var node = new cc.Node();
-    var purchaseDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId);
-
-    var purchaseConfig = purchaseDisplayContext.purchaseConfig || null;
-
-    var bgName = "";
-    if (purchaseId <= 120) {
-        bgName = "frame_iap_bg_talent.png";
-    } else if (purchaseId < 200) {
-        bgName = "frame_iap_bg_formula.png";
-    } else {
-        bgName = "frame_iap_bg_item.png";
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.createPayItemNode === "function") {
+        return PurchaseUiHelper.createPayItemNode(purchaseId, target, cb);
     }
-
-    var bg = uiUtil.getSpriteByNameSafe(bgName, "frame_iap_bg_talent.png");
-    node.setContentSize(bg.getContentSize());
-    bg.x = node.width / 2;
-    bg.y = node.height / 2;
-    node.addChild(bg);
-
-    var itemDisplayName = purchaseDisplayContext.cardTitleText || purchaseDisplayContext.displayBaseName;
-    var name = new cc.LabelTTF(itemDisplayName, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(node.width - 20, 44), cc.TEXT_ALIGNMENT_CENTER);
-    name.anchorY = 1;
-    name.x = node.width / 2;
-    name.y = node.height - 8;
-    name.color = UITheme.colors.TEXT_TITLE;
-    node.addChild(name);
-
-    var price = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(bg.width - 20, 0), cc.TEXT_ALIGNMENT_RIGHT);
-    price.anchorX = 1;
-    price.anchorY = 0.5;
-    price.x = bg.width - 10;
-    price.y = 26;
-    price.color = UITheme.colors.TEXT_TITLE;
-    node.addChild(price);
-
-    //var iconBg = autoSpriteFrameController.getSpriteFromSpriteName("icon_iap_bg.png");
-    //iconBg.x = bg.width / 2;
-    //iconBg.y = 100;
-    //iconBg.scale = 0.9;
-    //node.addChild(iconBg);
-    //iconBg.setVisible(purchaseId <= 104)
-
-    var purchaseIconInfo = uiUtil.createPurchaseDisplayIcon(purchaseId, purchaseConfig);
-    var icon = purchaseIconInfo.icon;
-    var isRolePortrait = purchaseIconInfo.isRolePortrait;
-    var isSupportPackIcon = purchaseIconInfo.isSupportPackIcon;
-    var fitSpriteScaleToBox = function (sprite, maxWidth, maxHeight, fallbackScale, maxScale) {
-        if (!sprite || !maxWidth || !maxHeight) {
-            return fallbackScale || 1;
-        }
-
-        var spriteSize = sprite.getContentSize ? sprite.getContentSize() : null;
-        var spriteWidth = spriteSize ? spriteSize.width : sprite.width;
-        var spriteHeight = spriteSize ? spriteSize.height : sprite.height;
-        if (!spriteWidth || !spriteHeight) {
-            return fallbackScale || 1;
-        }
-
-        var fitScale = Math.min(maxWidth / spriteWidth, maxHeight / spriteHeight);
-        if (maxScale !== undefined && maxScale !== null) {
-            fitScale = Math.min(fitScale, maxScale);
-        }
-        if (!isFinite(fitScale) || fitScale <= 0) {
-            return fallbackScale || 1;
-        }
-        return fitScale;
-    };
-    icon.x = bg.width / 2;
-    icon.y = 118;
-    if (isRolePortrait) {
-        // Role portraits ship with wider framing and transparent margins than item icons.
-        // Push them larger so they visually fill the product card instead of reading as undersized.
-        var roleScale = fitSpriteScaleToBox(icon, bg.width * 0.9, 170, 0.62, 1.26);
-        roleScale = Math.min(1.42, roleScale * 1.18);
-        icon.setScale(roleScale);
-        icon.y = 110;
-    } else if (isSupportPackIcon) {
-        // Support-pack icons are not visually uniform; normalize their perceived size.
-        var supportScale = fitSpriteScaleToBox(icon, bg.width * 0.72, 132, 1, 1.32);
-        if (purchaseId === 208 || purchaseId === 209) {
-            // Material packs look smaller than other support packs; boost a bit more.
-            supportScale *= 1.16;
-        }
-        icon.setScale(Math.min(1.5, supportScale));
-        icon.y = 116;
-    }
-    node.addChild(icon);
-
-    var offIcon = uiUtil.createSaleOffIcon();
-    offIcon.x = 6;
-    offIcon.y = 36;
-    node.addChild(offIcon);
-    offIcon.setVisible(false);
-
-    if (PurchaseUiHelper.shouldShowSaleIcon(purchaseId)) {
-        var saleIcon = autoSpriteFrameController.getSpriteFromSpriteName('icon_sale.png');
-        saleIcon.x = 45;
-        saleIcon.y = 54;
-        node.addChild(saleIcon);
-    }
-
-    var btnSize = cc.size(bg.width - 20, bg.height - 20);
-    var btnIcon = new ButtonWithPressed(btnSize);
-    btnIcon.x = bg.width / 2;
-    btnIcon.y = bg.height / 2;
-    node.addChild(btnIcon);
-    btnIcon.setClickListener(this, function () {
-        uiUtil.showPayDialog(purchaseId, function () {
-            utils.pay(purchaseId, target, cb);
-        }, target);
-    });
-
-    var unlockName = "已购";
-    var unlock = new cc.LabelTTF(unlockName, uiUtil.fontFamily.normal, 40, cc.size(node.width, 0), cc.TEXT_ALIGNMENT_CENTER);
-    unlock.x = icon.x;
-    unlock.y = icon.y;
-    node.addChild(unlock);
-    unlock.setVisible(false);
-    unlock.enableStroke(UITheme.colors.TEXT_TITLE, 8);
-    node.purchaseId = purchaseId;
-    node.updateName = function (shopState) {
-        var nextDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId, purchaseConfig, shopState);
-        name.setString(nextDisplayContext.cardTitleText || nextDisplayContext.displayBaseName || "");
-    };
-    node.updateStatus = function (shopState) {
-        node.updateName(shopState);
-        var snapshot = PurchaseUiHelper.getPurchaseUiSnapshot(purchaseId, purchaseConfig, shopState);
-        var badgeText = snapshot.badgeText ? snapshot.badgeText : "";
-        unlock.setString(badgeText || unlockName);
-        unlock.setVisible(!!(badgeText && !snapshot.hideBadge));
-        price.setString(snapshot.priceText || "");
-        var off = snapshot.priceOff || 0;
-        if (off > 0) {
-            offIcon.setVisible(true);
-            offIcon.updateOff(off);
-        } else {
-            offIcon.setVisible(false);
-        }
-
-    };
-
-    node.updatePrice = function (priceStr) {
-        price.setString(priceStr);
-    };
-    node.applyShopState = function (shopState) {
-        node.updateStatus(shopState);
-    };
-
-    node.updateStatus(purchaseDisplayContext.shopState);
-
-    return node;
+    return null;
 };
 
 uiUtil.showPayDialog = function (purchaseId, cb, ownerLayer) {
@@ -2115,45 +1867,12 @@ uiUtil.showPayDialog = function (purchaseId, cb, ownerLayer) {
 };
 
 uiUtil.createLockNode = function (size, purchaseId, cb, isWhite) {
-    var n = new ButtonWithPressed(size);
-
-    if (!isWhite) {
-        var drawNode = new cc.DrawNode();
-        drawNode.setName("normalBg");
-        n.addChild(drawNode, -1);
-        drawNode.drawRect(cc.p(0, 0), cc.p(n.width, n.height), cc.color(0, 0, 0, 155), 1, cc.color(0, 0, 0, 10));
-
-        var lock = autoSpriteFrameController.getSpriteFromSpriteName('icon_iap_lock.png');
-        lock.x = n.width / 2;
-        lock.y = n.height / 2;
-        lock.scale = 0.6;
-        n.addChild(lock);
-        lock.setName("lock");
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.createLockNode === "function") {
+        return PurchaseUiHelper.createLockNode(size, purchaseId, cb, isWhite);
     }
-
-
-    n.setClickListener(this, function () {
-        if (typeof PurchaseUiHelper !== "undefined"
-            && PurchaseUiHelper
-            && typeof PurchaseUiHelper.isExchangePurchase === "function"
-            && PurchaseUiHelper.isExchangePurchase(purchaseId)) {
-            uiUtil.showPayDialog(purchaseId, function () {
-                utils.pay(purchaseId, this, cb);
-            });
-            return;
-        }
-
-        utils.updatePayInfo(this, function (err) {
-            if (!err) {
-                uiUtil.showPayDialog(purchaseId, function () {
-                    utils.pay(purchaseId, this, cb);
-                });
-            }
-        }, [purchaseId]);
-
-    });
-
-    return n;
+    return new ButtonWithPressed(size);
 };
 
 var _labelTTF = cc.LabelTTF;
@@ -2282,65 +2001,23 @@ uiUtil.createItemListSliders = function (itemList) {
 };
 
 uiUtil.showUnlockDialog = function (purchaseId) {
-    var config = {
-        title: {},
-        content: {},
-        action: {btn_1: {}, btn_2: {}}
-    };
-    var roleType = uiUtil.getRoleTypeByPurchaseId(purchaseId);
-    if (roleType) {
-        config.content.des = stringUtil.getString(1316);
-    } else {
-        config.content.des = stringUtil.getString(1224);
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.showUnlockDialog === "function") {
+        PurchaseUiHelper.showUnlockDialog(purchaseId);
     }
-    config.action.btn_1.txt = stringUtil.getString(1031);
-    config.action.btn_2.txt = stringUtil.getString(1225);
-    config.action.btn_2.target = null;
-    config.action.btn_2.cb = function () {
-        cc.director.pushScene(new ShopScene({purchaseId: purchaseId}));
-    };
-    var d = new DialogTiny(config);
-    d.show();
 };
 
 uiUtil.showRoleInfoDialog = function (roleType, locked) {
-    var roleInfo = role.getRoleInfo(roleType);
-    var config = {
-        title: {title: roleInfo.name},
-        content: {des: roleInfo.des},
-        action: {btn_1: {}}
-    };
-    config.action.btn_1.txt = stringUtil.getString(1030);
-
-    if (locked) {
-        config.action.btn_1.txt = stringUtil.getString(1031);
-        config.action.btn_2 = {};
-        config.action.btn_2.txt = stringUtil.getString(1225);
-        config.action.btn_2.target = null;
-        config.action.btn_2.cb = function () {
-            var purchaseId = null;
-            if (role && typeof role.getPurchaseIdByRoleType === "function") {
-                purchaseId = role.getPurchaseIdByRoleType(roleType);
-            }
-            if (purchaseId) {
-                cc.director.pushScene(new ShopScene({purchaseId: purchaseId}));
-            }
-        };
+    if (typeof RoleTalentUiHelper !== "undefined"
+        && RoleTalentUiHelper
+        && typeof RoleTalentUiHelper.showRoleInfoDialog === "function") {
+        RoleTalentUiHelper.showRoleInfoDialog(roleType, locked);
+        return;
     }
-
-    var d = new DialogBig(config);
-
-    var content = d.contentNode;
-    var effectStr = "";
-    if (roleInfo.effect) {
-        effectStr = roleInfo.effect.replace('\\n', '\n', 'g');
+    if (typeof PurchaseUiHelper !== "undefined"
+        && PurchaseUiHelper
+        && typeof PurchaseUiHelper.showRoleInfoDialog === "function") {
+        PurchaseUiHelper.showRoleInfoDialog(roleType, locked);
     }
-    var effect = new cc.LabelTTF(effectStr, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(d.rightEdge - d.leftEdge, 0));
-    effect.setAnchorPoint(0, 1);
-    effect.setPosition(d.leftEdge, content.getChildByName('des').y - content.getChildByName('des').height - 5);
-    content.addChild(effect);
-    effect.setName("effect");
-    effect.setColor(UITheme.colors.TEXT_TITLE);
-
-    d.show();
 };

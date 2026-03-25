@@ -98,6 +98,7 @@ var jsList = [
     "src/ui/NpcDialogHelper.js",
     "src/ui/PurchaseUiHelper.js",
     "src/ui/SectionTableView.js",
+    "src/ui/RoleTalentUiHelper.js",
     "src/ui/topFrame.js",
     "src/ui/bottomFrame.js",
     "src/ui/home.js",

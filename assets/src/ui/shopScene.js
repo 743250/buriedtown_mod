@@ -174,22 +174,12 @@ var ShopLayer = cc.Layer.extend({
         this.addChild(btnTest);
 
         var btn2 = uiUtil.createCommonBtnWhite(stringUtil.getString(1212), this, function () {
-            uiUtil.showLoadingView();
-
-            var productIdMap = utils.getProductIdMap();
-            cc.purchase.restoreIAP(function (result) {
-                uiUtil.dismissLoadingView();
-                if (result.result == 1) {
-                    var purchaseId;
-                    if (result.productId == "ipa_huozhe_nc6") {
-                        purchaseId = 106;
-                    } else {
-                        purchaseId = productIdMap[result.productId].purchaseId;
-                    }
-                    PurchaseService.syncPurchasedUnlock(purchaseId);
-                } else {
+            PurchaseService.restoreRemotePurchases(this, function (err, restoreResult) {
+                if (err || !restoreResult || !restoreResult.isSuccess) {
                     CommonUtil.showCommonDialog(stringUtil.getString(1219), stringUtil.getString(1030));
+                    return;
                 }
+                self._refreshAllPayNodes();
             });
         });
         btn2.setPosition(cc.winSize.width / 4 * 3, buttonBaseY);
@@ -207,25 +197,25 @@ var ShopLayer = cc.Layer.extend({
                 return;
             }
             cc.log(JSON.stringify(self.opt));
-            uiUtil.showPayDialog(self.opt.purchaseId, function () {
+            PurchaseUiHelper.showPayDialogWithRefresh(self.opt.purchaseId, function () {
                 utils.pay(self.opt.purchaseId, self, self.onPayResult);
             }, self);
         };
 
-        var nonExchangeData = data.filter(function (purchaseId) {
-            return PurchaseUiHelper.shouldRequestRemotePayInfo(purchaseId);
-        });
-        var hasSdkPurchases = nonExchangeData.length > 0;
-        if (!hasSdkPurchases) {
+        var remoteRefreshInfo = {
+            hasRemotePurchases: PurchaseUiHelper.getRemotePayInfoRequestIds(data).length > 0
+        };
+        if (!remoteRefreshInfo.hasRemotePurchases) {
             btn2.setVisible(false);
             btn1.setPosition(cc.winSize.width / 3, buttonBaseY);
             btnTest.setPosition(cc.winSize.width / 3 * 2, buttonBaseY);
         }
 
-        if (hasSdkPurchases) {
-            utils.updatePayInfo(this, function (err) {
+        if (remoteRefreshInfo.hasRemotePurchases) {
+            PurchaseUiHelper.refreshRemotePayInfoIfNeeded(this, data, function (err, refreshInfo) {
                 if (!err) {
-                    nonExchangeData.forEach(function (purchaseId) {
+                    var refreshedIds = refreshInfo && refreshInfo.purchaseIds ? refreshInfo.purchaseIds : [];
+                    refreshedIds.forEach(function (purchaseId) {
                         var payNode = self.nodeMap[purchaseId];
                         if (!payNode) {
                             return;
@@ -233,11 +223,9 @@ var ShopLayer = cc.Layer.extend({
                         self._updateNodePrice(purchaseId, payNode);
                     });
                 }
-                showPayDialogFromOuter();
-            }, nonExchangeData);
-        } else {
-            showPayDialogFromOuter();
+            });
         }
+        showPayDialogFromOuter();
     },
     onPayResult: function (result) {
         if (result.isSuccess) {

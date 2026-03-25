@@ -326,17 +326,17 @@ var HomeNode = BottomFrameNode.extend({
         var self = this;
         if (!PurchaseUiHelper.isPurchaseUnlocked(107)) {
             btn.setEnabled(false);
-            var lockNode = uiUtil.createLockNode(btn.getContentSize(), 107, function (result) {
-                if (result.isSuccess) {
-                    var runtimePlayer = getHomeRuntimePlayer();
-                    if (runtimePlayer.room && runtimePlayer.room.isBuildExist(12, 0)) {
-                        uiUtil.removeIconWarn(btn, 'buildWarn');
-                        self.updateBtn(12);
-                    }
-                    self.updateDogHouse();
-                } else if (result.failedReason === PurchaseService.FAIL_REASON.INSUFFICIENT_POINTS) {
-                    uiUtil.showTip("成就点不足!");
+            var lockNode = PurchaseUiHelper.createLockNode(btn.getContentSize(), 107, function (result) {
+                if (!result || !result.isSuccess) {
+                    PurchaseUiHelper.showPurchaseFailedTip(result);
+                    return;
                 }
+                var runtimePlayer = getHomeRuntimePlayer();
+                if (runtimePlayer.room && runtimePlayer.room.isBuildExist(12, 0)) {
+                    uiUtil.removeIconWarn(btn, 'buildWarn');
+                    self.updateBtn(12);
+                }
+                self.updateDogHouse();
             }, true);
             lockNode.x = btn.width / 2;
             lockNode.y = btn.height / 2;
