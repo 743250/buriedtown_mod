@@ -23,46 +23,24 @@ var _defaultRoleInfo = {
 };
 
 var role = {
-    SLOT_STORAGE_KEY_PREFIX: "roleType_slot_",
     _getRoleConfigTable: function () {
         if (typeof RoleConfigTable !== "undefined" && RoleConfigTable) {
             return RoleConfigTable;
         }
         return {};
     },
-    _getCurrentSlot: function () {
-        if (typeof Record !== "undefined" && Record && typeof Record.getCurrentSlot === "function") {
-            return Record.getCurrentSlot();
+    _getRecordService: function () {
+        if (typeof Record !== "undefined" && Record) {
+            return Record;
         }
-        return 1;
-    },
-    _getScopedStorageKey: function () {
-        return this.SLOT_STORAGE_KEY_PREFIX + this._getCurrentSlot();
-    },
-    _readStorageValue: function (key) {
-        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
-            return null;
-        }
-        return cc.sys.localStorage.getItem(key);
-    },
-    _writeStorageValue: function (key, value) {
-        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
-            return;
-        }
-        cc.sys.localStorage.setItem(key, value);
-    },
-    _removeStorageValue: function (key) {
-        if (!cc || !cc.sys || !cc.sys.localStorage || !key) {
-            return;
-        }
-        cc.sys.localStorage.removeItem(key);
+        return null;
     },
     _currentSlotHasRecord: function () {
-        if (typeof Record !== "undefined"
-            && Record
-            && typeof Record.hasRecord === "function"
-            && typeof Record.getCurrentSlot === "function") {
-            return !!Record.hasRecord(Record.getCurrentSlot());
+        var recordService = this._getRecordService();
+        if (recordService
+            && typeof recordService.hasRecord === "function"
+            && typeof recordService.getCurrentSlot === "function") {
+            return !!recordService.hasRecord(recordService.getCurrentSlot());
         }
         return false;
     },
@@ -79,7 +57,10 @@ var role = {
 
         // Starting a fresh run should not inherit a stale locked role from a deleted save slot.
         roleType = this._normalizeStoredRoleType(RoleType.STRANGER);
-        this._writeStorageValue(this._getScopedStorageKey(), roleType);
+        var recordService = this._getRecordService();
+        if (recordService && typeof recordService.setSelectedRoleType === "function") {
+            recordService.setSelectedRoleType(roleType);
+        }
         return roleType;
     },
     _getRoleStringValue: function (stringId) {
@@ -205,11 +186,18 @@ var role = {
     },
     chooseRoleType: function (roleType) {
         roleType = this._normalizeStoredRoleType(roleType);
-        this._writeStorageValue(this._getScopedStorageKey(), roleType);
+        var recordService = this._getRecordService();
+        if (recordService && typeof recordService.setSelectedRoleType === "function") {
+            recordService.setSelectedRoleType(roleType);
+        }
         return roleType;
     },
     getChoosenRoleType: function () {
-        var roleType = this._readStorageValue(this._getScopedStorageKey());
+        var roleType = null;
+        var recordService = this._getRecordService();
+        if (recordService && typeof recordService.getSelectedRoleType === "function") {
+            roleType = recordService.getSelectedRoleType();
+        }
         return this._resolveRoleTypeForCurrentSlot(roleType);
     },
     isRoleUnlocked: function (roleType) {

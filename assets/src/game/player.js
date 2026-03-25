@@ -77,36 +77,15 @@ var Player = cc.Class.extend({
     },
 
     getTimer: function () {
-        var runtime = this.getRuntime();
-        if (runtime && typeof runtime.requireTimer === "function") {
-            return runtime.requireTimer();
-        }
-        if (runtime && typeof runtime.getTimer === "function") {
-            return runtime.getTimer();
-        }
-        return null;
+        return this.getRuntime().requireTimer();
     },
 
     getRecord: function () {
-        var runtime = this.getRuntime();
-        if (runtime && typeof runtime.requireRecord === "function") {
-            return runtime.requireRecord();
-        }
-        if (runtime && typeof runtime.getRecord === "function") {
-            return runtime.getRecord();
-        }
-        return null;
+        return this.getRuntime().requireRecord();
     },
 
     getEmitter: function () {
-        var runtime = this.getRuntime();
-        if (runtime && typeof runtime.requireEmitter === "function") {
-            return runtime.requireEmitter();
-        }
-        if (runtime && typeof runtime.getEmitter === "function") {
-            return runtime.getEmitter();
-        }
-        return null;
+        return this.getRuntime().requireEmitter();
     },
 
     persistRuntimeState: function () {

@@ -58,13 +58,16 @@ var PlayerPersistenceService = {
         return this._isValidRoleType(roleType) ? roleType : fallbackRoleType;
     },
     _getFallbackRoleType: function (playerInstance) {
-        if (typeof role !== "undefined"
-            && role
-            && typeof role.getChoosenRoleType === "function") {
-            return role.getChoosenRoleType();
+        if (playerInstance && this._isValidRoleType(playerInstance.roleType)) {
+            return parseInt(playerInstance.roleType);
         }
-        if (playerInstance && playerInstance.roleType !== undefined) {
-            return playerInstance.roleType;
+        if (typeof Record !== "undefined"
+            && Record
+            && typeof Record.getSelectedRoleType === "function") {
+            var selectedRoleType = Record.getSelectedRoleType();
+            if (this._isValidRoleType(selectedRoleType)) {
+                return parseInt(selectedRoleType);
+            }
         }
         if (typeof RoleType !== "undefined" && RoleType && RoleType.STRANGER !== undefined) {
             return RoleType.STRANGER;

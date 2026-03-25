@@ -412,15 +412,22 @@ utils.pay = function (purchaseId, target, cb) {
         cc.error("PurchaseService is unavailable");
         if (cb) {
             cb.call(target, {
+                code: typeof PurchaseGatewayResultCode !== "undefined"
+                    ? PurchaseGatewayResultCode.FAILED
+                    : "FAILED",
                 purchaseId: purchaseId,
                 isExchangePurchase: false,
                 isConsumablePurchase: Number(purchaseId) >= 200,
                 isSuccess: false,
+                success: false,
                 isFailure: true,
                 failedReason: "PURCHASE_FAILED",
+                failureReason: "PURCHASE_FAILED",
                 unlockRecorded: false,
                 unlockRewardGranted: false,
-                consumableGranted: false
+                consumableGranted: false,
+                rewardSummary: null,
+                shopUiState: null
             });
         }
         return;
@@ -446,7 +453,7 @@ utils.getProductIdMap = function () {
     return productIdMap;
 };
 
-utils.updatePayInfo = function (target, cb, purchaseIdList) {
+utils.updatePayInfoLegacy = function (target, cb, purchaseIdList) {
     if (typeof PurchaseService !== "undefined"
         && PurchaseService
         && typeof PurchaseService.isPaySdkBypassedForTest === "function"
@@ -539,6 +546,19 @@ utils.updatePayInfo = function (target, cb, purchaseIdList) {
         }
     } else {
         cb.call(target, null);
+    }
+};
+
+utils.updatePayInfo = function (target, cb, purchaseIdList) {
+    if (typeof PurchaseService !== "undefined"
+        && PurchaseService
+        && typeof PurchaseService.refreshRemotePayInfo === "function") {
+        PurchaseService.refreshRemotePayInfo(target, cb, purchaseIdList);
+        return;
+    }
+
+    if (cb) {
+        cb.call(target, null, {});
     }
 };
 

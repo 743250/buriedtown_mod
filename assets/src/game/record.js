@@ -8,6 +8,7 @@ var Record = {
     _runtime: null,
     SLOT_COUNT: 3,
     SLOT_STORAGE_KEY: "recordSlot",
+    SLOT_META_STORAGE_KEY_PREFIX: "recordMeta_slot_",
     DEFAULT_SLOT: 1,
     LEGACY_RECORD_NAME: "record",
     _normalizeSlot: function (slot) {
@@ -45,6 +46,190 @@ var Record = {
     },
     getCurrentRecordName: function () {
         return this.getRecordNameBySlot(this.getCurrentSlot());
+    },
+    _normalizeMetaSlot: function (slot) {
+        if (slot === undefined || slot === null || slot === "") {
+            return this.getCurrentSlot();
+        }
+        return this._normalizeSlot(slot);
+    },
+    _getSlotMetaStorageKey: function (slot) {
+        slot = this._normalizeMetaSlot(slot);
+        return this.SLOT_META_STORAGE_KEY_PREFIX + slot;
+    },
+    _normalizeSlotMeta: function (meta) {
+        if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+            return {};
+        }
+        return meta;
+    },
+    _readSlotMetaObject: function (slot) {
+        slot = this._normalizeMetaSlot(slot);
+        var storageKey = this._getSlotMetaStorageKey(slot);
+        var rawMeta = cc.sys.localStorage.getItem(storageKey);
+        if (!rawMeta) {
+            return {};
+        }
+        return this._normalizeSlotMeta(
+            SafetyHelper.safeJSONParse(rawMeta, {}, "Record._readSlotMetaObject")
+        );
+    },
+    _writeSlotMetaObject: function (slot, meta) {
+        slot = this._normalizeMetaSlot(slot);
+        meta = this._normalizeSlotMeta(meta);
+        var storageKey = this._getSlotMetaStorageKey(slot);
+        if (Object.keys(meta).length === 0) {
+            cc.sys.localStorage.removeItem(storageKey);
+            return {};
+        }
+        cc.sys.localStorage.setItem(storageKey, JSON.stringify(meta));
+        return meta;
+    },
+    _parseLegacyChosenTalentIds: function (rawValue) {
+        var parsed;
+        var result = [];
+        var uniqueMap = {};
+        if (rawValue === undefined || rawValue === null || rawValue === "") {
+            return result;
+        }
+        try {
+            parsed = JSON.parse(rawValue);
+        } catch (e) {
+            parsed = typeof rawValue === "string" ? rawValue.split(",") : [rawValue];
+        }
+        if (!Array.isArray(parsed)) {
+            parsed = [parsed];
+        }
+        parsed.forEach(function (value) {
+            var purchaseId = parseInt(value);
+            if (isNaN(purchaseId) || uniqueMap[purchaseId]) {
+                return;
+            }
+            uniqueMap[purchaseId] = true;
+            result.push(purchaseId);
+        });
+        return result;
+    },
+    _buildLegacySlotMeta: function (slot) {
+        slot = this._normalizeMetaSlot(slot);
+        var meta = {};
+        var roleType = parseInt(cc.sys.localStorage.getItem("roleType_slot_" + slot));
+        if (!isNaN(roleType)) {
+            meta.selectedRoleType = roleType;
+        }
+
+        var chosenTalentIds = this._parseLegacyChosenTalentIds(
+            cc.sys.localStorage.getItem("chosenTalents_slot_" + slot)
+        );
+        if (chosenTalentIds.length === 0) {
+            chosenTalentIds = this._parseLegacyChosenTalentIds(
+                cc.sys.localStorage.getItem("chosenTalent_slot_" + slot)
+            );
+        }
+        if (chosenTalentIds.length > 0) {
+            meta.chosenTalentIds = chosenTalentIds;
+        }
+        return meta;
+    },
+    getSlotMeta: function (slot) {
+        slot = this._normalizeMetaSlot(slot);
+        var meta = this._readSlotMetaObject(slot);
+        if (Object.keys(meta).length > 0) {
+            return meta;
+        }
+
+        var legacyMeta = this._buildLegacySlotMeta(slot);
+        if (Object.keys(legacyMeta).length > 0) {
+            this._writeSlotMetaObject(slot, legacyMeta);
+            return legacyMeta;
+        }
+        return {};
+    },
+    getCurrentSlotMeta: function () {
+        return this.getSlotMeta(this.getCurrentSlot());
+    },
+    getSlotMetaValue: function (slot, key, defaultValue) {
+        if (key === undefined || key === null || key === "") {
+            return defaultValue;
+        }
+        var meta = this.getSlotMeta(slot);
+        return meta.hasOwnProperty(key) ? meta[key] : defaultValue;
+    },
+    setSlotMetaValue: function (slot, key, value) {
+        if (value === undefined) {
+            value = key;
+            key = slot;
+            slot = null;
+        }
+        if (key === undefined || key === null || key === "") {
+            return null;
+        }
+        slot = this._normalizeMetaSlot(slot);
+        var meta = this.getSlotMeta(slot);
+        meta[key] = value;
+        this._writeSlotMetaObject(slot, meta);
+        return value;
+    },
+    removeSlotMetaValue: function (slot, key) {
+        if (key === undefined) {
+            key = slot;
+            slot = null;
+        }
+        if (key === undefined || key === null || key === "") {
+            return false;
+        }
+        slot = this._normalizeMetaSlot(slot);
+        var meta = this.getSlotMeta(slot);
+        if (!meta.hasOwnProperty(key)) {
+            return false;
+        }
+        delete meta[key];
+        this._writeSlotMetaObject(slot, meta);
+        return true;
+    },
+    getSelectedRoleType: function (slot) {
+        var roleType = this.getSlotMetaValue(slot, "selectedRoleType", null);
+        if (roleType === null || roleType === undefined) {
+            return null;
+        }
+        roleType = parseInt(roleType);
+        return isNaN(roleType) ? null : roleType;
+    },
+    setSelectedRoleType: function (slot, roleType) {
+        if (roleType === undefined) {
+            roleType = slot;
+            slot = null;
+        }
+        roleType = parseInt(roleType);
+        if (isNaN(roleType)) {
+            this.removeSelectedRoleType(slot);
+            return null;
+        }
+        return this.setSlotMetaValue(slot, "selectedRoleType", roleType);
+    },
+    removeSelectedRoleType: function (slot) {
+        return this.removeSlotMetaValue(slot, "selectedRoleType");
+    },
+    getChosenTalentIds: function (slot) {
+        var chosenTalentIds = this.getSlotMetaValue(slot, "chosenTalentIds", []);
+        if (!Array.isArray(chosenTalentIds)) {
+            chosenTalentIds = [chosenTalentIds];
+        }
+        return this._parseLegacyChosenTalentIds(JSON.stringify(chosenTalentIds));
+    },
+    setChosenTalentIds: function (slot, chosenTalentIds) {
+        if (chosenTalentIds === undefined) {
+            chosenTalentIds = slot;
+            slot = null;
+        }
+        if (!Array.isArray(chosenTalentIds)) {
+            chosenTalentIds = [chosenTalentIds];
+        }
+        chosenTalentIds = this._parseLegacyChosenTalentIds(JSON.stringify(chosenTalentIds));
+        return this.setSlotMetaValue(slot, "chosenTalentIds", chosenTalentIds);
+    },
+    removeChosenTalentIds: function (slot) {
+        return this.removeSlotMetaValue(slot, "chosenTalentIds");
     },
     getRecordInfo: function (slot) {
         slot = this._normalizeSlot(slot);
@@ -132,6 +317,7 @@ var Record = {
     _getSlotScopedStorageKeys: function (slot) {
         slot = this._normalizeSlot(slot);
         return [
+            this._getSlotMetaStorageKey(slot),
             "roleType_slot_" + slot,
             "chosenTalents_slot_" + slot,
             "chosenTalent_slot_" + slot,

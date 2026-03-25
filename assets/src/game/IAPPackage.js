@@ -228,6 +228,11 @@ var IAPPackage = {
         return exchangeIds;
     },
     getExchangeIdsByPurchaseId: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getExchangeIdsByPurchaseId === "function") {
+            return PurchaseService.getExchangeIdsByPurchaseId(purchaseId) || [];
+        }
         purchaseId = parseInt(purchaseId);
         if (isNaN(purchaseId)) {
             return [];
@@ -235,9 +240,19 @@ var IAPPackage = {
         return this._getConfiguredExchangeIdsByPurchaseId(purchaseId);
     },
     isExchangePurchase: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isExchangePurchase === "function") {
+            return !!PurchaseService.isExchangePurchase(purchaseId);
+        }
         return this.getExchangeIdsByPurchaseId(purchaseId).length > 0;
     },
     getExchangeIdByPurchaseId: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getExchangeIdByPurchaseId === "function") {
+            return PurchaseService.getExchangeIdByPurchaseId(purchaseId);
+        }
         var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
         if (exchangeIds.length === 0) {
             return null;
@@ -250,6 +265,11 @@ var IAPPackage = {
         return null;
     },
     getLastUnlockedExchangeIdByPurchaseId: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getLastUnlockedExchangeIdByPurchaseId === "function") {
+            return PurchaseService.getLastUnlockedExchangeIdByPurchaseId(purchaseId);
+        }
         var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
         if (exchangeIds.length === 0) {
             return null;
@@ -262,6 +282,11 @@ var IAPPackage = {
         return null;
     },
     hasExchangeUnlock: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.hasExchangeUnlock === "function") {
+            return !!PurchaseService.hasExchangeUnlock(purchaseId);
+        }
         var exchangeIds = this.getExchangeIdsByPurchaseId(purchaseId);
         for (var i = 0; i < exchangeIds.length; i++) {
             if (Medal.isExchanged(exchangeIds[i])) {
@@ -271,6 +296,11 @@ var IAPPackage = {
         return false;
     },
     isPurchaseFullyUnlocked: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isPurchaseFullyUnlocked === "function") {
+            return !!PurchaseService.isPurchaseFullyUnlocked(purchaseId);
+        }
         if (!this.isExchangePurchase(purchaseId)) {
             return this.isIAPUnlocked(purchaseId);
         }
@@ -281,6 +311,11 @@ var IAPPackage = {
         return this.hasExchangeUnlock(purchaseId);
     },
     getConsumableAchievementPrice: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.getConsumableAchievementPrice === "function") {
+            return PurchaseService.getConsumableAchievementPrice(purchaseId);
+        }
         purchaseId = parseInt(purchaseId);
         if (isNaN(purchaseId) || purchaseId < 200 || !PurchaseList[purchaseId]) {
             return null;
@@ -326,6 +361,23 @@ var IAPPackage = {
     isPaySdkBypassedForTest: function () {
         return !!this._bypassPaySdkForTest;
     },
+    isAutoUnlockEnabledForTest: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId) || purchaseId >= 200) {
+            return false;
+        }
+        return !!this._unlockAllRoleAndTalentForTest && !this._testForceLocked[purchaseId];
+    },
+    isUnlockAllRoleAndTalentForTestEnabled: function () {
+        return !!this._unlockAllRoleAndTalentForTest;
+    },
+    isPurchaseForceLockedForTest: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)) {
+            return false;
+        }
+        return !!this._testForceLocked[purchaseId];
+    },
 
     initIAPRecord: function () {
         var record = cc.sys.localStorage.getItem("IAPRecord");
@@ -365,7 +417,24 @@ var IAPPackage = {
         cc.sys.localStorage.setItem("IAPForceLockedRecord", JSON.stringify(this._testForceLocked || {}));
     },
 
-    resetConsumeIAP: function () {
+    getPurchaseRecordCount: function (purchaseId) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId)) {
+            return 0;
+        }
+        var recordCount = Number(this._record[purchaseId] || 0);
+        if (!isFinite(recordCount) || recordCount <= 0) {
+            return 0;
+        }
+        return parseInt(recordCount);
+    },
+    getRecordedPurchaseCount: function (purchaseId) {
+        return this.getPurchaseRecordCount(purchaseId);
+    },
+    notifyShopStateChanged: function (purchaseId, reason, payload) {
+        this._emitShopStateChanged(purchaseId, reason, payload);
+    },
+    resetConsumablePurchaseRecords: function () {
         var self = this;
         this._getConsumablePurchaseIds().forEach(function (purchaseId) {
             self._record[purchaseId] = 0;
@@ -373,13 +442,15 @@ var IAPPackage = {
         this.saveIAPRecord();
         this._emitShopStateChanged(null, "consume_reset", null);
     },
-    syncIAPPurchased: function (purchaseId) {
+    resetConsumeIAP: function () {
+        this.resetConsumablePurchaseRecords();
+    },
+    syncPurchaseRecord: function (purchaseId, reason) {
         purchaseId = parseInt(purchaseId);
         if (!PurchaseList[purchaseId]) {
             return false;
         }
         if (this.isExchangePurchase(purchaseId)) {
-            // Exchange-based purchases are driven by Medal state, not SDK restore/query.
             return false;
         }
 
@@ -394,21 +465,34 @@ var IAPPackage = {
             this.saveIAPForceLockedRecord();
         }
         this.saveIAPRecord();
-        this._emitShopStateChanged(purchaseId, "purchase_sync", {
+        this._emitShopStateChanged(purchaseId, reason || "purchase_sync", {
             recordCount: this._record[purchaseId]
         });
         return true;
     },
-    onIAPPaied: function (purchaseId) {
-        this._record[purchaseId]++;
+    syncIAPPurchased: function (purchaseId) {
+        return this.syncPurchaseRecord(purchaseId, "purchase_sync");
+    },
+    recordPurchase: function (purchaseId, reason, payload) {
+        purchaseId = parseInt(purchaseId);
+        if (isNaN(purchaseId) || !PurchaseList[purchaseId]) {
+            return false;
+        }
+
+        var nextCount = this.getPurchaseRecordCount(purchaseId) + 1;
+        this._record[purchaseId] = nextCount;
         if (this._testForceLocked[purchaseId]) {
             delete this._testForceLocked[purchaseId];
             this.saveIAPForceLockedRecord();
         }
         this.saveIAPRecord();
-        this._emitShopStateChanged(purchaseId, "purchase", {
-            recordCount: this._record[purchaseId]
-        });
+        var emitPayload = payload || {};
+        emitPayload.recordCount = nextCount;
+        this._emitShopStateChanged(purchaseId, reason || "purchase", emitPayload);
+        return true;
+    },
+    onIAPPaied: function (purchaseId) {
+        return this.recordPurchase(purchaseId, "purchase", null);
     },
     _decreaseSavedItemCount: function (storageSaveObj, itemId, num) {
         num = Number(num);
@@ -559,6 +643,15 @@ var IAPPackage = {
         this._removeSingleUnlockRewardFromSavedRecord(purchaseId);
     },
     payConsumeIAP: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.purchase === "function") {
+            var result = null;
+            PurchaseService.purchase(purchaseId, null, function (purchaseResult) {
+                result = purchaseResult;
+            });
+            return !!(result && result.isSuccess);
+        }
         purchaseId = parseInt(purchaseId);
         if (!PurchaseList[purchaseId]) {
             return false;
@@ -598,6 +691,11 @@ var IAPPackage = {
         return true;
     },
     isIAPUnlocked: function (purchaseId) {
+        if (typeof PurchaseService !== "undefined"
+            && PurchaseService
+            && typeof PurchaseService.isUnlocked === "function") {
+            return !!PurchaseService.isUnlocked(purchaseId);
+        }
         if (purchaseId == 0) {
             return true;
         }

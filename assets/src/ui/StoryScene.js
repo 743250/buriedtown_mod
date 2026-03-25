@@ -28,8 +28,8 @@ var StoryLayer = cc.Layer.extend({
             bg.setEnabled(false);
 
             try {
-                game.init();
-                game.start();
+                game.bootstrapRun();
+                game.startRun();
                 userGuide.initUserGuide();
                 cc.director.runScene(new MainScene());
             } catch (e) {
