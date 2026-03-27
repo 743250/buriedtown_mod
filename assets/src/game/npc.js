@@ -3,6 +3,8 @@
  */
 var NPC_SMOKE_FAVORITE_PRICE = 1.2;
 var NPC_SMOKE_FAVORITE_ITEM_IDS = [1105061, 1105072];
+var NPC_GIFT_VALUE_EPSILON = 0.001;
+var NPC_FAVOR_GIFT_MAX_ROLLS = 512;
 var NPC_MALE_IDS = {
     1: true,
     3: true,
@@ -174,59 +176,51 @@ var NPC = BaseSite.extend({
         var socialFavorGiftRatio = Number(TalentService.getSocialFavorGiftRatio());
         return socialFavorGiftRatio > 0 ? socialFavorGiftRatio : defaultRatio;
     },
-    _getFavorGiftProduceList: function () {
-        if (Array.isArray(this._favorGiftProduceListCache)) {
-            return this._favorGiftProduceListCache;
+    _getFavorGiftCardList: function () {
+        if (Array.isArray(this._favorGiftCardListCache)) {
+            return this._favorGiftCardListCache;
         }
 
-        var weightMap = {};
-        var collectGiftWeight = function (giftInfo) {
+        var cardList = [];
+        var appendGiftCard = function (giftInfo) {
             if (!giftInfo || !giftInfo.hasOwnProperty("itemId")) {
                 return;
             }
             var itemId = parseInt(giftInfo.itemId, 10);
-            var num = Number(giftInfo.num);
+            var num = parseInt(giftInfo.num, 10);
             var itemData = itemConfig[itemId];
-            if (isNaN(itemId) || !(num > 0) || !itemData) {
+            var unitValue = itemData ? Number(itemData.value) : NaN;
+            if (isNaN(itemId) || !(num > 0) || !(unitValue > 0)) {
                 return;
             }
-
-            var unitValue = Number(itemData.value);
-            var weight = unitValue > 0 ? Math.round(unitValue * num) : Math.round(num);
-            if (!(weight > 0)) {
-                weight = 1;
-            }
-            weightMap[itemId] = (weightMap[itemId] || 0) + weight;
+            cardList.push({
+                itemId: itemId,
+                num: num,
+                value: Number((unitValue * num).toFixed(3))
+            });
         };
 
-        this.giftInfo.forEach(collectGiftWeight);
-        this.giftExtraInfo.forEach(collectGiftWeight);
+        this.giftInfo.forEach(appendGiftCard);
+        this.giftExtraInfo.forEach(appendGiftCard);
 
-        this._favorGiftProduceListCache = Object.keys(weightMap).map(function (itemId) {
-            return {
-                itemId: itemId,
-                weight: weightMap[itemId]
-            };
-        });
-        return this._favorGiftProduceListCache;
+        this._favorGiftCardListCache = cardList;
+        return this._favorGiftCardListCache;
     },
-    _getFavorGiftMinItemValue: function () {
-        if (this._favorGiftMinItemValueCache !== undefined) {
-            return this._favorGiftMinItemValueCache;
+    _getFavorGiftMinCardValue: function () {
+        if (this._favorGiftMinCardValueCache !== undefined) {
+            return this._favorGiftMinCardValueCache;
         }
 
         var minValue = Infinity;
-        this._getFavorGiftProduceList().forEach(function (itemInfo) {
-            var itemId = parseInt(itemInfo.itemId, 10);
-            var itemData = itemConfig[itemId];
-            var value = itemData ? Number(itemData.value) : NaN;
+        this._getFavorGiftCardList().forEach(function (giftCard) {
+            var value = Number(giftCard && giftCard.value);
             if (value > 0 && value < minValue) {
                 minValue = value;
             }
         });
 
-        this._favorGiftMinItemValueCache = isFinite(minValue) ? minValue : 0;
-        return this._favorGiftMinItemValueCache;
+        this._favorGiftMinCardValueCache = isFinite(minValue) ? minValue : 0;
+        return this._favorGiftMinCardValueCache;
     },
     _getFavorGiftTargetValue: function () {
         var threshold = this._getGiftProgressThreshold();
@@ -238,33 +232,124 @@ var NPC = BaseSite.extend({
     },
     _canSendFavorGift: function () {
         var targetValue = this._getFavorGiftTargetValue();
-        var minItemValue = this._getFavorGiftMinItemValue();
+        var minCardValue = this._getFavorGiftMinCardValue();
         return targetValue > 0
-            && minItemValue > 0
-            && targetValue >= minItemValue
-            && this._getFavorGiftProduceList().length > 0;
+            && minCardValue > 0
+            && targetValue >= minCardValue
+            && this._getFavorGiftCardList().length > 0;
+    },
+    _pickFavorGiftCardIndex: function (remainingValue, cardList) {
+        var candidateIndexes = [];
+        (cardList || []).forEach(function (giftCard, index) {
+            var value = Number(giftCard && giftCard.value);
+            if (value > 0 && value - remainingValue <= NPC_GIFT_VALUE_EPSILON) {
+                candidateIndexes.push(index);
+            }
+        });
+        if (!candidateIndexes.length) {
+            return -1;
+        }
+        return candidateIndexes[utils.getRandomInt(0, candidateIndexes.length - 1)];
+    },
+    _mergeFavorGiftCards: function (giftCardList) {
+        var mergedItems = [];
+        var itemMap = {};
+        (giftCardList || []).forEach(function (giftCard) {
+            if (!giftCard) {
+                return;
+            }
+            var itemId = parseInt(giftCard.itemId, 10);
+            var num = parseInt(giftCard.num, 10);
+            if (isNaN(itemId) || !(num > 0)) {
+                return;
+            }
+            if (!itemMap[itemId]) {
+                itemMap[itemId] = {
+                    itemId: itemId,
+                    num: 0
+                };
+                mergedItems.push(itemMap[itemId]);
+            }
+            itemMap[itemId].num += num;
+        });
+        return mergedItems;
+    },
+    _buildFavorGiftBatch: function () {
+        var fullCardList = this._getFavorGiftCardList();
+        var targetValue = this._getFavorGiftTargetValue();
+        var minCardValue = this._getFavorGiftMinCardValue();
+        if (!this._canSendFavorGift() || !Array.isArray(fullCardList) || fullCardList.length === 0) {
+            return {
+                items: [],
+                spentValue: 0
+            };
+        }
+
+        var availableCardList = fullCardList.slice();
+        var selectedCards = [];
+        var remainingValue = targetValue;
+        var rollCount = 0;
+        while (remainingValue + NPC_GIFT_VALUE_EPSILON >= minCardValue) {
+            rollCount++;
+            if (rollCount > NPC_FAVOR_GIFT_MAX_ROLLS) {
+                cc.e("npc favor gift roll overflow. npcId=" + this.id + " targetValue=" + targetValue);
+                break;
+            }
+
+            var cardIndex = this._pickFavorGiftCardIndex(remainingValue, availableCardList);
+            if (cardIndex === -1) {
+                if (availableCardList.length === fullCardList.length) {
+                    break;
+                }
+                availableCardList = fullCardList.slice();
+                cardIndex = this._pickFavorGiftCardIndex(remainingValue, availableCardList);
+                if (cardIndex === -1) {
+                    break;
+                }
+            }
+
+            var giftCard = availableCardList.splice(cardIndex, 1)[0];
+            selectedCards.push(giftCard);
+            remainingValue = Number((remainingValue - giftCard.value).toFixed(3));
+            if (remainingValue < NPC_GIFT_VALUE_EPSILON) {
+                remainingValue = 0;
+                break;
+            }
+        }
+
+        var giftItems = this._mergeFavorGiftCards(selectedCards);
+        if (!giftItems.length) {
+            return {
+                items: [],
+                spentValue: 0
+            };
+        }
+
+        return {
+            items: giftItems,
+            spentValue: Number((targetValue - remainingValue).toFixed(3))
+        };
     },
     _buildFavorGiftItems: function () {
-        var produceList = this._getFavorGiftProduceList();
-        var targetValue = this._getFavorGiftTargetValue();
-        if (!this._canSendFavorGift() || !Array.isArray(produceList) || produceList.length === 0) {
-            return [];
-        }
-
-        var giftItemIds = utils.getFixedValueItemIds(targetValue, produceList);
-        var giftItems = utils.convertItemIds2Item(giftItemIds);
-        if (!giftItems.length) {
-            return [];
-        }
-        return giftItems;
+        return this._buildFavorGiftBatch().items;
     },
     _consumeFavorGiftItems: function () {
-        var giftItems = this._buildFavorGiftItems();
+        var giftBatch = this._buildFavorGiftBatch();
+        var giftItems = giftBatch.items;
         if (!giftItems.length) {
             return [];
         }
 
-        this.giftProgress = 0;
+        var ratio = this._getFavorGiftRatio();
+        if (ratio > 0 && giftBatch.spentValue > 0) {
+            var consumedProgress = giftBatch.spentValue / ratio;
+            this.giftProgress = Number((this.giftProgress - consumedProgress).toFixed(3));
+            if (!isFinite(this.giftProgress) || this.giftProgress < NPC_GIFT_VALUE_EPSILON) {
+                this.giftProgress = 0;
+            }
+        } else {
+            this.giftProgress = 0;
+        }
         return giftItems;
     },
     _getItemListTotalPrice: function (itemList) {

@@ -1199,7 +1199,7 @@ var npcConfig = {
                 "num": 1
             }, {
                 "itemId": 1101041,
-                "num": 3
+                "num": 6
             }],
             [{
                 "itemId": 1101021,

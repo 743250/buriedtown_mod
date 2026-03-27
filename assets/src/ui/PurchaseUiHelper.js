@@ -297,7 +297,17 @@ _talentLevelTextMap: {
         return !!this.getPurchaseUiSnapshot(purchaseId, null, shopState).isTalentPurchase;
     },
     shouldRequestRemotePayInfo: function (purchaseId, shopState) {
-        return !this.isExchangePurchase(purchaseId, shopState);
+        var snapshot = this.getPurchaseUiSnapshot(purchaseId, null, shopState);
+        if (!snapshot || snapshot.purchaseId === null) {
+            return false;
+        }
+        if (snapshot.isExchangePurchase) {
+            return false;
+        }
+        if (snapshot.isConsumablePurchase) {
+            return false;
+        }
+        return true;
     },
 
     getAchievementPoints: function () {

@@ -556,6 +556,14 @@ var Medal = {
     _exchangeMap: null,
     _completeForOneGame: null,
     _completeForOneGameSlot: null,
+    _emitAchievementStateChanged: function (reason, payload) {
+        if (typeof IAPPackage === "undefined"
+            || !IAPPackage
+            || typeof IAPPackage.notifyShopStateChanged !== "function") {
+            return;
+        }
+        IAPPackage.notifyShopStateChanged(null, reason || "achievement_points_changed", payload || null);
+    },
 
     init: function () {
         this._migrateLegacyStorageIfNeeded();
@@ -1131,6 +1139,9 @@ var Medal = {
         this._ensureExchangeState();
         this._achievementPoints += points;
         this.save();
+        this._emitAchievementStateChanged("achievement_points_added", {
+            points: Number(points) || 0
+        });
     },
 
     // 消耗成就点
@@ -1473,6 +1484,10 @@ var Medal = {
 
         medalInfo.claimed = 1;
         this.save();
+        this._emitAchievementStateChanged("achievement_claim", {
+            medalId: Number(medalId) || 0,
+            points: Number(medalInfo.points) || 0
+        });
         return true;
     },
     initCompletedForOneGame: function (isNewGame) {

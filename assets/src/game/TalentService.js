@@ -7,6 +7,11 @@ var TalentService = {
     _chosenTalentIds: null,
     _chosenTalentSlotKey: null,
     MAX_CHOSEN_TALENT_COUNT: 3,
+    HOME_PRODUCE_EXPLOSIVE_ITEM_SET: {
+        1303012: true,
+        1303033: true,
+        1303044: true
+    },
     ELITE_PISTOL_ITEM_ID: 1301091,
     ELITE_PISTOL_ATK_CD_MULTIPLIER: 1,
     ELITE_PISTOL_PRECISE_BONUS: 0.15,
@@ -243,6 +248,9 @@ var TalentService = {
         var normalizedItemId = parseInt(itemId, 10);
         if (isNaN(normalizedItemId)) {
             return false;
+        }
+        if (this.HOME_PRODUCE_EXPLOSIVE_ITEM_SET[normalizedItemId]) {
+            return true;
         }
 
         var itemIdStr = String(normalizedItemId);

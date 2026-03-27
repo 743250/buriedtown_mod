@@ -497,10 +497,14 @@ var Formula = BuildAction.extend({
     ctor: function (fid, bid) {
         this._super(bid);
         this.id = fid;
-        this.config = utils.clone(formulaConfig[this.id]);
+        this.baseConfig = utils.clone(formulaConfig[this.id]);
+        this.config = utils.clone(this.baseConfig);
         this.needBuild = null;
         this.step = 0;
         this.maxStep = this.config["placedTime"] ? 2 : 1;
+    },
+    updateConfig: function () {
+        return getBuildActionEffectService().updateFormulaConfig(this);
     },
     save: function () {
         return {step: this.step, pastTime: this.pastTime};
@@ -515,6 +519,7 @@ var Formula = BuildAction.extend({
         }
     },
     clickIcon: function () {
+        this.updateConfig();
         uiUtil.showItemDialog(this.config.produce[0].itemId, true);
     },
     getBatchCount: function () {
@@ -614,6 +619,7 @@ var Formula = BuildAction.extend({
         });
     },
     _runMakeAction: function (makeCount) {
+        this.updateConfig();
         makeCount = Math.max(1, parseInt(makeCount, 10) || 1);
         if (makeCount > 1 && !this.supportsBatchCraft()) {
             return false;
@@ -667,6 +673,7 @@ var Formula = BuildAction.extend({
     clickAction1: function () {
         if (!uiUtil.checkVigour())
             return;
+        this.updateConfig();
         var itemInfo = this.config.produce[0];
         if (this.step == 0) {
             if (this._runMakeAction(1)) {
@@ -688,6 +695,7 @@ var Formula = BuildAction.extend({
     clickAction2: function () {
         if (!uiUtil.checkVigour())
             return;
+        this.updateConfig();
         if (this.step !== 0 || !this.supportsBatchCraft()) {
             return;
         }
@@ -711,6 +719,7 @@ var Formula = BuildAction.extend({
         return stringUtil.getString(1008, Math.ceil(time / 60 / 60));
     },
     _getUpdateViewInfo: function () {
+        this.updateConfig();
         var iconName = uiUtil.getItemIconFrameName(this.config.produce[0].itemId, true);
 
         var action1Txt = (this.step == 1 || this.step == 2) ? stringUtil.getString(1003) : stringUtil.getString(1002, this.config["makeTime"]);
@@ -763,6 +772,7 @@ var Formula = BuildAction.extend({
         return res;
     },
     canMake: function () {
+        this.updateConfig();
         var cost = this.config.cost;
         return this._isCostEnough(cost) && !this._isNeedBuildLocked();
     }

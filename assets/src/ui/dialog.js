@@ -800,6 +800,7 @@ var RandomBattleDialog = DialogBig.extend({
         label5.setPosition(this.leftEdge, label2.getPositionY() - label2.getContentSize().height - 10);
         label5.setColor(UITheme.colors.TEXT_TITLE);
         this.log.addChild(label5);
+        var rewardAnchorLabel = label5;
 
         if (sumRes.brokenWeapon) {
             var label3 = new cc.LabelTTF(stringUtil.getString(1208), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
@@ -807,6 +808,7 @@ var RandomBattleDialog = DialogBig.extend({
             label3.setPosition(this.leftEdge, label5.getPositionY() - label5.getContentSize().height - 10);
             label3.setColor(UITheme.colors.TEXT_TITLE);
             this.log.addChild(label3);
+            rewardAnchorLabel = label3;
             var items2 = sumRes.brokenWeapon.map(function (itemId) {
                 return {itemId: itemId, num: 1};
             });
@@ -822,12 +824,15 @@ var RandomBattleDialog = DialogBig.extend({
             if (rand <= randomRewardConfig.probability) {
                 var label4 = new cc.LabelTTF(stringUtil.getString(1222), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3);
                 label4.setAnchorPoint(0, 1);
-                label4.setPosition(this.leftEdge, label3.getPositionY() - label3.getContentSize().height - 10);
+                label4.setPosition(this.leftEdge, rewardAnchorLabel.getPositionY() - rewardAnchorLabel.getContentSize().height - 10);
                 label4.setColor(UITheme.colors.TEXT_TITLE);
                 this.log.addChild(label4);
                 var itemIds = utils.getFixedValueItemIds(randomRewardConfig["produceValue"], randomRewardConfig["produceList"]);
                 var items3 = utils.convertItemIds2Item(itemIds);
-                player.gainItemsInBag(items3);
+                var gainResult = player.gainItemsInBagOrOverflowTarget(items3);
+                if (gainResult.overflowed && gainResult.messageKey) {
+                    player.log.addMsg(stringUtil.getString(gainResult.messageKey));
+                }
 
                 var richText3 = new ItemRichText(items3, this.rightEdge - this.leftEdge - label4.width, 3, 0.5, UITheme.colors.TEXT_TITLE);
                 richText3.setName("richText3")

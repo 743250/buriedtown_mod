@@ -19,15 +19,7 @@ var ZiplineActionService = {
     },
     canFitItemsInBag: function (itemList) {
         var runtimePlayer = getZiplineActionRuntimePlayer();
-        var tempBag = runtimePlayer.bag.clone();
-        for (var i = 0; i < itemList.length; i++) {
-            var itemInfo = itemList[i];
-            if (!tempBag.validateItemWeight(itemInfo.itemId, itemInfo.num)) {
-                return false;
-            }
-            tempBag.increaseItem(itemInfo.itemId, itemInfo.num);
-        }
-        return true;
+        return runtimePlayer.bag.canFitItems(itemList);
     },
     applyBuildCost: function (buildCost) {
         if (!buildCost.length) {

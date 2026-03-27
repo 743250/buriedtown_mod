@@ -12,7 +12,8 @@ var ChooseLayer = cc.Layer.extend({
 
         var titleRole = uiUtil.createLabel(stringUtil.getString(1310), "title", {
             anchorX: 0.5,
-            anchorY: 0.5
+            anchorY: 0.5,
+            color: UITheme.colors.WHITE
         });
         titleRole.x = cc.winSize.width / 2;
         titleRole.y = cc.visibleRect.height - 46;
@@ -21,14 +22,6 @@ var ChooseLayer = cc.Layer.extend({
         var sliderView = new SlideView(cc.size(600, 320));
         sliderView.x = cc.visibleRect.width / 2;
         sliderView.y = 870;
-        var sliderPanel = uiUtil.createColorRect(
-            cc.size(644, 352),
-            UITheme.statusColors.panelFill,
-            UITheme.cards.panelOpacity
-        );
-        sliderPanel.setAnchorPoint(0.5, 0.5);
-        sliderPanel.setPosition(sliderView.x, sliderView.y);
-        this.addChild(sliderPanel, -1);
         this.addChild(sliderView);
         this.sliderView = sliderView;
 
@@ -43,7 +36,8 @@ var ChooseLayer = cc.Layer.extend({
 
         var title = uiUtil.createLabel(stringUtil.getString(1217), "sectionTitle", {
             anchorX: 0.5,
-            anchorY: 0.5
+            anchorY: 0.5,
+            color: UITheme.colors.WHITE
         });
         title.x = cc.winSize.width / 2;
         title.y = 744;
@@ -70,14 +64,6 @@ var ChooseLayer = cc.Layer.extend({
         talentScrollView.setClippingToBounds(true);
         talentScrollView.x = 0;
         talentScrollView.y = scrollViewBottomY;
-        var talentPanel = uiUtil.createColorRect(
-            cc.size(viewWidth - 32, viewHeight + 20),
-            UITheme.statusColors.panelFill,
-            UITheme.cards.panelOpacity
-        );
-        talentPanel.setAnchorPoint(0.5, 0);
-        talentPanel.setPosition(viewWidth / 2, scrollViewBottomY - 8);
-        this.addChild(talentPanel, -1);
         this.addChild(talentScrollView);
         talentScrollView.setContentSize(viewWidth, totalHeight);
         var talentOffset = talentScrollView.getContentOffset();
@@ -167,7 +153,7 @@ var ChooseLayer = cc.Layer.extend({
                 anchorX: 0.5,
                 anchorY: 0,
                 hAlignment: cc.TEXT_ALIGNMENT_CENTER,
-                color: UITheme.typographyPresets.sectionTitle.color
+                color: UITheme.colors.WHITE
             });
             name.setName("name");
             name.x = btn.width / 2;
@@ -478,7 +464,8 @@ var SlideView = cc.Node.extend({
 
             var name = uiUtil.createLabel(roleInfoViewModel.name || d.name, "sectionTitle", {
                 anchorX: 0.5,
-                anchorY: 0.5
+                anchorY: 0.5,
+                color: UITheme.colors.WHITE
             });
             name.setPosition(size.width / 2, size.height - 10);
             content.addChild(name);
@@ -499,7 +486,8 @@ var SlideView = cc.Node.extend({
                 width: size.width - 20,
                 anchorX: 0.5,
                 anchorY: 0.5,
-                hAlignment: cc.TEXT_ALIGNMENT_CENTER
+                hAlignment: cc.TEXT_ALIGNMENT_CENTER,
+                color: UITheme.colors.WHITE
             });
             des.setPosition(size.width / 2, 10);
             content.addChild(des);

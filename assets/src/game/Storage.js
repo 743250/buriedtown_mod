@@ -206,6 +206,23 @@ var Storage = cc.Class.extend({
     getItemSortNum: function () {
         return Object.keys(this.map).length;
     },
+    increaseItems: function (items) {
+        if (!Array.isArray(items)) {
+            return;
+        }
+        var self = this;
+        items.forEach(function (item) {
+            if (!item) {
+                return;
+            }
+            var itemId = parseInt(item.itemId, 10);
+            var num = parseInt(item.num, 10);
+            if (isNaN(itemId) || isNaN(num) || num <= 0) {
+                return;
+            }
+            self.increaseItem(itemId, num);
+        });
+    },
 
     setOnItemChangeListener: function (listener) {
         this.listener = listener;
@@ -220,17 +237,49 @@ var Bag = Storage.extend({
     ctor: function (name) {
         this._super(name);
     },
-    validateItemWeight: function (itemId, num) {
-        var unitWeight = utils.truncateWeight(itemConfig[itemId].weight);
-        var weight = utils.truncateWeight(unitWeight * num);
-        return utils.truncateWeight(weight + this.getCurrentWeight()) <= this.getTotalWeight();
+    canFitItems: function (items) {
+        var tempBag = this.clone();
+        if (!Array.isArray(items)) {
+            return true;
+        }
+        for (var i = 0; i < items.length; i++) {
+            var itemInfo = items[i];
+            if (!itemInfo) {
+                continue;
+            }
+            var itemId = parseInt(itemInfo.itemId, 10);
+            var num = parseInt(itemInfo.num, 10);
+            if (isNaN(itemId) || isNaN(num) || num <= 0) {
+                continue;
+            }
+            if (!tempBag.validateItemWeight(itemId, num)) {
+                return false;
+            }
+            tempBag.increaseItem(itemId, num);
+        }
+        return true;
     },
-    getCurrentWeight: function () {
+    tryIncreaseItems: function (items) {
+        if (!this.canFitItems(items)) {
+            return false;
+        }
+        this.increaseItems(items);
+        return true;
+    },
+    validateItemWeight: function (itemId, num) {
+        var unitWeight = Number(itemConfig[itemId].weight) || 0;
+        var nextWeight = this.getCurrentWeightRaw() + unitWeight * num;
+        return utils.truncateWeight(nextWeight) <= this.getTotalWeight();
+    },
+    getCurrentWeightRaw: function () {
         var weight = 0;
         this.forEach(function (item, num) {
-            weight += utils.truncateWeight(item.getWeight()) * num;
+            weight += (Number(item.getWeight()) || 0) * num;
         });
-        return utils.truncateWeight(weight);
+        return weight;
+    },
+    getCurrentWeight: function () {
+        return utils.truncateWeight(this.getCurrentWeightRaw());
     },
     getTotalWeight: function () {
         var weight = 35;

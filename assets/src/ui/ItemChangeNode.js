@@ -168,7 +168,7 @@ var ItemChangeNode = cc.Node.extend({
             var currentWeight = this.topData.getCurrentWeight();
             var totalWeight = this.topData.getTotalWeight();
             weightLabel.setString(stringUtil.getString(1028, utils.formatWeight(currentWeight) + "/" + utils.formatWeight(totalWeight)));
-            weightLabel.setColor(currentWeight === totalWeight ? UITheme.colors.TEXT_ERROR : UITheme.colors.TEXT_TITLE);
+            weightLabel.setColor(currentWeight >= totalWeight ? UITheme.colors.TEXT_ERROR : UITheme.colors.TEXT_TITLE);
         }
 
         var bottomTableView = this.getChildByName("bottom").getChildByName("tableView");

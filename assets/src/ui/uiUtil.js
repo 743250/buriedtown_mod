@@ -50,17 +50,17 @@ uiUtil.textPreset = {
     meta: {
         fontFamily: uiUtil.fontFamily.normal,
         fontSize: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.fontSize) || uiUtil.fontSize.COMMON_4,
-        color: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.color) || cc.color(90, 82, 72, 255)
+        color: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.color) || cc.color(112, 112, 112, 255)
     },
     caption: {
         fontFamily: uiUtil.fontFamily.normal,
         fontSize: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.fontSize) || uiUtil.fontSize.COMMON_4,
-        color: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.color) || cc.color(96, 88, 78, 255)
+        color: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.color) || cc.color(96, 96, 96, 255)
     },
     inverse: {
         fontFamily: uiUtil.fontFamily.normal,
         fontSize: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.fontSize) || uiUtil.fontSize.COMMON_4,
-        color: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.color) || cc.color(245, 239, 228, 255)
+        color: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.color) || cc.color(255, 255, 255, 255)
     }
 };
 
@@ -607,7 +607,7 @@ uiUtil.createPaperPanel = function (size, opt) {
     var shadowOffset = opt.shadowOffset || cc.p(3, -3);
     var shadow = uiUtil.createColorRect(
         size,
-        opt.shadowColor || cc.color(44, 38, 32, 255),
+        opt.shadowColor || cc.color(0, 0, 0, 255),
         opt.shadowOpacity === undefined ? 18 : opt.shadowOpacity
     );
     shadow.setPosition(shadowOffset.x, shadowOffset.y);
@@ -615,14 +615,14 @@ uiUtil.createPaperPanel = function (size, opt) {
 
     var fill = autoSpriteFrameController.getScale9Sprite("btn_common_white_normal.png", cc.rect(1, 1, 1, 1));
     fill.setContentSize(cc.size(size.width - 6, size.height - 6));
-    fill.setColor(opt.fillColor || cc.color(236, 231, 222, 255));
+    fill.setColor(opt.fillColor || cc.color(255, 255, 255, 255));
     fill.setOpacity(opt.fillOpacity === undefined ? 235 : opt.fillOpacity);
     fill.setPosition(size.width / 2, size.height / 2);
     node.addChild(fill, -1);
 
     var frame = autoSpriteFrameController.getScale9Sprite("frame_tab_content.png", cc.rect(14, 14, 1, 1));
     frame.setContentSize(size);
-    frame.setColor(opt.frameColor || cc.color(183, 174, 163, 255));
+    frame.setColor(opt.frameColor || cc.color(172, 172, 172, 255));
     frame.setOpacity(opt.frameOpacity === undefined ? 138 : opt.frameOpacity);
     frame.setPosition(size.width / 2, size.height / 2);
     // Keep the frame behind later-added content. Many old scenes append labels/buttons after
@@ -643,13 +643,13 @@ uiUtil.createStatusPill = function (txt, opt) {
 
     var bg = autoSpriteFrameController.getScale9Sprite("tab_content_btn_normal.png", cc.rect(1, 1, 1, 1));
     bg.setContentSize(size);
-    bg.setColor(opt.bgColor || cc.color(88, 76, 62, 255));
+    bg.setColor(opt.bgColor || cc.color(32, 32, 32, 255));
     bg.setOpacity(opt.bgOpacity === undefined ? 235 : opt.bgOpacity);
     bg.setPosition(size.width / 2, size.height / 2);
     node.addChild(bg);
 
     var label = new cc.LabelTTF(txt || "", uiUtil.fontFamily.normal, opt.fontSize || 16, cc.size(size.width - 8, 0), cc.TEXT_ALIGNMENT_CENTER);
-    label.setColor(opt.textColor || cc.color(245, 239, 228, 255));
+    label.setColor(opt.textColor || cc.color(255, 255, 255, 255));
     label.setPosition(size.width / 2, size.height / 2);
     node.addChild(label);
 
@@ -666,14 +666,14 @@ uiUtil.createTextTabButton = function (txt, target, cb, opt) {
     var btn = uiUtil.createTextActionButton(txt, target, cb, {
         size: opt.size || cc.size(152, 34),
         fontSize: opt.fontSize || 24,
-        color: opt.color || cc.color(120, 111, 103, 255),
-        pressedColor: opt.pressedColor || cc.color(58, 51, 43, 255),
-        disabledColor: opt.disabledColor || cc.color(120, 111, 103, 255)
+        color: opt.color || cc.color(146, 146, 146, 255),
+        pressedColor: opt.pressedColor || cc.color(58, 58, 58, 255),
+        disabledColor: opt.disabledColor || cc.color(146, 146, 146, 255)
     });
 
     btn._tabColors = {
-        selected: opt.selectedColor || cc.color(45, 39, 33, 255),
-        normal: opt.color || cc.color(120, 111, 103, 255)
+        selected: opt.selectedColor || cc.color(0, 0, 0, 255),
+        normal: opt.color || cc.color(146, 146, 146, 255)
     };
     btn._tabScale = {
         selected: opt.selectedScale || 1.06,
@@ -1330,7 +1330,7 @@ uiUtil.showItemSliderDialog = function (itemId, storage, cb) {
     config.content.dig_des = uiUtil.getItemDetailFrameName(itemId, true);
     config.content.dig_des_fallback = uiUtil.getDefaultSpriteName("itemDetail", true);
     var totalNum = storage.getNumByItemId(itemId);
-    var unitWeight = utils.truncateWeight(itemConfig[itemId].weight);
+    var unitWeight = Number(itemConfig[itemId].weight) || 0;
     config.title.title = stringUtil.getString(itemId).title;
     config.title.txt_1 = stringUtil.getString(1028, utils.formatWeight(unitWeight));
     config.title.txt_2 = stringUtil.getString(1029, "1/" + totalNum);

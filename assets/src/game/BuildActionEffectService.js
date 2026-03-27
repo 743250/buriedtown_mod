@@ -63,6 +63,60 @@ var BuildActionEffectService = {
         action.config = action.configs[level][action.index];
         return action.config;
     },
+    _getFormulaModifier: function (action) {
+        if (!action || typeof buildConfig === "undefined" || !buildConfig) {
+            return null;
+        }
+
+        var bid = Number(action.bid);
+        var level = typeof action.getCurrentBuildLevel === "function" ? action.getCurrentBuildLevel() : 0;
+        if (isNaN(bid) || isNaN(level) || !Array.isArray(buildConfig[bid]) || !buildConfig[bid][level]) {
+            return null;
+        }
+
+        return buildConfig[bid][level].formulaModifier || null;
+    },
+    _applyFormulaCostModifier: function (costList, costDeltaMap, costMinMap) {
+        if (!Array.isArray(costList)) {
+            return [];
+        }
+        if ((!costDeltaMap || typeof costDeltaMap !== "object")
+            && (!costMinMap || typeof costMinMap !== "object")) {
+            return utils.clone(costList);
+        }
+
+        return costList.map(function (itemInfo) {
+            var adjustedItem = utils.clone(itemInfo);
+            var itemId = adjustedItem.itemId !== undefined && adjustedItem.itemId !== null
+                ? "" + adjustedItem.itemId
+                : null;
+            if (itemId !== null && costDeltaMap.hasOwnProperty(itemId)) {
+                adjustedItem.num = Math.max(0, (parseInt(adjustedItem.num, 10) || 0) + (parseInt(costDeltaMap[itemId], 10) || 0));
+            }
+            if (itemId !== null && costMinMap && costMinMap.hasOwnProperty(itemId) && adjustedItem.num > 0) {
+                adjustedItem.num = Math.max(parseInt(costMinMap[itemId], 10) || 0, parseInt(adjustedItem.num, 10) || 0);
+            }
+            return adjustedItem;
+        }).filter(function (itemInfo) {
+            return (parseInt(itemInfo.num, 10) || 0) > 0;
+        });
+    },
+    updateFormulaConfig: function (action) {
+        var config = utils.clone(action.baseConfig || formulaConfig[action.id] || action.config || {});
+        var modifier = this._getFormulaModifier(action);
+
+        if (modifier) {
+            var makeTime = parseInt(config.makeTime, 10);
+            var makeTimeDelta = parseInt(modifier.makeTimeDelta, 10);
+            if (isFinite(makeTime) && isFinite(makeTimeDelta)) {
+                config.makeTime = Math.max(1, makeTime + makeTimeDelta);
+            }
+            config.cost = this._applyFormulaCostModifier(config.cost, modifier.costDeltaMap, modifier.costMinMap);
+        }
+
+        action.config = config;
+        return action.config;
+    },
     showBuildActionDialog: function (action) {
         uiUtil.showBuildActionDialog(action.bid, action.index);
     },

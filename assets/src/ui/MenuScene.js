@@ -388,22 +388,44 @@ var getSaveSlotLangConfig = function () {
         return {
             newTitle: "新游戏 - 选择存档",
             continueTitle: "继续游戏 - 选择存档",
+            newSubtitle: "选择一个存档位开始新游戏",
+            continueSubtitle: "选择一个存档位继续游戏",
             slotPrefix: "存档",
             empty: "空存档",
             saved: "已有存档",
             dayPrefix: "第",
             daySuffix: "天",
+            rolePrefix: "角色",
+            newEmptyHint: "点击开始新游戏",
+            newSavedHint: "点击后会进入覆盖确认",
+            continueEmptyHint: "该存档暂无进度",
+            continueSavedHint: "点击继续当前进度",
+            actionStart: "开始",
+            actionOverwrite: "覆盖",
+            actionContinue: "继续",
+            actionUnavailable: "不可用",
             emptyContinueWarn: "该存档为空，无法继续游戏。"
         };
     }
     return {
         newTitle: "New Game - Select Save Slot",
         continueTitle: "Continue - Select Save Slot",
+        newSubtitle: "Choose a slot to start a new game",
+        continueSubtitle: "Choose a slot to continue",
         slotPrefix: "Slot",
         empty: "Empty",
         saved: "Saved",
         dayPrefix: "Day ",
         daySuffix: "",
+        rolePrefix: "Role",
+        newEmptyHint: "Tap to start a new game",
+        newSavedHint: "Tap to overwrite after confirmation",
+        continueEmptyHint: "No progress in this slot",
+        continueSavedHint: "Tap to continue this run",
+        actionStart: "Start",
+        actionOverwrite: "Overwrite",
+        actionContinue: "Continue",
+        actionUnavailable: "Unavailable",
         emptyContinueWarn: "This slot is empty."
     };
 };
@@ -413,73 +435,36 @@ var SaveSlotSelectLayer = cc.Layer.extend({
         this.mode = mode;
         this.onSelectSlot = onSelectSlot;
         this.lang = getSaveSlotLangConfig();
+        this._buildLayout();
+        this._bindInput();
+    },
+    _buildLayout: function () {
+        var mask = new cc.LayerColor(cc.color(0, 0, 0, 220), cc.winSize.width, cc.winSize.height);
+        this.addChild(mask);
 
-        this.addChild(new cc.LayerColor(cc.color(0, 0, 0, 220)));
-
-        var panel = uiUtil.createPaperPanel(cc.size(520, 680), {
-            fillColor: UITheme.statusColors.panelFillAlt,
-            fillOpacity: 244,
-            frameColor: UITheme.statusColors.panelBorder,
-            frameOpacity: 176,
-            shadowOpacity: 30
-        });
-        panel.setAnchorPoint(0.5, 0.5);
-        panel.setPosition(cc.winSize.width / 2, cc.winSize.height / 2 + 8);
-        this.addChild(panel);
-        this.panel = panel;
-
-        var titleText = this.mode === "continue" ? this.lang.continueTitle : this.lang.newTitle;
-        var title = uiUtil.createLabel(titleText, "title", {
-            anchorX: 0.5,
-            anchorY: 0.5
-        });
-        title.setPosition(panel.width / 2, panel.height - 76);
-        panel.addChild(title);
-
-        var subtitle = uiUtil.createLabel(this.lang.slotPrefix + " 1-" + Record.SLOT_COUNT, "caption", {
-            anchorX: 0.5,
-            anchorY: 0.5
-        });
-        subtitle.setPosition(panel.width / 2, panel.height - 116);
-        panel.addChild(subtitle);
-
-        var divider = uiUtil.createColorRect(cc.size(panel.width - 56, 2), UITheme.statusColors.divider, 120);
-        divider.setAnchorPoint(0.5, 0.5);
-        divider.setPosition(panel.width / 2, panel.height - 148);
-        panel.addChild(divider);
-
-        var self = this;
+        var centerY = cc.winSize.height / 2 + 90;
+        this._slotButtons = [];
         for (var slot = 1; slot <= Record.SLOT_COUNT; slot++) {
-            var btn = uiUtil.createBigBtnWhite(this.getSlotButtonText(slot), this, function (sender) {
-                var selectedSlot = sender._slotIndex;
-                if (self.mode === "continue" && !Record.hasRecord(selectedSlot)) {
-                    uiUtil.showTinyInfoDialog(self.lang.emptyContinueWarn);
-                    return;
-                }
-                if (typeof self.onSelectSlot === "function") {
-                    self.onSelectSlot(selectedSlot);
-                }
-                self.removeFromParent();
-            });
-            btn._slotIndex = slot;
-            btn.setPosition(panel.width / 2, panel.height - 224 - (slot - 1) * 110);
-            if (this.mode === "continue" && !Record.hasRecord(slot)) {
-                btn.setEnabled(false);
-            }
-            panel.addChild(btn);
+            var btn = this._createSlotButton(slot);
+            btn.setPosition(cc.winSize.width / 2, centerY - (slot - 1) * 110);
+            this.addChild(btn, 1);
+            this._slotButtons.push(btn);
         }
-
-        var btnCancel = uiUtil.createCommonBtnWhite(stringUtil.getString(1031), this, function () {
-            self.removeFromParent();
-        });
-        btnCancel.setPosition(panel.width / 2, 72);
-        panel.addChild(btnCancel);
+    },
+    _bindInput: function () {
+        var self = this;
 
         cc.eventManager.addListener(cc.EventListener.create({
             event: cc.EventListener.TOUCH_ONE_BY_ONE,
             swallowTouches: true,
-            onTouchBegan: function () {
+            onTouchBegan: function (touch) {
+                self._touchBeganOnButton = self._isTouchOnAnySlotButton(touch);
                 return true;
+            },
+            onTouchEnded: function (touch) {
+                if (!self._touchBeganOnButton && !self._isTouchOnAnySlotButton(touch)) {
+                    self.removeFromParent();
+                }
             }
         }), this);
 
@@ -492,16 +477,65 @@ var SaveSlotSelectLayer = cc.Layer.extend({
             }
         }), this);
     },
-    getSlotButtonText: function (slot) {
+    _createSlotButton: function (slot) {
+        var self = this;
+        var viewModel = this.getSlotViewModel(slot);
+        var btn = uiUtil.createBigBtnWhite(this.getSlotButtonText(slot), this, function (sender) {
+            var selectedViewModel = sender._viewModel;
+            if (!selectedViewModel.enabled) {
+                if (self.mode === "continue") {
+                    uiUtil.showTinyInfoDialog(self.lang.emptyContinueWarn);
+                }
+                return;
+            }
+            if (typeof self.onSelectSlot === "function") {
+                self.onSelectSlot(sender._slotIndex);
+            }
+            self.removeFromParent();
+        });
+        btn._slotIndex = slot;
+        btn._viewModel = viewModel;
+        btn.setEnabled(viewModel.enabled);
+        return btn;
+    },
+    getSlotViewModel: function (slot) {
         var info = Record.getRecordInfo(slot);
-        var status = this.lang.empty;
-        if (info.hasRecord) {
-            status = this.lang.saved;
-            if (info.day !== null) {
-                status = this.lang.dayPrefix + info.day + this.lang.daySuffix;
+        var hasRecord = !!info.hasRecord;
+        var enabled = this.mode !== "continue" || hasRecord;
+        return {
+            slot: slot,
+            hasRecord: hasRecord,
+            enabled: enabled,
+            statusText: this._getSlotStatusText(info)
+        };
+    },
+    getSlotButtonText: function (slot) {
+        var viewModel = this.getSlotViewModel(slot);
+        return this.lang.slotPrefix + " " + slot + " (" + viewModel.statusText + ")";
+    },
+    _getSlotStatusText: function (info) {
+        if (info && info.hasRecord && info.day !== null) {
+            return this.lang.dayPrefix + info.day + this.lang.daySuffix;
+        }
+        return info && info.hasRecord ? this.lang.saved : this.lang.empty;
+    },
+    _isTouchOnAnySlotButton: function (touch) {
+        if (!touch) {
+            return false;
+        }
+        var buttonList = this._slotButtons || [];
+        for (var i = 0; i < buttonList.length; i++) {
+            var child = buttonList[i];
+            if (!child || typeof child.convertToNodeSpace !== "function" || typeof child.getContentSize !== "function") {
+                continue;
+            }
+            var localPos = child.convertToNodeSpace(touch.getLocation());
+            var size = child.getContentSize();
+            if (cc.rectContainsPoint(cc.rect(0, 0, size.width, size.height), localPos)) {
+                return true;
             }
         }
-        return this.lang.slotPrefix + " " + slot + " (" + status + ")";
+        return false;
     }
 });
 var DownloadConfirmLayer = DialogBig.extend({

@@ -24,15 +24,15 @@ var UITheme = {
         BG_TRANSPARENT: cc.color(0, 0, 0, 0)
     },
     statusColors: {
-        warning: cc.color(178, 92, 24, 255),
-        accent: cc.color(96, 54, 16, 255),
-        muted: cc.color(96, 88, 78, 255),
-        subtle: cc.color(90, 82, 72, 255),
-        panelBorder: cc.color(128, 110, 88, 255),
-        panelFill: cc.color(255, 248, 236, 255),
-        panelFillAlt: cc.color(247, 238, 224, 255),
+        warning: cc.color(72, 72, 72, 255),
+        accent: cc.color(24, 24, 24, 255),
+        muted: cc.color(126, 126, 126, 255),
+        subtle: cc.color(96, 96, 96, 255),
+        panelBorder: cc.color(168, 168, 168, 255),
+        panelFill: cc.color(255, 255, 255, 255),
+        panelFillAlt: cc.color(234, 234, 234, 255),
         lockedMask: cc.color(0, 0, 0, 160),
-        divider: cc.color(196, 184, 166, 255)
+        divider: cc.color(178, 178, 178, 255)
     },
     spacing: {
         XXS: 4,
@@ -46,27 +46,27 @@ var UITheme = {
     typographyPresets: {
         title: {
             fontSize: 32,
-            color: cc.color(28, 22, 14, 255)
+            color: cc.color(0, 0, 0, 255)
         },
         sectionTitle: {
             fontSize: 26,
-            color: cc.color(40, 32, 20, 255)
+            color: cc.color(0, 0, 0, 255)
         },
         body: {
             fontSize: 20,
-            color: cc.color(54, 44, 30, 255)
+            color: cc.color(0, 0, 0, 255)
         },
         meta: {
             fontSize: 16,
-            color: cc.color(96, 88, 78, 255)
+            color: cc.color(112, 112, 112, 255)
         },
         caption: {
             fontSize: 16,
-            color: cc.color(90, 82, 72, 255)
+            color: cc.color(96, 96, 96, 255)
         },
         inverse: {
             fontSize: 16,
-            color: cc.color(245, 239, 228, 255)
+            color: cc.color(255, 255, 255, 255)
         }
     },
     dialog: {
@@ -97,8 +97,8 @@ var UITheme = {
             preferredSize: cc.size(178, 62),
             fontSize: 28,
             disabledColor: cc.color(136, 136, 136, 255),
-            blackTextColor: cc.color(245, 239, 228, 255),
-            whiteTextColor: cc.color(46, 34, 20, 255),
+            blackTextColor: cc.color(255, 255, 255, 255),
+            whiteTextColor: cc.color(0, 0, 0, 255),
             zoomOnTouchDown: false
         },
         small: {

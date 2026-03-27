@@ -499,6 +499,7 @@ var RoleTalentUiHelper = {
                 }
             }
         });
+        dialog.autoDismiss = false;
 
         var viewWidth = dialog.rightEdge - dialog.leftEdge;
         var viewHeight = Math.max(80, dialog.contentNode.getContentSize().height - uiUtil.spacing.XS);

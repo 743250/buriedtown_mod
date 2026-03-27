@@ -366,17 +366,73 @@ var Player = cc.Class.extend({
     },
 
     gainItems: function (items) {
-        var self = this;
-        items.forEach(function (item) {
-            self.storage.increaseItem(item.itemId, item.num);
-        });
+        this.storage.increaseItems(items);
     },
 
     gainItemsInBag: function (items) {
-        var self = this;
-        items.forEach(function (item) {
-            self.bag.increaseItem(item.itemId, item.num);
+        items = Array.isArray(items) ? utils.clone(items) : [];
+        if (!items.length) {
+            return {
+                result: true,
+                target: "bag",
+                items: []
+            };
+        }
+        if (!this.bag.tryIncreaseItems(items)) {
+            return {
+                result: false,
+                reason: "overweight",
+                target: "bag",
+                items: items
+            };
+        }
+        return {
+            result: true,
+            target: "bag",
+            items: items
+        };
+    },
+    _getBagOverflowTargetInfo: function () {
+        if (this.isAtSite()
+            && this.map
+            && typeof this.map.getSite === "function") {
+            var site = this.map.getSite(this.getCurrentSiteId());
+            if (site && typeof site.increaseItem === "function") {
+                return {
+                    key: "site-storage",
+                    target: site,
+                    messageKey: "bag_overflow_to_site_storage"
+                };
+            }
+        }
+        return {
+            key: "storage",
+            target: this.storage,
+            messageKey: "bag_overflow_to_storage"
+        };
+    },
+    gainItemsInBagOrOverflowTarget: function (items, overflowTargetInfo) {
+        var gainResult = this.gainItemsInBag(items);
+        if (gainResult.result) {
+            return gainResult;
+        }
+
+        var targetInfo = overflowTargetInfo || this._getBagOverflowTargetInfo();
+        if (!targetInfo || !targetInfo.target || typeof targetInfo.target.increaseItem !== "function") {
+            return gainResult;
+        }
+
+        gainResult.items.forEach(function (item) {
+            targetInfo.target.increaseItem(item.itemId, item.num);
         });
+
+        return {
+            result: true,
+            target: targetInfo.key,
+            overflowed: true,
+            items: gainResult.items,
+            messageKey: targetInfo.messageKey
+        };
     },
 
     costItems: function (items) {

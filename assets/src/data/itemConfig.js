@@ -244,7 +244,7 @@ var itemConfig = {
     },
     "1105011": {
         "id": "1105011",
-        "weight": 0.1,
+        "weight": 0.02,
         "price": 2,
         "value": 2
     },
@@ -770,7 +770,7 @@ var itemConfig = {
     },
     "1305011": {
         "id": "1305011",
-        "weight": 0.1,
+        "weight": 0.02,
         "price": 1,
         "value": 1,
         "effect_weapon": {

@@ -199,7 +199,16 @@ var buildConfig = {
             "bid": 1,
             "level": 2
         },
-        "produceList": [1203074, 1203075]
+        "produceList": [1203074, 1203075],
+        "formulaModifier": {
+            "makeTimeDelta": -10,
+            "costDeltaMap": {
+                "1101011": -1
+            },
+            "costMinMap": {
+                "1101011": 1
+            }
+        }
     }],
     "5": [{
         "id": 5,
