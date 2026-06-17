@@ -115,7 +115,7 @@ var ShopLayer = cc.Layer.extend({
         var heightPadding = 10;
 
         var data = PurchaseService.getMainShopPurchaseIds().filter(function (purchaseId) {
-            return !!PurchaseList[purchaseId];
+            return !!PurchaseService.getPurchaseInfo(purchaseId);
         });
         this.payData = data.slice();
         var row = Math.max(1, Math.ceil(data.length / columns));

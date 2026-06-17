@@ -36,8 +36,8 @@
 当前主要阻碍（按优先级）：
 1. runtime 真源不唯一（GameRuntime 之外仍有双轨 fallback）
 2. restore 与 migration 混在读档热路径
-3. 购买业务没有单一状态源（UI 仍有 fallback 推导）
-4. 配置 fallback 长期掩盖结构问题（`RoleRuntimeService._defaultConfig` / `SiteConfigService._buildFallbackConfig`）
+3. 配置 fallback 长期掩盖结构问题（`RoleRuntimeService._defaultConfig` / `SiteConfigService._buildFallbackConfig`）
+4. utils.js 残留购买相关业务数据访问（`doBridgeReceive` 硬编码 201 / `getProductIdMap` / Android SDK 价格回填），不影响 shop UI 状态，但属于 Phase 5 范畴待收
 
 ## 4. 关键清单（保留关键信息）
 
@@ -59,12 +59,21 @@
 
 ### 4.2 购买链残余硬编码
 
-| 位置 | 硬编码内容 |
-|------|-----------|
-| `IAPPackage.initPackage()` | 逐个调用 `onIAPPaied(0,101-109,120-124)` |
-| `IAPPackage.resetConsumeIAP()` | 逐个重置 `_record[201-209]` |
-| `PurchaseService._singleUnlockRewardMap` | 105/106/107 → 物品/建筑映射 |
-| `PurchaseService.getPriceOff()` | 206/207 硬编码折扣 |
+历史清单已逐项收口完成（截至 3F 收尾时核对）：
+
+| 历史项 | 现状 |
+|------|-----|
+| `IAPPackage.initPackage()` 逐个调用 `onIAPPaied(0,101-109,120-124)` | ✅ 已清，仅保留 `_applyEnvironmentFlags()` + `initIAPRecord()` |
+| `IAPPackage.resetConsumablePurchaseRecords()` 逐个重置 201-209 | ✅ 已清，改为遍历 `purchaseId >= 200` 配置项 |
+| `PurchaseService._singleUnlockRewardMap` 105/106/107 | ✅ 已清，统一走 `getUnlockReward()` |
+| `PurchaseService.getPriceOff()` 206/207 硬编码折扣 | ✅ 已清，从 config `discountPercent` 计算 |
+
+UI 侧旁路：`shopScene.js` 已改走 `PurchaseService.getPurchaseInfo()`，`assets/src/ui/` 下零处直接访问 `PurchaseList`。
+
+仍残留（不属于 3F 范围，挪入 Phase 5）：
+- `util/utils.js:399` `doBridgeReceive` 硬编码 `PurchaseList[201].effect` + 直接发奖
+- `util/utils.js:443` `getProductIdMap` 全表遍历 PurchaseList 构建 productId 映射
+- `util/utils.js:500-528` Android SDK 价格 / 货币 / 价格字符串回填到 `priceList`
 
 ### 4.3 Phase 4 特殊物品散落清单（17+ itemId，13 文件）
 
@@ -107,15 +116,15 @@ T 版借鉴原则（保留）：只借鉴“功能独立打包”，不回迁 UI
 | 3A | ✅ 完成 | `role.js` 主表唯一化 |
 | 3B | ✅ 完成 | 兑换映射去硬编码 |
 | 3C | ✅ 完成 | 天赋选择兼容收口 |
-| 3D | 🔄 进行中 | 购买链职责收边，清理硬编码 |
+| 3D | ✅ 完成 | 购买链职责收边，硬编码 105/106/107/206/207 / 101-124 / 201-209 已清 |
 | 3E | 🔄 进行中 | runtime 真源唯一化 |
-| 3F | 🔄 进行中 | shop state 单一入口 |
+| 3F | ✅ 完成 | shop state 单一入口；UI 零旁路（`shopScene` 改走 `PurchaseService.getPurchaseInfo`） |
 | 3G | ⏳ 待开始 | restore / migration 分层 |
 
 当前下一步顺序：
-1. 收完 3F（锁定 `PurchaseService.getShopUiState()`）
-2. 清 3E（双轨 runtime fallback）
-3. 做 3G（restore/migration 分层）
+1. 清 3E（双轨 runtime fallback，按 §4.1 清单）
+2. 做 3G（restore/migration 分层）
+3. Phase 5 起步：清 utils.js 购买残留（`doBridgeReceive` / `getProductIdMap` / Android 价格回填）
 
 3E 已收口的窄边界：
 - `MapNode` / `MapEntity` / `home` / `MapZiplineController` / `MapZiplineBuildController` / `ZiplineEndpointPanelController` / `ZiplineActionService`
@@ -223,7 +232,7 @@ Hook 使用原则：
 |---|------|------|
 | R1 | 🔄 进行中 | 边界清单化 + 契约断言 |
 | R2 | 🔄 进行中 | runtime 真源唯一化（对齐 3E） |
-| R3 | 🔄 进行中 | shop state 单一入口（对齐 3F） |
+| R3 | ✅ 已落地 | shop state 单一入口（对齐 3F） |
 | R4 | ⏳ 待开始 | restore/migration 分层（对齐 3G） |
 | R5 | ⏳ 待开始 | 配置 fallback 清退 |
 | R6 | ✅ 已落地 | UI 资源解析统一化 |
