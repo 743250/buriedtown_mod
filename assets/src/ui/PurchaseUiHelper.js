@@ -743,6 +743,31 @@ _talentLevelTextMap: {
             });
         }, requestIds.slice());
     },
+    _fitLabelToBox: function (label, boxSize, minFontSize) {
+        if (!label || !boxSize || !(boxSize.height > 0)) {
+            return;
+        }
+
+        var fontSize = label.getFontSize ? label.getFontSize() : uiUtil.fontSize.COMMON_2;
+        minFontSize = minFontSize || uiUtil.fontSize.COMMON_4;
+        var getHeight = function () {
+            var size = label.getContentSize ? label.getContentSize() : null;
+            return size && isFinite(size.height) ? size.height : (isFinite(label.height) ? label.height : 0);
+        };
+
+        while (fontSize > minFontSize && getHeight() > boxSize.height) {
+            fontSize -= 1;
+            if (label.setFontSize) {
+                label.setFontSize(fontSize);
+            } else {
+                break;
+            }
+        }
+        if (label.setDimensions) {
+            label.setDimensions(boxSize);
+        }
+    },
+
     createPayItemNode: function (purchaseId, target, cb) {
         var node = new cc.Node();
         var purchaseDisplayContext = this.getPurchaseDisplayContext(purchaseId);
@@ -764,7 +789,9 @@ _talentLevelTextMap: {
         node.addChild(bg);
 
         var itemDisplayName = purchaseDisplayContext.cardTitleText || purchaseDisplayContext.displayBaseName;
-        var name = new cc.LabelTTF(itemDisplayName, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(node.width - 20, 44), cc.TEXT_ALIGNMENT_CENTER);
+        var titleBoxSize = cc.size(node.width - 20, 44);
+        var name = new cc.LabelTTF(itemDisplayName, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(titleBoxSize.width, 0), cc.TEXT_ALIGNMENT_CENTER);
+        this._fitLabelToBox(name, titleBoxSize, uiUtil.fontSize.COMMON_4);
         name.anchorY = 1;
         name.x = node.width / 2;
         name.y = node.height - 8;
@@ -855,7 +882,14 @@ _talentLevelTextMap: {
         node.purchaseId = purchaseId;
         node.updateName = function (shopState) {
             var nextDisplayContext = PurchaseUiHelper.getPurchaseDisplayContext(purchaseId, purchaseConfig, shopState);
+            if (name.setDimensions) {
+                name.setDimensions(cc.size(titleBoxSize.width, 0));
+            }
+            if (name.setFontSize) {
+                name.setFontSize(uiUtil.fontSize.COMMON_2);
+            }
             name.setString(nextDisplayContext.cardTitleText || nextDisplayContext.displayBaseName || "");
+            PurchaseUiHelper._fitLabelToBox(name, titleBoxSize, uiUtil.fontSize.COMMON_4);
         };
         node.updateStatus = function (shopState) {
             node.updateName(shopState);

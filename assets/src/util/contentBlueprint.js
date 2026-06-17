@@ -252,7 +252,7 @@ var ContentBlueprint = {
         }
         return true;
     },
-    _getItemDisplayId: function (itemId) {
+    getItemDisplayId: function (itemId) {
         itemId = this._normalizeId(itemId);
         if (itemId === null) {
             return null;
@@ -275,6 +275,9 @@ var ContentBlueprint = {
             return 1301011;
         }
         return itemId;
+    },
+    _getItemDisplayId: function (itemId) {
+        return this.getItemDisplayId(itemId);
     },
     _hasSpriteFrame: function (spriteFrameName) {
         if (!spriteFrameName) {

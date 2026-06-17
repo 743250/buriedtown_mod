@@ -25,6 +25,54 @@ var formatTemperatureValue = function (value) {
     return "" + value;
 };
 
+var fitTopFrameTitleLabel = function (label, maxWidth, minFontSize) {
+    if (!label || !(maxWidth > 0)) {
+        return;
+    }
+
+    if (label._topFrameBaseFontSize === undefined) {
+        label._topFrameBaseFontSize = label.getFontSize ? label.getFontSize() : uiUtil.fontSize.COMMON_3;
+    }
+
+    if (label.setScale) {
+        label.setScale(1);
+    }
+    if (label.setFontSize) {
+        label.setFontSize(label._topFrameBaseFontSize);
+    }
+
+    minFontSize = minFontSize || uiUtil.fontSize.COMMON_4;
+    var fontSize = label.getFontSize ? label.getFontSize() : label._topFrameBaseFontSize;
+    while (fontSize > minFontSize && label.width > maxWidth) {
+        fontSize -= 1;
+        if (label.setFontSize) {
+            label.setFontSize(fontSize);
+        } else {
+            break;
+        }
+    }
+
+    if (label.width > maxWidth && label.width > 0 && label.setScale) {
+        label.setScale(maxWidth / label.width);
+    }
+};
+
+var fitTopFrameStatusDialogTitle = function (dialog) {
+    if (!dialog || !dialog.titleNode) {
+        return;
+    }
+
+    var title = dialog.titleNode.getChildByName("title");
+    if (title) {
+        fitTopFrameTitleLabel(title, dialog.rightEdge - title.x, uiUtil.fontSize.COMMON_3);
+    }
+
+    var txt1 = dialog.titleNode.getChildByName("txt_1");
+    if (txt1) {
+        fitTopFrameTitleLabel(txt1, dialog.rightEdge - txt1.x, uiUtil.fontSize.COMMON_4);
+    }
+};
+
 var TopFrameNode = cc.Node.extend({
     ctor: function () {
         this._super();
@@ -324,6 +372,8 @@ var showStatusDialog = function (stringId, value, iconName) {
     config.title.txt_1 = cc.formatStr(config.title.txt_1, value);
     config.content.des = strConfig.des;
     var dialog = new DialogSmall(config);
+    fitTopFrameStatusDialogTitle(dialog);
+    fitTopFrameStatusDialogTitle(dialog);
     pauseTimeWhileDialogVisible(dialog);
     dialog.show();
 };

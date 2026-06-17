@@ -31,37 +31,22 @@ uiUtil.zOrder = {
     OVERLAY: 5
 };
 
+uiUtil._buildTextPreset = function (name, defaultFontSize, defaultColor) {
+    var theme = UITheme.typographyPresets[name] || {};
+    return {
+        fontFamily: uiUtil.fontFamily.normal,
+        fontSize: theme.fontSize || defaultFontSize,
+        color: theme.color || defaultColor
+    };
+};
+
 uiUtil.textPreset = {
-    title: {
-        fontFamily: uiUtil.fontFamily.normal,
-        fontSize: (UITheme.typographyPresets.title && UITheme.typographyPresets.title.fontSize) || uiUtil.fontSize.COMMON_1,
-        color: (UITheme.typographyPresets.title && UITheme.typographyPresets.title.color) || UITheme.colors.TEXT_TITLE
-    },
-    sectionTitle: {
-        fontFamily: uiUtil.fontFamily.normal,
-        fontSize: (UITheme.typographyPresets.sectionTitle && UITheme.typographyPresets.sectionTitle.fontSize) || uiUtil.fontSize.COMMON_2,
-        color: (UITheme.typographyPresets.sectionTitle && UITheme.typographyPresets.sectionTitle.color) || UITheme.colors.TEXT_TITLE
-    },
-    body: {
-        fontFamily: uiUtil.fontFamily.normal,
-        fontSize: (UITheme.typographyPresets.body && UITheme.typographyPresets.body.fontSize) || uiUtil.fontSize.COMMON_3,
-        color: (UITheme.typographyPresets.body && UITheme.typographyPresets.body.color) || UITheme.colors.TEXT_TITLE
-    },
-    meta: {
-        fontFamily: uiUtil.fontFamily.normal,
-        fontSize: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.fontSize) || uiUtil.fontSize.COMMON_4,
-        color: (UITheme.typographyPresets.meta && UITheme.typographyPresets.meta.color) || cc.color(112, 112, 112, 255)
-    },
-    caption: {
-        fontFamily: uiUtil.fontFamily.normal,
-        fontSize: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.fontSize) || uiUtil.fontSize.COMMON_4,
-        color: (UITheme.typographyPresets.caption && UITheme.typographyPresets.caption.color) || cc.color(96, 96, 96, 255)
-    },
-    inverse: {
-        fontFamily: uiUtil.fontFamily.normal,
-        fontSize: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.fontSize) || uiUtil.fontSize.COMMON_4,
-        color: (UITheme.typographyPresets.inverse && UITheme.typographyPresets.inverse.color) || cc.color(255, 255, 255, 255)
-    }
+    title: uiUtil._buildTextPreset("title", uiUtil.fontSize.COMMON_1, UITheme.colors.TEXT_TITLE),
+    sectionTitle: uiUtil._buildTextPreset("sectionTitle", uiUtil.fontSize.COMMON_2, UITheme.colors.TEXT_TITLE),
+    body: uiUtil._buildTextPreset("body", uiUtil.fontSize.COMMON_3, UITheme.colors.TEXT_TITLE),
+    meta: uiUtil._buildTextPreset("meta", uiUtil.fontSize.COMMON_4, cc.color(112, 112, 112, 255)),
+    caption: uiUtil._buildTextPreset("caption", uiUtil.fontSize.COMMON_4, cc.color(96, 96, 96, 255)),
+    inverse: uiUtil._buildTextPreset("inverse", uiUtil.fontSize.COMMON_4, cc.color(255, 255, 255, 255))
 };
 
 uiUtil.resolveTextPreset = function (presetName, opt) {
@@ -204,6 +189,12 @@ uiUtil.createVStack = function (opt) {
 };
 
 uiUtil.getDisplayItemId = function (itemId) {
+    if (typeof ContentBlueprint !== "undefined"
+        && ContentBlueprint
+        && typeof ContentBlueprint.getItemDisplayId === "function") {
+        return ContentBlueprint.getItemDisplayId(itemId);
+    }
+
     itemId = parseInt(itemId);
     if (typeof WeaponCraftService !== "undefined" && WeaponCraftService && WeaponCraftService.getDisplayItemId) {
         itemId = WeaponCraftService.getDisplayItemId(itemId);
@@ -319,36 +310,44 @@ uiUtil.getSiteIconFrameName = function (siteId, withHash) {
     return uiUtil._buildSpriteName("site_", siteId, withHash, "site");
 };
 
-uiUtil.getCharacterPortraitSpriteByRoleType = function (roleType, fallbackName) {
-    var resolvedFallback = fallbackName || uiUtil.getDefaultSpriteName("character", false);
-    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getCharacterIcon === "function") {
-        return ResourceFallback.getCharacterIcon(roleType, resolvedFallback);
+uiUtil._resolveIconSprite = function (defaultType, fallbackFnName, fallbackId, frameName, fallbackName) {
+    var resolvedFallback = fallbackName || uiUtil.getDefaultSpriteName(defaultType, false);
+    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback[fallbackFnName] === "function") {
+        return ResourceFallback[fallbackFnName](fallbackId, resolvedFallback);
     }
-    return SafetyHelper.safeLoadSprite(uiUtil.getRolePortraitFrameName(roleType, false), resolvedFallback);
+    return SafetyHelper.safeLoadSprite(frameName, resolvedFallback);
+};
+
+uiUtil.getCharacterPortraitSpriteByRoleType = function (roleType, fallbackName) {
+    return uiUtil._resolveIconSprite(
+        "character", "getCharacterIcon",
+        roleType, uiUtil.getRolePortraitFrameName(roleType, false),
+        fallbackName
+    );
 };
 
 uiUtil.getTalentIconSprite = function (purchaseId, fallbackName) {
-    var resolvedFallback = fallbackName || uiUtil.getDefaultSpriteName("talent", false);
-    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getTalentIcon === "function") {
-        return ResourceFallback.getTalentIcon(purchaseId, resolvedFallback);
-    }
-    return SafetyHelper.safeLoadSprite(uiUtil.getTalentIconFrameName(purchaseId, false), resolvedFallback);
+    return uiUtil._resolveIconSprite(
+        "talent", "getTalentIcon",
+        purchaseId, uiUtil.getTalentIconFrameName(purchaseId, false),
+        fallbackName
+    );
 };
 
 uiUtil.getPurchaseIconSprite = function (purchaseId, fallbackName) {
-    var resolvedFallback = fallbackName || uiUtil.getDefaultSpriteName("purchase", false);
-    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getPurchaseIcon === "function") {
-        return ResourceFallback.getPurchaseIcon(purchaseId, resolvedFallback);
-    }
-    return SafetyHelper.safeLoadSprite(uiUtil.getPurchaseIconFrameName(purchaseId, false), resolvedFallback);
+    return uiUtil._resolveIconSprite(
+        "purchase", "getPurchaseIcon",
+        purchaseId, uiUtil.getPurchaseIconFrameName(purchaseId, false),
+        fallbackName
+    );
 };
 
 uiUtil.getItemIconSprite = function (itemId, fallbackName) {
-    var resolvedFallback = fallbackName || uiUtil.getDefaultSpriteName("item", false);
-    if (typeof ResourceFallback !== "undefined" && ResourceFallback && typeof ResourceFallback.getItemIcon === "function") {
-        return ResourceFallback.getItemIcon(uiUtil.getDisplayItemId(itemId), resolvedFallback);
-    }
-    return SafetyHelper.safeLoadSprite(uiUtil.getItemIconFrameName(itemId, false), resolvedFallback);
+    return uiUtil._resolveIconSprite(
+        "item", "getItemIcon",
+        uiUtil.getDisplayItemId(itemId), uiUtil.getItemIconFrameName(itemId, false),
+        fallbackName
+    );
 };
 
 uiUtil.getPurchaseDisplayIconMeta = function (purchaseId, purchaseConfig) {

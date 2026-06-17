@@ -175,6 +175,52 @@ var SettingButton = Button.extend({
     }
 })
 
+var fitInlineStatusButtonLabel = function (button, label, icon) {
+    if (!button || !label || !icon || !label.isVisible()) {
+        return 0;
+    }
+
+    if (label._inlineStatusButtonBaseFontSize === undefined) {
+        label._inlineStatusButtonBaseFontSize = label.getFontSize ? label.getFontSize() : uiUtil.fontSize.COMMON_2;
+    }
+
+    if (label.setScale) {
+        label.setScale(1);
+    }
+    if (label.setFontSize) {
+        label.setFontSize(label._inlineStatusButtonBaseFontSize);
+    }
+
+    var iconWidth = button.opt && button.opt.scale ? icon.width * button.opt.scale : icon.width;
+    var minSidePadding = 4;
+    var maxLabelWidth = Math.max(0, button.width - iconWidth - minSidePadding * 2);
+    var minFontSize = button.opt && button.opt.minFontSize ? button.opt.minFontSize : 14;
+    var fontSize = label.getFontSize ? label.getFontSize() : label._inlineStatusButtonBaseFontSize;
+
+    while (fontSize > minFontSize && label.width > maxLabelWidth) {
+        fontSize -= 1;
+        if (label.setFontSize) {
+            label.setFontSize(fontSize);
+        } else {
+            break;
+        }
+    }
+
+    if (label.width > maxLabelWidth && label.width > 0 && label.setScale) {
+        label.setScale(maxLabelWidth / label.width);
+    }
+
+    return Math.min(maxLabelWidth, getInlineStatusButtonLabelWidth(label));
+};
+
+var getInlineStatusButtonLabelWidth = function (label) {
+    if (!label) {
+        return 0;
+    }
+    var scaleX = typeof label.getScaleX === "function" ? label.getScaleX() : (label.scaleX || label.scale || 1);
+    return label.width * scaleX;
+};
+
 var StatusButton = ButtonWithPressed.extend({
     ctor: function (size, spriteFrameName, str, opt) {
         this._super(size);
@@ -198,7 +244,7 @@ var StatusButton = ButtonWithPressed.extend({
         label.setName("label");
         this.addChild(label);
 
-        if (opt.noLabel) {
+        if (this.opt.noLabel) {
             label.setVisible(false);
         }
 
@@ -210,7 +256,8 @@ var StatusButton = ButtonWithPressed.extend({
         var label = this.getChildByName("label");
         if (label.isVisible()) {
             var iconWidth = this.opt.scale ? icon.width * this.opt.scale : icon.width;
-            var edgePadding = (this.width - midPadding - iconWidth - label.width) / 2;
+            var labelWidth = fitInlineStatusButtonLabel(this, label, icon);
+            var edgePadding = Math.max(2, (this.width - midPadding - iconWidth - labelWidth) / 2);
 
             icon.setAnchorPoint(0, 0.5);
             icon.x = edgePadding;
@@ -299,7 +346,8 @@ var AttrButton = ButtonWithPressed.extend({
         var icon = this.getChildByName("icon");
         var label = this.getChildByName("label");
         var iconWidth = this.opt.scale ? icon.width * this.opt.scale : icon.width;
-        var edgePadding = (this.width - midPadding - iconWidth - label.width) / 2;
+        var labelWidth = fitInlineStatusButtonLabel(this, label, icon);
+        var edgePadding = Math.max(2, (this.width - midPadding - iconWidth - labelWidth) / 2);
 
         icon.setAnchorPoint(0, 0.5);
         icon.x = edgePadding;

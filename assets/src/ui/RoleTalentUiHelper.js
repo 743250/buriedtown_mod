@@ -66,6 +66,70 @@ var RoleTalentUiHelper = {
         }
     },
 
+    _addScrollableDialogText: function (dialog, sections) {
+        if (!dialog || !dialog.contentNode || !sections || !sections.length) {
+            return;
+        }
+
+        if (typeof cc.LabelTTF !== "function") {
+            return;
+        }
+
+        var viewWidth = dialog.rightEdge - dialog.leftEdge;
+        var viewHeight = Math.max(80, dialog.contentNode.getContentSize().height - 16);
+        var container = new cc.Layer();
+        var scrollView = new cc.ScrollView(cc.size(viewWidth, viewHeight), container);
+        scrollView.setDirection(cc.SCROLLVIEW_DIRECTION_VERTICAL);
+        scrollView.setBounceable(false);
+        scrollView.setClippingToBounds(true);
+        scrollView.x = dialog.leftEdge;
+        scrollView.y = 8;
+        dialog.contentNode.addChild(scrollView);
+
+        var defaultTextColor = UITheme.colors && UITheme.colors.TEXT_TITLE
+            ? UITheme.colors.TEXT_TITLE
+            : cc.color(35, 35, 35, 255);
+        var fontFamily = uiUtil.fontFamily && uiUtil.fontFamily.normal ? uiUtil.fontFamily.normal : "";
+        var bodyFontSize = uiUtil.fontSize && uiUtil.fontSize.COMMON_3 ? uiUtil.fontSize.COMMON_3 : 20;
+        var contentSections = [];
+        sections.forEach(function (section) {
+            if (!section || !section.text) {
+                return;
+            }
+            var label = new cc.LabelTTF(
+                section.text,
+                fontFamily,
+                section.fontSize || bodyFontSize,
+                cc.size(viewWidth, 0),
+                cc.TEXT_ALIGNMENT_LEFT
+            );
+            label.setColor(section.color || defaultTextColor);
+            contentSections.push({
+                node: label,
+                gapAfter: section.gapAfter || 0
+            });
+        });
+
+        var totalHeight = 8;
+        contentSections.forEach(function (section) {
+            totalHeight += section.node.getContentSize().height + section.gapAfter;
+        });
+        totalHeight = Math.max(viewHeight, totalHeight);
+
+        var cursorY = totalHeight - 4;
+        contentSections.forEach(function (section) {
+            section.node.setAnchorPoint(0, 1);
+            section.node.setPosition(0, cursorY);
+            container.addChild(section.node);
+            cursorY -= section.node.getContentSize().height + section.gapAfter;
+        });
+
+        scrollView.setContentSize(viewWidth, totalHeight);
+        var offset = scrollView.getContentOffset();
+        offset.y = scrollView.getViewSize().height - totalHeight;
+        scrollView.setContentOffset(offset);
+    },
+
     _pauseTimeWhileDialogVisible: function (dialog) {
         var runtimeTimer = getRoleTalentRuntimeTimer();
         if (!dialog || !runtimeTimer) {
@@ -300,7 +364,7 @@ var RoleTalentUiHelper = {
         var roleInfoViewModel = this.getRoleInfoViewModel(roleType);
         var config = {
             title: { title: roleInfoViewModel.infoDialogTitle },
-            content: { des: roleInfoViewModel.infoDialogDescription },
+            content: {},
             action: { btn_1: {} }
         };
         config.action.btn_1.txt = stringUtil.getString(1030);
@@ -317,22 +381,16 @@ var RoleTalentUiHelper = {
         }
 
         var dialog = new DialogBig(config);
-        if (roleInfoViewModel.infoDialogEffect) {
-            var effectLabel = uiUtil.createLabel(roleInfoViewModel.infoDialogEffect, "body", {
-                width: dialog.rightEdge - dialog.leftEdge,
-                anchorX: 0,
-                anchorY: 1,
-                hAlignment: cc.TEXT_ALIGNMENT_LEFT,
-                color: UITheme.statusColors.accent
-            });
-            effectLabel.setPosition(
-                dialog.leftEdge,
-                dialog.contentNode.getChildByName("des").y
-                    - dialog.contentNode.getChildByName("des").height
-                    - uiUtil.spacing.XS
-            );
-            dialog.contentNode.addChild(effectLabel);
-        }
+        this._addScrollableDialogText(dialog, [
+            {
+                text: roleInfoViewModel.infoDialogDescription,
+                gapAfter: roleInfoViewModel.infoDialogEffect ? ((uiUtil.spacing && uiUtil.spacing.SM) || 12) : 0
+            },
+            {
+                text: roleInfoViewModel.infoDialogEffect,
+                color: (UITheme.statusColors && UITheme.statusColors.accent) || null
+            }
+        ]);
         dialog.show();
     },
 
@@ -340,7 +398,7 @@ var RoleTalentUiHelper = {
         var talentViewModel = this.getTalentRowViewModelByPurchaseId(purchaseId, snapshot);
         var config = {
             title: { title: talentViewModel.infoDialogTitle },
-            content: { des: talentViewModel.infoDialogText },
+            content: {},
             action: { btn_1: {} }
         };
         config.action.btn_1.txt = stringUtil.getString(1030);
@@ -356,6 +414,11 @@ var RoleTalentUiHelper = {
         }
 
         var dialog = new DialogSmall(config);
+        this._addScrollableDialogText(dialog, [
+            {
+                text: talentViewModel.infoDialogText,
+            }
+        ]);
         dialog.show();
     },
 

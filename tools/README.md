@@ -7,6 +7,9 @@
 - `tools/lib`
   仓库级通用逻辑。这里放可复用的验证器、数据读取器和清单定义，例如内容校验器、资源读取器、服务契约 manifest。
 
+- `tools/ui-preview`
+  前端静态模拟平台。读取真实配置、文案和资源，生成可直接打开的 HTML，用于 Codex 修改 UI 后检查开始选择、角色/天赋弹窗、商店、成就墙、成就兑换、文案溢出和资源回退，不承载游戏运行时业务。
+
 - `tools/precommit`
   提交前编排入口。这里只负责决定“跑哪些检查”，不在这里实现具体 smoke 或校验细节。
 
@@ -32,6 +35,9 @@
 - `node tools/validate-content.js ...`
   内容配置、链接和购买链契约校验入口。
 
+- `node tools/ui-preview/generate.js [--out tools/ui-preview/dist/index.html] [--json]`
+  生成前端静态模拟页。默认输出到 `tools/ui-preview/dist/index.html`，可以直接用浏览器打开。
+
 - `python3 tools/normalize-portrait.py ...`
   资源立绘规范化入口。
 
@@ -52,6 +58,13 @@
 
 - `tools/smoke/startup`
   启动装配、`jsList`、场景交接和启动链契约。
+
+- `tools/ui-preview/generate.js`
+  UI 模拟平台生成器，聚合角色、天赋、购买、成就、兑换、文案和 sprite 资源状态。
+
+- `tools/ui-preview/dist`
+  生成产物目录。这里的 HTML 是本地模拟快照，不进入游戏运行时代码。
+
 ## Git Hook Integration
 
 Use repository-managed Git hooks:

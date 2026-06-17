@@ -4,6 +4,34 @@
  * Time: 下午4:07
  */
 
+var fitChooseLabelToHeight = function (label, maxHeight, minFontSize) {
+    if (!label || !(maxHeight > 0)) {
+        return;
+    }
+
+    var fontSize = label.getFontSize ? label.getFontSize() : uiUtil.fontSize.COMMON_3;
+    minFontSize = minFontSize || uiUtil.fontSize.COMMON_4;
+    var getHeight = function () {
+        var size = label.getContentSize ? label.getContentSize() : null;
+        return size && isFinite(size.height) ? size.height : (isFinite(label.height) ? label.height : 0);
+    };
+
+    while (fontSize > minFontSize && getHeight() > maxHeight) {
+        fontSize -= 1;
+        if (label.setFontSize) {
+            label.setFontSize(fontSize);
+        } else {
+            break;
+        }
+    }
+};
+
+var setChooseLabelBox = function (label, width, height) {
+    if (label && label.setDimensions && width > 0 && height > 0) {
+        label.setDimensions(cc.size(width, height));
+    }
+};
+
 var ChooseLayer = cc.Layer.extend({
     ctor: function () {
         this._super();
@@ -91,7 +119,12 @@ var ChooseLayer = cc.Layer.extend({
                 var talentViewModel = RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(btn.purchaseId, snapshot);
                 var nameLabel = btn.getChildByName("name");
                 if (nameLabel) {
+                    if (nameLabel.setDimensions) {
+                        nameLabel.setDimensions(cc.size(nameLabel._chooseLabelWidth || btn.width + 70, 0));
+                    }
                     nameLabel.setString(talentViewModel.nameText || "");
+                    fitChooseLabelToHeight(nameLabel, nameLabel._chooseLabelMaxHeight || 36, 12);
+                    setChooseLabelBox(nameLabel, nameLabel._chooseLabelWidth || btn.width + 70, nameLabel._chooseLabelMaxHeight || 36);
                 }
             });
         };
@@ -149,13 +182,18 @@ var ChooseLayer = cc.Layer.extend({
 
             var talentViewModel = RoleTalentUiHelper.getTalentRowViewModelByPurchaseId(purchaseId, self.getRoleTalentSnapshot());
             var name = uiUtil.createLabel(talentViewModel.nameText, "meta", {
-                width: btn.width + 60,
+                width: btn.width + 70,
+                fontSize: 15,
                 anchorX: 0.5,
                 anchorY: 0,
                 hAlignment: cc.TEXT_ALIGNMENT_CENTER,
                 color: UITheme.colors.WHITE
             });
             name.setName("name");
+            name._chooseLabelWidth = btn.width + 70;
+            name._chooseLabelMaxHeight = 36;
+            fitChooseLabelToHeight(name, name._chooseLabelMaxHeight, 12);
+            setChooseLabelBox(name, name._chooseLabelWidth, name._chooseLabelMaxHeight);
             name.x = btn.width / 2;
             name.y = btn.height + 5;
             btn.addChild(name);
@@ -463,11 +501,15 @@ var SlideView = cc.Node.extend({
             var roleInfoViewModel = RoleTalentUiHelper.getRoleInfoViewModel(d.id);
 
             var name = uiUtil.createLabel(roleInfoViewModel.name || d.name, "sectionTitle", {
+                width: size.width - 20,
                 anchorX: 0.5,
                 anchorY: 0.5,
+                hAlignment: cc.TEXT_ALIGNMENT_CENTER,
                 color: UITheme.colors.WHITE
             });
-            name.setPosition(size.width / 2, size.height - 10);
+            fitChooseLabelToHeight(name, 32, uiUtil.fontSize.COMMON_4);
+            setChooseLabelBox(name, size.width - 20, 32);
+            name.setPosition(size.width / 2, size.height - 12);
             content.addChild(name);
 
             var headerBg = autoSpriteFrameController.getSpriteFromSpriteName("role_bg.png");
@@ -482,14 +524,18 @@ var SlideView = cc.Node.extend({
             headerBg.addChild(header);
             header.scale = 0.8;
 
-            var des = uiUtil.createLabel(roleInfoViewModel.effectText || roleInfoViewModel.descriptionText || d.des, "body", {
-                width: size.width - 20,
+            var summaryText = d.des || roleInfoViewModel.descriptionText || roleInfoViewModel.effectText || "";
+            var des = uiUtil.createLabel(summaryText, "caption", {
+                width: size.width - 24,
+                fontSize: uiUtil.fontSize.COMMON_4,
                 anchorX: 0.5,
                 anchorY: 0.5,
                 hAlignment: cc.TEXT_ALIGNMENT_CENTER,
                 color: UITheme.colors.WHITE
             });
-            des.setPosition(size.width / 2, 10);
+            fitChooseLabelToHeight(des, 62, 13);
+            setChooseLabelBox(des, size.width - 24, 62);
+            des.setPosition(size.width / 2, 38);
             content.addChild(des);
 
             var info = new SpriteButton(cc.size(100, 100), 'icon_iap_info.png');
