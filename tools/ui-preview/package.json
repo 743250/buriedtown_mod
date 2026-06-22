@@ -1,0 +1,12 @@
+{
+  "name": "buriedtown-ui-preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local UI snapshot tool for buriedtown_mod. Renders dist/index.html to PNG via headless Chromium.",
+  "scripts": {
+    "snapshot": "node snapshot.js"
+  },
+  "dependencies": {
+    "puppeteer": "^23.0.0"
+  }
+}

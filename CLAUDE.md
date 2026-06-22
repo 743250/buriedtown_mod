@@ -230,11 +230,11 @@ node tools/run-smoke.js runtime-boundaries startup
 
 ### 10.3 UI 改动后
 
-跑一次 UI 模拟器，并扫一下溢出/资源缺失：
+跑一次 UI 可视化运行时，检查节点树、缺图和布局：
 
 ```bash
-node tools/ui-preview/generate.js
-# 用浏览器打开 tools/ui-preview/dist/index.html
+node tools/ui-preview/runtime/generate-all.js
+node tools/ui-preview/runtime/inspect.js --generate --out tools/ui-preview/dist/runtime_report.md
 ```
 
 ### 10.4 最小回归用例（人工）

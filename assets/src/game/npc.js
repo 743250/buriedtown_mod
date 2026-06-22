@@ -29,6 +29,9 @@ var NPC = BaseSite.extend({
         //交易次数
         this.tradingCount = 0;
 
+        //上次执行 NpcEconomyService.runDailyTick 的游戏日（跨天补算用）
+        this.dailyTickDay = 0;
+
         this.storage = new Storage();
         this.giftProgress = 0;
 
@@ -59,7 +62,8 @@ var NPC = BaseSite.extend({
             needSendGiftList: this.needSendGiftList,
             isUnlocked: this.isUnlocked,
             tradingCount: this.tradingCount,
-            giftProgress: this.giftProgress
+            giftProgress: this.giftProgress,
+            dailyTickDay: this.dailyTickDay
         };
     },
     restore: function (saveObj) {
@@ -72,6 +76,7 @@ var NPC = BaseSite.extend({
             this.isUnlocked = saveObj.isUnlocked;
             this.tradingCount = Number(saveObj.tradingCount) || 0;
             this.giftProgress = Number(saveObj.giftProgress) || 0;
+            this.dailyTickDay = Number(saveObj.dailyTickDay) || 0;
         } else {
             this.init();
         }
@@ -416,6 +421,19 @@ var NPC = BaseSite.extend({
         }
     },
     updateTradingItem: function () {
+        // 优先走 NpcEconomyService 的日产/日消模型；服务缺失或异常时退回旧逻辑（清空+重塞）
+        if (typeof NpcEconomyService !== "undefined"
+            && NpcEconomyService
+            && typeof NpcEconomyService.runDailyTick === "function"
+            && typeof NpcEconomyService.getCurrentGameDay === "function") {
+            var currentDay = NpcEconomyService.getCurrentGameDay();
+            var lastDay = Number(this.dailyTickDay) || 0;
+            var elapsed = lastDay > 0 ? Math.max(1, currentDay - lastDay) : 1;
+            NpcEconomyService.runDailyTick(this, elapsed);
+            this.dailyTickDay = currentDay;
+            return;
+        }
+        // 兜底：旧行为（清空 + 按声望档位重塞 trading）
         this.storage = new Storage();
         for (var start = 0, end = memoryUtil.decode(this.reputation); start <= end; start++) {
             this.unlockTrading(start);
@@ -491,6 +509,16 @@ var NPC = BaseSite.extend({
         return favoriteInfoList;
     },
     _getTradeFavoritePrice: function (favorite, itemId) {
+        // 优先走服务：库存↔价格曲线（NpcEconomyService.getFavoritePriceMultiplier）
+        if (typeof NpcEconomyService !== "undefined"
+            && NpcEconomyService
+            && typeof NpcEconomyService.getFavoritePriceMultiplier === "function") {
+            var mul = NpcEconomyService.getFavoritePriceMultiplier(this, itemId);
+            if (typeof mul === "number" && isFinite(mul) && mul > 0) {
+                return mul;
+            }
+        }
+        // 兜底：旧行为（兼容合成 smoke favorite 物品 & 老配置）
         var deltaPrice = 1;
         favorite.forEach(function (itemInfo) {
             if (itemInfo.itemId == itemId) {
@@ -498,6 +526,18 @@ var NPC = BaseSite.extend({
             }
         });
         return deltaPrice;
+    },
+    _getTradeSellPrice: function (itemId) {
+        // NPC 卖给玩家：走 trading 库存曲线；服务返回 null 时按 1.0 兜底（旧行为）
+        if (typeof NpcEconomyService !== "undefined"
+            && NpcEconomyService
+            && typeof NpcEconomyService.getTradingSellMultiplier === "function") {
+            var mul = NpcEconomyService.getTradingSellMultiplier(this, itemId);
+            if (typeof mul === "number" && isFinite(mul) && mul > 0) {
+                return mul;
+            }
+        }
+        return 1;
     },
     _getTradeSummary: function (storage) {
         var favorite = this._getCurrentFavoriteList();
@@ -523,7 +563,10 @@ var NPC = BaseSite.extend({
             if (!item) {
                 item = new Item(itemId);
             }
-            var deltaPrice = this._getTradeFavoritePrice(favorite, item.id);
+            // 区分双向：玩家给 NPC 走 favorite 曲线，玩家拿走 NPC 物品走 trading 曲线
+            var deltaPrice = deltaNum > 0
+                ? this._getTradeFavoritePrice(favorite, item.id)
+                : this._getTradeSellPrice(item.id);
             var totalValue = item.getPrice() * deltaPrice * Math.abs(deltaNum);
             if (deltaNum > 0) {
                 payValue += totalValue;

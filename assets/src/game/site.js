@@ -354,7 +354,29 @@ var Site = BaseSite.extend({
         if (!this.isSiteEnd() || !this.storage.isEmpty()) {
             return false;
         }
+        // 副本仍有滑索连接时不允许自动清除：避免玩家投入的滑索被静默回收
+        // 玩家先手动拆除滑索（拆除会按规则退材料），下次离场再触发清理
+        if (this._hasActiveZiplineLink()) {
+            return false;
+        }
         return true;
+    },
+    _hasActiveZiplineLink: function () {
+        try {
+            if (typeof GameRuntime === "undefined" || !GameRuntime
+                || typeof GameRuntime.getPlayer !== "function") {
+                return false;
+            }
+            var runtimePlayer = GameRuntime.getPlayer();
+            if (!runtimePlayer || !runtimePlayer.ziplineNetwork
+                || typeof runtimePlayer.ziplineNetwork.hasLinksForEntity !== "function") {
+                return false;
+            }
+            return !!runtimePlayer.ziplineNetwork.hasLinksForEntity(this, runtimePlayer.map);
+        } catch (e) {
+            cc.error("Site._hasActiveZiplineLink failed: " + e);
+            return false;
+        }
     },
     increaseItem: function (itemId, num) {
         this.storage.increaseItem(itemId, num);

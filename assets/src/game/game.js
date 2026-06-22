@@ -21,8 +21,14 @@ var game = {
         }
 
         if (typeof ClientData !== "undefined" && ClientData) {
-            ClientData.CHANNEL = "" + CommonUtil.getMetaDataInt("channelId");
-            ClientData.CLIENT_VERSION = CommonUtil.getMetaData("versionName");
+            var channelId = CommonUtil.getMetaDataInt("channelId");
+            if (channelId !== undefined && channelId !== null && channelId !== "") {
+                ClientData.CHANNEL = "" + channelId;
+            }
+            var versionName = CommonUtil.getMetaData("versionName");
+            if (versionName !== undefined && versionName !== null && versionName !== "") {
+                ClientData.CLIENT_VERSION = versionName;
+            }
         }
         if (typeof paramManager !== "undefined"
             && paramManager

@@ -63,6 +63,61 @@ var RadioNode = BuildNode.extend({
         this.msgView.addLog(msg);
     },
 
+    /**
+     * 本地系统消息（NPC 经济变动等）。绝不走 networkUtil.sendMsg。
+     */
+    addLocalSystemMsg: function (entry) {
+        if (!entry) {
+            return;
+        }
+        // 与 RadioFeedService 同款去重：同一天同一 NPC 同一物品同一 kind 只保留最新一条
+        var key = entry._dedupKey
+            || (entry.gameDay + "|" + entry.npcId + "|" + entry.itemId + "|" + entry.economyKind);
+        for (var i = this.data.length - 1; i >= 0; i--) {
+            if (this.data[i] && this.data[i]._dedupKey === key) {
+                return;     // 重复，跳过
+            }
+        }
+        this.addMsg(entry);
+    },
+
+    _flushRadioFeedBuffer: function () {
+        if (typeof RadioFeedService === "undefined" || !RadioFeedService) {
+            return;
+        }
+        var feed = RadioFeedService.getFeed() || [];
+        var self = this;
+        feed.forEach(function (entry) {
+            self.addLocalSystemMsg(entry);
+        });
+    },
+
+    _bindEconomyListener: function () {
+        if (this._economyListenerBound) {
+            return;
+        }
+        if (typeof utils === "undefined" || !utils || !utils.emitter
+            || typeof NpcEconomyService === "undefined" || !NpcEconomyService) {
+            return;
+        }
+        var self = this;
+        this._economyListener = function (payload) {
+            if (!payload) return;
+            // 复用 RadioFeedService 的合成（保持 buffer 一致）
+            if (typeof RadioFeedService !== "undefined" && RadioFeedService) {
+                RadioFeedService.onPriceShift(payload);
+            }
+            // 立即把这一条灌进 UI（电台正打开）
+            var feed = (typeof RadioFeedService !== "undefined" && RadioFeedService)
+                ? RadioFeedService.getFeed() : [];
+            if (feed.length > 0) {
+                self.addLocalSystemMsg(feed[feed.length - 1]);
+            }
+        };
+        utils.emitter.on(NpcEconomyService.EVENT_PRICE_SHIFT, this._economyListener);
+        this._economyListenerBound = true;
+    },
+
     createTableView: function () {
         this.msgView = new MessageView(cc.size(this.bg.width - 14, this.sectionView.y - this.sectionView.height - 60));
         this.msgView.setPosition(7, 60);
@@ -118,6 +173,8 @@ var RadioNode = BuildNode.extend({
         //this.bg.getChildByName("btnSendMsg").setVisible(visible);
         if (visible) {
             this.updateData();
+            this._flushRadioFeedBuffer();
+            this._bindEconomyListener();
         }
     },
     sendMsg: function (msg) {

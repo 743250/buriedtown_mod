@@ -184,12 +184,10 @@ var fitInlineStatusButtonLabel = function (button, label, icon) {
         label._inlineStatusButtonBaseFontSize = label.getFontSize ? label.getFontSize() : uiUtil.fontSize.COMMON_2;
     }
 
-    if (label.setScale) {
-        label.setScale(1);
-    }
-    if (label.setFontSize) {
-        label.setFontSize(label._inlineStatusButtonBaseFontSize);
-    }
+    // 不再每次重置 scale/fontSize：cc.LabelTTF 使用比例字体，
+    // "00:00" 与 "11:11" 的实际像素宽不同，每次重置 + 重新收敛会让宽度
+    // 在临界值附近时反复触发/不触发收缩，造成顶部时间显示忽大忽小。
+    // 改为 sticky：只朝更小方向收敛，永不放大回 base。
 
     var iconWidth = button.opt && button.opt.scale ? icon.width * button.opt.scale : icon.width;
     var minSidePadding = 4;

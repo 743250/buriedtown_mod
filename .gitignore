@@ -1,0 +1,18 @@
+# UI preview intermediate artifacts (regenerated each run)
+tools/ui-preview/.work/
+tools/ui-preview/dist/capture_*.json
+tools/ui-preview/dist/render_device_*.png
+tools/ui-preview/dist/Screenshot_*.jpg
+tools/ui-preview/dist/Screenshot_*_thumb.jpg
+tools/ui-preview/dist/Screenshot_*_top.jpg
+tools/ui-preview/dist/compare_contact_sheet.jpg
+tools/ui-preview/dist/latest_screenshots_contact.jpg
+tools/ui-preview/dist/runtime_report.md
+tools/ui-preview/dist/lint_report_*.md
+tools/ui-preview/runtime/.atlas-cache/
+
+# Local backups / dev-only dirs
+claude-code-backup-*/
+__pycache__/
+*.pyc
+node_modules/

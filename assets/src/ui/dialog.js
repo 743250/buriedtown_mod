@@ -32,7 +32,12 @@ var Dialog = cc.Layer.extend({
         this.initContentSize();
         var winSize = cc.winSize;
         var contentSize = this.bgNode.getContentSize();
-        this.bgNode.setPosition((winSize.width - contentSize.width) / 2, 29 + (839 - contentSize.height) / 2);
+        // 根据是否有底部UI决定垂直居中区域
+        var runningScene = cc.director.getRunningScene();
+        var hasBottomFrame = runningScene && runningScene.getChildByName && runningScene.getChildByName("BottomFrame");
+        var effectiveHeight = hasBottomFrame ? 839 : winSize.height;
+        var topMargin = hasBottomFrame ? 29 : 0;
+        this.bgNode.setPosition((winSize.width - contentSize.width) / 2, topMargin + (effectiveHeight - contentSize.height) / 2);
         this.addChild(this.bgNode, 1);
 
         var bgColor = new cc.LayerColor();

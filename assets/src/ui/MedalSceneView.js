@@ -19,6 +19,7 @@ var MedalUiTextMap = {
         pointSuffix: "点",
         inProgress: "进行中",
         claimed: "已领取",
+        claimedReward: "已领取奖励",
         notReady: "未达成",
         shop: "兑换商店",
         claimTip: "获得成就点: ",
@@ -35,6 +36,7 @@ var MedalUiTextMap = {
         pointSuffix: " pts",
         inProgress: "In Progress",
         claimed: "Claimed",
+        claimedReward: "Reward Claimed",
         notReady: "Locked",
         shop: "Exchange",
         claimTip: "Achievement points +",
@@ -47,7 +49,7 @@ var MedalUiTheme = {
     background: cc.color(0, 0, 0, 255),
     panel: cc.color(8, 8, 8, 255),
     panelSoft: cc.color(18, 18, 18, 255),
-    progressTrack: cc.color(66, 66, 66, 255),
+    progressTrack: cc.color(20, 20, 20, 255),
     progressFill: cc.color(255, 255, 255, 255),
     points: cc.color(236, 200, 74, 255),
     border: cc.color(255, 255, 255, 196),
@@ -244,23 +246,23 @@ function medalViewCreateOutlineButton(txt, target, cb, opt) {
 }
 
 function medalViewCreateTabButton(txt, target, cb) {
-    var size = cc.size(168, 42);
+    var size = cc.size(156, 38);
     var btn = new ButtonWithPressed(size);
 
-    var label = new cc.LabelTTF(txt || "", uiUtil.fontFamily.normal, 24, cc.size(size.width, 0), cc.TEXT_ALIGNMENT_CENTER);
+    var label = new cc.LabelTTF(txt || "", uiUtil.fontFamily.normal, 21, cc.size(size.width, 0), cc.TEXT_ALIGNMENT_CENTER);
     label.setName("label");
-    label.setPosition(size.width / 2, size.height / 2 + 4);
+    label.setPosition(size.width / 2, size.height / 2 + 3);
     label.setColor(MedalUiTheme.text);
     btn.addChild(label, 1);
 
-    var underline = uiUtil.createColorRect(cc.size(size.width - 34, 2), MedalUiTheme.text, 255);
+    var underline = uiUtil.createColorRect(cc.size(size.width - 44, 2), MedalUiTheme.text, 255);
     underline.setName("underline");
-    underline.setPosition(17, 4);
+    underline.setPosition(22, 4);
     underline.setVisible(false);
     btn.addChild(underline, 1);
 
     btn.setSelectedState = function (selected) {
-        label.setOpacity(selected ? 255 : 168);
+        label.setOpacity(selected ? 255 : 150);
         underline.setVisible(!!selected);
     };
 
@@ -276,21 +278,23 @@ function medalViewCreateTabButton(txt, target, cb) {
 function medalViewCreateStatusNode(txt, opt) {
     opt = opt || {};
 
-    var size = opt.size || cc.size(136, 42);
+    var size = opt.size || cc.size(144, 42);
     var node = medalViewCreateOutlinePanel(size, {
-        fillColor: MedalUiTheme.panel,
-        fillOpacity: opt.fillOpacity === undefined ? 255 : opt.fillOpacity,
+        fillColor: opt.fillColor || MedalUiTheme.panelSoft,
+        fillOpacity: opt.fillOpacity === undefined ? 150 : opt.fillOpacity,
         borderColor: opt.borderColor || MedalUiTheme.border,
         lineWidth: 1
     });
+    node.setName(opt.name || "statusPill");
 
     var label = new cc.LabelTTF(
         txt || "",
         uiUtil.fontFamily.normal,
-        opt.fontSize || 18,
-        cc.size(size.width - 10, 0),
+        opt.fontSize || 19,
+        cc.size(size.width - 16, 0),
         cc.TEXT_ALIGNMENT_CENTER
     );
+    label.setName("label");
     label.setColor(opt.textColor || MedalUiTheme.textSoft);
     label.setPosition(size.width / 2, size.height / 2);
     node.addChild(label, 1);
@@ -302,8 +306,8 @@ function medalViewCreateProgressBar(width, medalInfo) {
     var size = cc.size(width, 18);
     var node = medalViewCreateOutlinePanel(size, {
         fillColor: MedalUiTheme.progressTrack,
-        fillOpacity: 255,
-        borderColor: MedalUiTheme.border,
+        fillOpacity: 170,
+        borderColor: MedalUiTheme.divider,
         lineWidth: 1
     });
     var innerWidth = Math.max(0, size.width - 4);
@@ -312,7 +316,7 @@ function medalViewCreateProgressBar(width, medalInfo) {
     fillWidth = Math.min(innerWidth, fillWidth);
 
     if (fillWidth > 0) {
-        var fill = uiUtil.createColorRect(cc.size(fillWidth, size.height - 4), MedalUiTheme.progressFill, 255);
+        var fill = uiUtil.createColorRect(cc.size(fillWidth, size.height - 4), MedalUiTheme.progressFill, 235);
         fill.setPosition(2, 2);
         node.addChild(fill, 1);
     }
@@ -382,6 +386,7 @@ var MedalSceneView = cc.Node.extend({
     _scrollTrack: null,
     _scrollThumb: null,
     _pendingRefreshOffsetY: null,
+    _recentClaimedStageId: null,
 
     ctor: function (initialCategoryOrSeries) {
         this._super();
@@ -425,28 +430,28 @@ var MedalSceneView = cc.Node.extend({
 
         this._titleLabel = uiUtil.createLabel(medalViewText("title"), "title", {
             width: 320,
-            fontSize: 40,
+            fontSize: 36,
             hAlignment: cc.TEXT_ALIGNMENT_CENTER,
             anchorX: 0.5,
             anchorY: 1,
             color: MedalUiTheme.text
         });
-        this._titleLabel.setPosition(this.width / 2, this.height - 28);
+        this._titleLabel.setPosition(this.width / 2, this.height - 24);
         this.addChild(this._titleLabel);
 
         this._pointsLabel = uiUtil.createLabel("", "body", {
             width: 220,
-            fontSize: 22,
+            fontSize: 20,
             hAlignment: cc.TEXT_ALIGNMENT_RIGHT,
             anchorX: 1,
             anchorY: 0.5,
             color: MedalUiTheme.points
         });
-        this._pointsLabel.setPosition(this.width - 42, this.height - 56);
+        this._pointsLabel.setPosition(this.width - 44, this.height - 54);
         this.addChild(this._pointsLabel);
 
-        var headerLine = uiUtil.createColorRect(cc.size(560, 1), MedalUiTheme.divider, 255);
-        headerLine.setPosition((this.width - 560) / 2, this.height - 118);
+        var headerLine = uiUtil.createColorRect(cc.size(560, 1), MedalUiTheme.divider, 180);
+        headerLine.setPosition((this.width - 560) / 2, this.height - 112);
         this.addChild(headerLine);
 
         this._buildTabs();
@@ -477,9 +482,9 @@ var MedalSceneView = cc.Node.extend({
 
     _buildTabs: function () {
         var self = this;
-        var tabY = this.height - 110;
+        var tabY = this.height - 104;
         var count = Math.max(1, this._categoryIds.length);
-        var tabSpacing = count === 1 ? 0 : Math.min(176, 500 / (count - 1));
+        var tabSpacing = count === 1 ? 0 : Math.min(172, 492 / (count - 1));
         var startX = this.width / 2 - tabSpacing * (count - 1) / 2;
 
         this._categoryIds.forEach(function (categoryId, idx) {
@@ -502,21 +507,20 @@ var MedalSceneView = cc.Node.extend({
 
     _buildScrollArea: function () {
         var viewWidth = 588;
-        var scrollBottomY = 126;
-        var scrollTopY = this.height - 150;
+        var scrollBottomY = 142;
+        var scrollTopY = this.height - 158;
         var viewHeight = Math.max(220, scrollTopY - scrollBottomY);
 
         this._scrollView = new MedalSeriesScrollView(cc.size(viewWidth, viewHeight), this);
         this._scrollView.setPosition((this.width - viewWidth) / 2, scrollBottomY);
         this.addChild(this._scrollView);
 
-        this._scrollTrack = uiUtil.createColorRect(cc.size(5, viewHeight), MedalUiTheme.divider, 255);
+        this._scrollTrack = uiUtil.createColorRect(cc.size(3, viewHeight), MedalUiTheme.divider, 80);
         this._scrollTrack.setPosition(this._scrollView.x + viewWidth + 12, scrollBottomY);
         this.addChild(this._scrollTrack, 1);
 
-        this._scrollThumb = uiUtil.createColorRect(cc.size(5, 84), MedalUiTheme.text, 255);
-        this._scrollThumb.setAnchorPoint(0.5, 1);
-        this._scrollThumb.setPosition(this._scrollTrack.x + 2.5, scrollBottomY + viewHeight);
+        this._scrollThumb = uiUtil.createColorRect(cc.size(3, 84), MedalUiTheme.text, 145);
+        this._scrollThumb.setPosition(this._scrollTrack.x + 1.5, scrollBottomY + viewHeight - 84);
         this.addChild(this._scrollThumb, 2);
     },
 
@@ -560,8 +564,8 @@ var MedalSceneView = cc.Node.extend({
         var viewHeight = this._scrollView.getViewSize().height;
         var seriesIds = Medal.getSeriesIdsByCategory(this._currentCategory);
         var rows = [];
-        var totalHeight = 12;
-        var rowGap = 14;
+        var totalHeight = 16;
+        var rowGap = 20;
         var i;
 
         if (!seriesIds.length) {
@@ -592,13 +596,13 @@ var MedalSceneView = cc.Node.extend({
                 totalHeight += rowGap;
             }
         }
-        totalHeight += 12;
+        totalHeight += 88;
 
         var contentHeight = Math.max(totalHeight, viewHeight);
         container.setContentSize(viewWidth, contentHeight);
         this._scrollView.setContentSize(viewWidth, contentHeight);
 
-        var currentY = contentHeight - 12;
+        var currentY = contentHeight - 16;
         for (i = 0; i < rows.length; i++) {
             var row = rows[i];
             row.setAnchorPoint(0.5, 1);
@@ -621,12 +625,17 @@ var MedalSceneView = cc.Node.extend({
 
     _createSeriesPanel: function (seriesId) {
         var state = medalViewSeriesState(seriesId);
+        if (this._recentClaimedStageId && state.stageIds.indexOf(this._recentClaimedStageId) !== -1) {
+            state.activeStageId = this._recentClaimedStageId;
+            state.activeInfo = Medal._map[this._recentClaimedStageId];
+            state.activeStrings = medalViewGetStrings(this._recentClaimedStageId);
+            state.allClaimed = false;
+        }
         var stageInfo = state.activeInfo;
         var stageStrings = state.activeStrings || medalViewGetStrings(state.activeStageId || seriesId);
         var panelWidth = 570;
-        var leftIconWidth = 122;
-        var contentX = 160;
-        var contentWidth = panelWidth - contentX - 24;
+        var contentX = 176;
+        var contentWidth = panelWidth - contentX - 28;
         var currentStageText = state.allClaimed
             ? medalViewText("finishedAll")
             : medalViewText("currentStage") + "  " + (stageStrings.name || medalViewSeriesTitle(seriesId));
@@ -637,7 +646,7 @@ var MedalSceneView = cc.Node.extend({
 
         var titleLabel = uiUtil.createLabel(medalViewSeriesTitle(seriesId), "title", {
             width: contentWidth - 74,
-            fontSize: 28,
+            fontSize: 26,
             hAlignment: cc.TEXT_ALIGNMENT_LEFT,
             anchorX: 0,
             anchorY: 1,
@@ -645,7 +654,7 @@ var MedalSceneView = cc.Node.extend({
         });
         var countLabel = uiUtil.createLabel(state.claimedCount + "/" + state.totalCount, "body", {
             width: 70,
-            fontSize: 24,
+            fontSize: 23,
             hAlignment: cc.TEXT_ALIGNMENT_RIGHT,
             anchorX: 1,
             anchorY: 1,
@@ -653,7 +662,7 @@ var MedalSceneView = cc.Node.extend({
         });
         var goalLabel = uiUtil.createLabel(goalText, "body", {
             width: contentWidth,
-            fontSize: 19,
+            fontSize: 18,
             hAlignment: cc.TEXT_ALIGNMENT_LEFT,
             anchorX: 0,
             anchorY: 1,
@@ -661,7 +670,7 @@ var MedalSceneView = cc.Node.extend({
         });
         var currentLabel = uiUtil.createLabel(currentStageText, "sectionTitle", {
             width: contentWidth - 82,
-            fontSize: 22,
+            fontSize: 20,
             hAlignment: cc.TEXT_ALIGNMENT_LEFT,
             anchorX: 0,
             anchorY: 1,
@@ -681,23 +690,23 @@ var MedalSceneView = cc.Node.extend({
         );
         var detailLabel = uiUtil.createLabel(detailText, "body", {
             width: contentWidth,
-            fontSize: 18,
+            fontSize: 17,
             hAlignment: cc.TEXT_ALIGNMENT_LEFT,
             anchorX: 0,
             anchorY: 1,
             color: MedalUiTheme.textMuted
         });
         var actionNode = this._createStageActionNode(state, stageInfo);
-        var progressNode = medalViewCreateProgressBar(292, stageInfo);
-        var stageBadgeHeight = 36;
+        var progressNode = medalViewCreateProgressBar(320, stageInfo);
+        var stageBadgeHeight = 32;
         var bottomAreaHeight = Math.max(58, actionNode.height + 16);
         var detailHeight = detailText ? detailLabel.getContentSize().height : 0;
         var panelHeight = Math.max(
-            224,
-            20 + titleLabel.getContentSize().height
+            230,
+            22 + titleLabel.getContentSize().height
             + 8 + goalLabel.getContentSize().height
-            + 16 + stageBadgeHeight
-            + 12 + 1 + 14
+            + 14 + stageBadgeHeight
+            + 12 + 1 + 12
             + currentLabel.getContentSize().height
             + 10 + progressNode.height
             + 10 + detailHeight
@@ -712,7 +721,8 @@ var MedalSceneView = cc.Node.extend({
         var icon = autoSpriteFrameController.getSpriteFromSpriteName("#medalIcon_" + (state.iconId || 1) + ".png");
         if (icon) {
             icon.setColor(MedalUiTheme.text);
-            icon.setPosition(78, panelHeight - 78);
+            icon.setScale(0.78);
+            icon.setPosition(86, panelHeight - 88);
             panel.addChild(icon, 1);
         }
 
@@ -724,36 +734,38 @@ var MedalSceneView = cc.Node.extend({
 
         var level = stageInfo && stageInfo.stageLevel ? stageInfo.stageLevel : (state.activeStageId ? state.activeStageId % 100 : 1);
         var starNode = medalViewGetStarSprite(level, stageInfo);
-        starNode.setPosition(78, 28);
+        starNode.setAnchorPoint(0.5, 0.5);
+        starNode.setScale(0.78);
+        starNode.setPosition(86, panelHeight - 174);
         panel.addChild(starNode, 1);
 
-        titleLabel.setPosition(contentX, panelHeight - 20);
+        titleLabel.setPosition(contentX, panelHeight - 22);
         panel.addChild(titleLabel, 1);
 
-        countLabel.setPosition(panelWidth - 24, panelHeight - 20);
+        countLabel.setPosition(panelWidth - 28, panelHeight - 22);
         panel.addChild(countLabel, 1);
 
         goalLabel.setPosition(contentX, titleLabel.y - titleLabel.getContentSize().height - 8);
         panel.addChild(goalLabel, 1);
 
-        var badgeY = goalLabel.y - goalLabel.getContentSize().height - 18;
-        var badgeX = contentX + 18;
+        var badgeY = goalLabel.y - goalLabel.getContentSize().height - 16;
+        var badgeX = contentX + 15;
         for (var i = 0; i < state.stageIds.length; i++) {
             var badge = this._createStageBadge(state.stageIds[i], state);
             badge.setAnchorPoint(0.5, 0.5);
-            badge.setPosition(badgeX + i * 44, badgeY);
+            badge.setPosition(badgeX + i * 40, badgeY);
             panel.addChild(badge, 1);
         }
 
-        var dividerY = badgeY - 24;
+        var dividerY = badgeY - 22;
         var divider = uiUtil.createColorRect(cc.size(panelWidth - contentX - 24, 1), MedalUiTheme.divider, 255);
         divider.setPosition(contentX, dividerY);
         panel.addChild(divider, 1);
 
-        currentLabel.setPosition(contentX, dividerY - 14);
+        currentLabel.setPosition(contentX, dividerY - 12);
         panel.addChild(currentLabel, 1);
 
-        progressLabel.setPosition(panelWidth - 24, dividerY - 14);
+        progressLabel.setPosition(panelWidth - 28, dividerY - 12);
         panel.addChild(progressLabel, 1);
 
         progressNode.setPosition(contentX, currentLabel.y - currentLabel.getContentSize().height - 10 - progressNode.height);
@@ -765,7 +777,7 @@ var MedalSceneView = cc.Node.extend({
         }
 
         actionNode.setAnchorPoint(1, 0);
-        actionNode.setPosition(panelWidth - 24, 18);
+        actionNode.setPosition(panelWidth - 28, 18);
         panel.addChild(actionNode, 1);
 
         return panel;
@@ -774,8 +786,10 @@ var MedalSceneView = cc.Node.extend({
     _createStageActionNode: function (state, stageInfo) {
         if (!stageInfo) {
             return medalViewCreateStatusNode(medalViewText("notReady"), {
-                size: cc.size(136, 42),
-                borderColor: MedalUiTheme.border
+                size: cc.size(144, 42),
+                borderColor: MedalUiTheme.border,
+                fillOpacity: 96,
+                textColor: MedalUiTheme.textFaint
             });
         }
 
@@ -788,24 +802,29 @@ var MedalSceneView = cc.Node.extend({
                     this._claimStageReward(stageId);
                 },
                 {
-                    size: cc.size(160, 44),
+                    size: cc.size(170, 46),
                     fontSize: 20,
-                    borderColor: MedalUiTheme.borderStrong
+                    fillColor: MedalUiTheme.panelSoft,
+                    fillOpacity: 220,
+                    borderColor: MedalUiTheme.borderStrong,
+                    textColor: MedalUiTheme.text
                 }
             );
         }
 
         if (stageInfo.claimed === 1) {
-            return medalViewCreateStatusNode(medalViewText("claimed"), {
-                size: cc.size(136, 42),
+            return medalViewCreateStatusNode(medalViewText("claimedReward"), {
+                size: cc.size(164, 42),
                 borderColor: MedalUiTheme.border,
-                textColor: MedalUiTheme.textSoft
+                fillOpacity: 112,
+                textColor: MedalUiTheme.textMuted
             });
         }
 
         return medalViewCreateStatusNode(medalViewText("inProgress"), {
-            size: cc.size(136, 42),
+            size: cc.size(144, 42),
             borderColor: MedalUiTheme.border,
+            fillOpacity: 128,
             textColor: MedalUiTheme.textSoft
         });
     },
@@ -874,7 +893,7 @@ var MedalSceneView = cc.Node.extend({
             textOpacity = 255;
         }
 
-        var badge = medalViewCreateOutlinePanel(cc.size(34, 34), {
+        var badge = medalViewCreateOutlinePanel(cc.size(30, 30), {
             fillColor: MedalUiTheme.panelSoft,
             fillOpacity: fillOpacity,
             borderColor: borderColor,
@@ -883,7 +902,7 @@ var MedalSceneView = cc.Node.extend({
         var label = new cc.LabelTTF(medalViewStageBadgeText(stageLevel), uiUtil.fontFamily.normal, 18);
         label.setColor(MedalUiTheme.text);
         label.setOpacity(textOpacity);
-        label.setPosition(17, 17);
+        label.setPosition(15, 15);
         badge.addChild(label, 1);
 
         return badge;
@@ -898,8 +917,12 @@ var MedalSceneView = cc.Node.extend({
         this._pendingRefreshOffsetY = this._scrollView && typeof this._scrollView.getContentOffset === "function"
             ? this._scrollView.getContentOffset().y
             : 0;
+        this._recentClaimedStageId = stageId;
         if (Medal.claimAchievement(stageId)) {
             uiUtil.showTip(medalViewText("claimTip") + medalInfo.points);
+            this._refreshCurrentCategoryView(this._pendingRefreshOffsetY);
+        } else {
+            this._recentClaimedStageId = null;
         }
     },
 
@@ -928,10 +951,10 @@ var MedalSceneView = cc.Node.extend({
         var ratio = maxOffset === minOffset ? 0 : (offsetY - minOffset) / (maxOffset - minOffset);
         ratio = Math.max(0, Math.min(1, ratio));
 
-        this._scrollThumb.setContentSize(cc.size(5, thumbHeight));
+        this._scrollThumb.setContentSize(cc.size(3, thumbHeight));
         this._scrollThumb.setPosition(
-            this._scrollTrack.x + 2.5,
-            this._scrollTrack.y + trackHeight - (trackHeight - thumbHeight) * ratio
+            this._scrollTrack.x + 1.5,
+            this._scrollTrack.y + (trackHeight - thumbHeight) * ratio
         );
     }
 });

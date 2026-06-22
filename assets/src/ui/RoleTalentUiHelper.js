@@ -423,9 +423,11 @@ var RoleTalentUiHelper = {
     },
 
     _createRolePanel: function (panelWidth, roleInfoViewModel) {
-        var avatarSize = 76;
+        var avatarSlotWidth = 134;
+        var avatarSlotHeight = 224;
+        var avatarContentWidth = 176;
         var leftPadding = uiUtil.spacing.MD;
-        var textStartX = leftPadding + avatarSize + uiUtil.spacing.SM;
+        var textStartX = leftPadding + avatarContentWidth + uiUtil.spacing.SM;
         var textWidth = Math.max(120, panelWidth - textStartX - uiUtil.spacing.MD);
 
         var panel = new cc.Node();
@@ -454,7 +456,7 @@ var RoleTalentUiHelper = {
         );
 
         var panelHeight = Math.max(
-            124,
+            172,
             titleLabel.height + desLabel.height + effectLabel.height + uiUtil.spacing.SM * 2 + uiUtil.spacing.MD
         );
         panel.setContentSize(panelWidth, panelHeight);
@@ -467,19 +469,16 @@ var RoleTalentUiHelper = {
         panelBg.setAnchorPoint(0, 0);
         panel.addChild(panelBg);
 
-        var avatarBg = uiUtil.getSpriteByNameSafe("role_bg.png", "icon_iap_info.png");
-        this._fitSpriteToSize(avatarBg, avatarSize, avatarSize);
-        avatarBg.setAnchorPoint(0.5, 0.5);
-        avatarBg.setPosition(leftPadding + avatarSize / 2, panelHeight / 2);
-        panel.addChild(avatarBg);
-
-        var avatar = uiUtil.getCharacterPortraitSpriteByRoleType(
+        var portraitFallback = roleInfoViewModel.avatarFallback
+            || uiUtil.getDefaultSpriteName("character", false);
+        var portrait = uiUtil.getCharacterPortraitSpriteByRoleType(
             roleInfoViewModel.roleType,
-            roleInfoViewModel.avatarFallback
+            portraitFallback
         );
-        this._fitSpriteToSize(avatar, avatarBg.width * 1.08, avatarBg.height * 1.08);
-        avatar.setPosition(avatarBg.width / 2, avatarBg.height / 2);
-        avatarBg.addChild(avatar);
+        portrait.setAnchorPoint(0.5, 0.5);
+        portrait.setPosition(leftPadding + avatarContentWidth / 2, panelHeight / 2);
+        portrait.scale = 0.8;
+        panel.addChild(portrait);
 
         titleLabel.setPosition(textStartX, panelHeight - uiUtil.spacing.SM);
         panel.addChild(titleLabel);
