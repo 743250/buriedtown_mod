@@ -45,11 +45,20 @@ var GameEvents = {
     BATTLE_END: 'battle_end'
 };
 
+// 药品 ID
+var MedicineItemId = {
+    BANDAGE: 1104011,
+    BANDAGE_ADV: 1104021,
+    PENICILLIN_HOMEMADE: 1104032,
+    BANDAGE_PRO: 1104043
+};
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PlayerAttr: PlayerAttr,
         BattleConst: BattleConst,
         EquipmentPos: EquipmentPos,
-        GameEvents: GameEvents
+        GameEvents: GameEvents,
+        MedicineItemId: MedicineItemId
     };
 }

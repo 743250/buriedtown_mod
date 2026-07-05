@@ -658,3 +658,15 @@ var BuffManager = cc.Class.extend({
         return displayBuffs;
     }
 });
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+        RuntimeBuffType: RuntimeBuffType,
+        BuffSourceType: BuffSourceType,
+        BuffSlotType: BuffSlotType,
+        BuffPeriodType: BuffPeriodType,
+        BuffEffect: BuffEffect,
+        BuffEffectType: BuffEffectType,
+        BuffItemEffectType: BuffItemEffectType
+    };
+}

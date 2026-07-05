@@ -87,6 +87,7 @@ function runBattleCadenceSmoke() {
         }
     };
 
+    loadIntoSandbox(sandbox, "assets/src/game/constants.js");
     loadIntoSandbox(sandbox, "assets/src/game/BattleEquipmentSystem.js");
 
     const targetMonster = {
@@ -229,6 +230,7 @@ function runMeleeIndependentCooldownSmoke() {
         }
     };
 
+    loadIntoSandbox(sandbox, "assets/src/game/constants.js");
     loadIntoSandbox(sandbox, "assets/src/game/BattleEquipmentSystem.js");
 
     const targetMonster = {
@@ -399,6 +401,7 @@ function runBattleHeadshotLogSmoke() {
     };
 
     bootstrapGameRuntime(sandbox);
+    loadIntoSandbox(sandbox, "assets/src/game/constants.js");
     loadIntoSandbox(sandbox, "assets/src/game/BattleEquipmentSystem.js");
     loadIntoSandbox(sandbox, "assets/src/game/BattleActors.js");
 

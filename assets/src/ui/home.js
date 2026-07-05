@@ -277,7 +277,7 @@ var HomeNode = BottomFrameNode.extend({
     flushBag: function () {
         var runtimePlayer = getHomeRuntimePlayer();
         runtimePlayer.bag.forEach(function (item, num) {
-            if (!runtimePlayer.equip.isEquiped(item.id) && item.id != BattleConfig.BULLET_ID) {
+            if (!runtimePlayer.equip.isEquiped(item.id) && item.id != BattleConst.BULLET_ID) {
                 runtimePlayer.storage.increaseItem(item.id, num);
                 runtimePlayer.bag.decreaseItem(item.id, num);
             }

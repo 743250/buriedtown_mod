@@ -778,7 +778,7 @@ var RandomBattleDialog = DialogBig.extend({
 
         var items = [];
         if (sumRes.bulletNum > 0) {
-            items.push({itemId: BattleConfig.BULLET_ID, num: sumRes.bulletNum});
+            items.push({itemId: BattleConst.BULLET_ID, num: sumRes.bulletNum});
             //player.bag.decreaseItem(1305011,sumRes.bulletNum);
         }
         if (sumRes.tools > 0) {

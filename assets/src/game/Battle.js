@@ -4,6 +4,7 @@ if (typeof cc === "undefined" || !cc) {
     var BattleActors = require("./BattleActors");
     var BattleSummary = require("./BattleSummary");
     var BattleSettlementService = require("./BattleSettlementService");
+    var BattleConst = require("./constants").BattleConst;
 
     var testBattleConfig;
 
@@ -20,7 +21,6 @@ var BattleConfig = {
     MAX_CLOCK_STEP: 0.25,
     //逃生时间
     ESCAPE_TIME: 1.5,
-    BULLET_ID: 1305011,
     PLAYER_DODGE_RATE: 0,
     MONSTER_DODGE_RATE: 0
 }
@@ -77,7 +77,7 @@ var Battle = cc.Class.extend({
 
         this.player = new BattleActors.Player(this, BattleActors.createBattlePlayerSnapshot({
             testBattleConfig: testBattleConfig,
-            bulletItemId: BattleConfig.BULLET_ID
+            bulletItemId: BattleConst.BULLET_ID
         }), createBattleRuntimeConfig());
 
         this.isMonsterStop = false;
@@ -279,7 +279,7 @@ var Battle = cc.Class.extend({
             isDodge: this.isDodge,
             summary: this.summary,
             battlePlayer: this.player,
-            bulletItemId: BattleConfig.BULLET_ID,
+            bulletItemId: BattleConst.BULLET_ID,
             testBattleConfig: testBattleConfig
         });
 

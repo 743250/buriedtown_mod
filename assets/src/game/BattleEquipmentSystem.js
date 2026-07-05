@@ -3,12 +3,12 @@ if (typeof cc === "undefined" || !cc) {
     var utils = require("../util/utils");
     var itemConfig = require("../data/itemConfig");
     var CombatResolver = require("./CombatResolver");
+    var BattleConst = require("./constants").BattleConst;
 }
 
 var BattleEquipmentSystem = (function () {
     var CONFIG = {
-        LINE_LENGTH: 6,
-        BULLET_ID: 1305011
+        LINE_LENGTH: 6
     };
     var roundBattleTime = function (value) {
         return Number((Number(value) || 0).toFixed(3));
@@ -390,7 +390,7 @@ var BattleEquipmentSystem = (function () {
         },
         ctor: function (id, battlePlayer) {
             this._super(id, battlePlayer);
-            this.bulletConfig = utils.clone(itemConfig[CONFIG.BULLET_ID].effect_weapon);
+            this.bulletConfig = utils.clone(itemConfig[BattleConst.BULLET_ID].effect_weapon);
         },
         _action: function () {
             var monster = this.getTarget();

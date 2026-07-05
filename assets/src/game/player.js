@@ -491,7 +491,7 @@ var Player = cc.Class.extend({
                 this.itemEffect(item, item.getFoodEffect());
                 return {result: true};
             } else if (item.isType(ItemType.TOOL, ItemType.MEDICINE)) {
-                if (itemId == 1104011) {
+                if (itemId == MedicineItemId.BANDAGE) {
                     storage.decreaseItem(itemId, 1);
                     this.log.addMsg(1094, itemName, storage.getNumByItemId(itemId));
                     this.itemEffect(item, item.getMedicineEffect());
@@ -499,8 +499,8 @@ var Player = cc.Class.extend({
                 } else {
                     storage.decreaseItem(itemId, 1);
                     this.log.addMsg(1095, itemName, storage.getNumByItemId(itemId));
-                    if (itemId == 1104032) {
-                        var res = this.item1104032Effect(item, item.getMedicineEffect());
+                    if (itemId == MedicineItemId.PENICILLIN_HOMEMADE) {
+                        var res = this.applyHomemadePenicillinEffect(item, item.getMedicineEffect());
                         if (res) {
                             this.cure();
                         }
@@ -523,12 +523,12 @@ var Player = cc.Class.extend({
         }
     },
     //自制青霉素的使用,如果扣血成功,则不发生治疗效果
-    item1104032Effect: function (item, obj) {
+    applyHomemadePenicillinEffect: function (item, obj) {
         var hpChance = obj.hp_chance;
         var rand = Math.random();
         cc.log(" hpChance=" + hpChance + " rand=" + rand)
         if (rand <= hpChance) {
-            cc.log("1104032 worked");
+            cc.log("PENICILLIN_HOMEMADE worked");
             this.changeHp(obj.hp);
             return false;
         } else {

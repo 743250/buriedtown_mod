@@ -108,7 +108,7 @@ var Storage = cc.Class.extend({
             } else if ((itemIdA < min || itemIdA >= max) && (itemIdB >= min && itemIdB < max)) {
                 return 1;
             } else if ((itemIdA >= min && itemIdA < max) && (itemIdB >= min && itemIdB < max)) {
-                if (itemIdA === BattleConfig.BULLET_ID || itemIdB === BattleConfig.BULLET_ID) {
+                if (itemIdA === BattleConst.BULLET_ID || itemIdB === BattleConst.BULLET_ID) {
                     return 1;
                 }
                 return itemIdA - itemIdB;

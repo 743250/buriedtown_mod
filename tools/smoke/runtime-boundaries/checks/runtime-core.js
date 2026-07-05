@@ -138,7 +138,6 @@ function runTalentHomeProduceSmoke() {
 function runWeightPrecisionSmoke() {
     const sandbox = createVmSandbox();
     sandbox.Achievement.checkGetItem = function () {};
-    sandbox.BattleConfig = { BULLET_ID: 1305011 };
     sandbox.GameRuntime = {
         getPlayer: function () {
             return {
@@ -163,6 +162,7 @@ function runWeightPrecisionSmoke() {
         9002: { id: 9002, weight: 1 }
     };
 
+    loadIntoSandbox(sandbox, "assets/src/game/constants.js");
     loadIntoSandbox(sandbox, "assets/src/util/emitter.js");
     loadIntoSandbox(sandbox, "assets/src/util/utils.js");
     loadIntoSandbox(sandbox, "assets/src/util/memoryUtil.js");

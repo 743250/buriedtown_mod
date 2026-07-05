@@ -1575,10 +1575,10 @@ uiUtil.createEquipedItemIconList = function (dark) {
         }
         return res;
     });
-    var bulletNum = player.bag.getNumByItemId(BattleConfig.BULLET_ID);
+    var bulletNum = player.bag.getNumByItemId(BattleConst.BULLET_ID);
     if (bulletNum > 0) {
         equipedItemList.unshift({
-            itemId: BattleConfig.BULLET_ID,
+            itemId: BattleConst.BULLET_ID,
             num: bulletNum
         });
     }
