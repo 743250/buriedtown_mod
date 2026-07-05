@@ -6,21 +6,6 @@ var BuildNodeUpdateEventName = (typeof GameEvents !== "undefined" && GameEvents 
     ? GameEvents.BUILD_NODE_UPDATE
     : "build_node_update";
 
-var getBuildActionRuntimePlayer = function () {
-    return GameRuntime.getPlayer();
-};
-
-var getBuildActionRuntimeTimer = function () {
-    return GameRuntime.getTimer();
-};
-
-var getBuildActionRuntimeEmitter = function () {
-    return GameRuntime.getEmitter();
-};
-
-var getBuildActionRuntimeRecord = function () {
-    return GameRuntime.getRecord();
-};
 var getBuildActionEffectService = function () {
     return GameKernel.require("BuildActionEffectService", "buildAction.js");
 };
@@ -44,7 +29,7 @@ var BuildAction = cc.Class.extend({
         return this.id;
     },
     getCurrentBuildLevel: function () {
-        return getBuildActionRuntimePlayer().room.getBuildLevel(this.bid);
+        return GameRuntime.getPlayer().room.getBuildLevel(this.bid);
     },
     save: function () {
         return {};
@@ -60,7 +45,7 @@ var BuildAction = cc.Class.extend({
     clickAction2: function () {
     },
     _sendUpdageSignal: function () {
-        getBuildActionRuntimeEmitter().emit(BuildNodeUpdateEventName);
+        GameRuntime.getEmitter().emit(BuildNodeUpdateEventName);
     },
     _updateStatus: function () {
     },
@@ -70,7 +55,7 @@ var BuildAction = cc.Class.extend({
         this.view = view;
         this.idx = idx;
         if (this.view) {
-            this.build = getBuildActionRuntimePlayer().room.getBuild(this.bid);
+            this.build = GameRuntime.getPlayer().room.getBuild(this.bid);
             this.view.updateView({btnIdx: idx});
             this._updateStatus();
             var viewInfo = this._getUpdateViewInfo();
@@ -114,7 +99,7 @@ var BuildAction = cc.Class.extend({
         }
 
         var pastTime = startTime || 0;
-        var timer = getBuildActionRuntimeTimer();
+        var timer = GameRuntime.getTimer();
         var timerStartTime = startTime ? timer.time - startTime : undefined;
         timer.addTimerCallback(new TimerCallback(time, this, {
             process: function (dt) {
@@ -132,7 +117,7 @@ var BuildAction = cc.Class.extend({
         }
     },
     _setLeftBtnEnabled: function (enabled) {
-        getBuildActionRuntimeEmitter().emit("left_btn_enabled", !!enabled);
+        GameRuntime.getEmitter().emit("left_btn_enabled", !!enabled);
     },
     _beginActioning: function () {
         this._setLeftBtnEnabled(false);
@@ -149,20 +134,20 @@ var BuildAction = cc.Class.extend({
             this._setLeftBtnEnabled(true);
         }
         if (opt.saveRecord !== false) {
-            getBuildActionRuntimeRecord().saveAll();
+            GameRuntime.getRecord().saveAll();
         }
     },
     _isNeedBuildLocked: function () {
-        return this.needBuild && this.needBuild.level > getBuildActionRuntimePlayer().room.getBuildLevel(this.needBuild.bid);
+        return this.needBuild && this.needBuild.level > GameRuntime.getPlayer().room.getBuildLevel(this.needBuild.bid);
     },
     _getNeedBuildHint: function () {
         if (!this.needBuild) {
             return "";
         }
-        return stringUtil.getString(1006, getBuildActionRuntimePlayer().room.getBuildName(this.needBuild["bid"], this.needBuild["level"]));
+        return stringUtil.getString(1006, GameRuntime.getPlayer().room.getBuildName(this.needBuild["bid"], this.needBuild["level"]));
     },
     _isCostEnough: function (cost) {
-        return getBuildActionRuntimePlayer().validateItems(cost);
+        return GameRuntime.getPlayer().validateItems(cost);
     },
     _buildCostItems: function (cost) {
         if (!cost) {
@@ -247,14 +232,14 @@ var createTimedStateBuildAction = function (options) {
             if (typeof options.isActive !== "function") {
                 return false;
             }
-            return !!options.isActive(this, getBuildActionRuntimePlayer());
+            return !!options.isActive(this, GameRuntime.getPlayer());
         },
         clickAction1: function () {
             if (!uiUtil.checkVigour()) {
                 return;
             }
 
-            var runtimePlayer = getBuildActionRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             if (typeof options.beforeStart === "function"
                 && options.beforeStart(this, runtimePlayer) === false) {
                 return;
@@ -290,7 +275,7 @@ var createTimedStateBuildAction = function (options) {
                 action1Disabled = true;
             } else {
                 hint = typeof options.getIdleHint === "function"
-                    ? options.getIdleHint(this, getBuildActionRuntimePlayer())
+                    ? options.getIdleHint(this, GameRuntime.getPlayer())
                     : "";
                 var cost = this.config.cost;
                 if (!this._isCostEnough(cost)) {
@@ -313,11 +298,11 @@ var createTimedStateBuildAction = function (options) {
             if (typeof options.save !== "function") {
                 return {};
             }
-            return options.save(this, getBuildActionRuntimePlayer()) || {};
+            return options.save(this, GameRuntime.getPlayer()) || {};
         },
         restore: function (saveObj) {
             if (typeof options.restore === "function") {
-                options.restore(this, saveObj, getBuildActionRuntimePlayer());
+                options.restore(this, saveObj, GameRuntime.getPlayer());
             }
         }
     });
@@ -355,7 +340,7 @@ var createFuelBuildAction = function (options) {
                 return;
             }
 
-            var runtimePlayer = getBuildActionRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             if (!runtimePlayer.validateItems(this.config.cost)) {
                 uiUtil.showTinyInfoDialog(options.costMissingHintId);
                 return;
@@ -370,7 +355,7 @@ var createFuelBuildAction = function (options) {
         },
         addFuelTimer: function () {
             var self = this;
-            var runtimePlayer = getBuildActionRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             this._addFuelTimer(this.timePerFuel, function () {
                 self.fuel--;
                 if (self.fuel > 0) {
@@ -383,11 +368,11 @@ var createFuelBuildAction = function (options) {
                         options.onFuelDepleted(self, runtimePlayer);
                     }
                 }
-                getBuildActionRuntimeRecord().saveAll();
+                GameRuntime.getRecord().saveAll();
             }, this.startTime);
         },
         addFuel: function () {
-            var runtimePlayer = getBuildActionRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
 
             if (this.fuel === 0) {
                 this.addFuelTimer();
@@ -405,7 +390,7 @@ var createFuelBuildAction = function (options) {
             if (options.logMessageId) {
                 runtimePlayer.log.addMsg(options.logMessageId);
             }
-            getBuildActionRuntimeRecord().saveAll();
+            GameRuntime.getRecord().saveAll();
         },
         save: function () {
             return {
@@ -427,7 +412,7 @@ var createFuelBuildAction = function (options) {
         _addFuelTimer: function (time, endCb, startTime) {
             this.isActioning = true;
             var self = this;
-            var runtimeTimer = getBuildActionRuntimeTimer();
+            var runtimeTimer = GameRuntime.getTimer();
             var tcb = runtimeTimer.addTimerCallback(new TimerCallback(time, this, {
                 process: function (dt) {
                     self.pastTime += dt;
@@ -461,12 +446,12 @@ var createFuelBuildAction = function (options) {
                 action1Disabled = true;
             } else if (this.isActioning) {
                 hint = typeof options.getActioningHint === "function"
-                    ? options.getActioningHint(this, getBuildActionRuntimePlayer())
+                    ? options.getActioningHint(this, GameRuntime.getPlayer())
                     : "";
                 hintColor = cc.color.WHITE;
             } else {
                 hint = typeof options.getIdleHint === "function"
-                    ? options.getIdleHint(this, getBuildActionRuntimePlayer())
+                    ? options.getIdleHint(this, GameRuntime.getPlayer())
                     : "";
                 hintColor = cc.color.WHITE;
             }
@@ -543,7 +528,7 @@ var Formula = BuildAction.extend({
             if (needNum <= 0) {
                 return;
             }
-            var haveNum = getBuildActionRuntimePlayer().getItemNumInPlayer(itemInfo.itemId);
+            var haveNum = GameRuntime.getPlayer().getItemNumInPlayer(itemInfo.itemId);
             maxCount = Math.min(maxCount, Math.floor(haveNum / needNum));
         });
         if (!isFinite(maxCount) || maxCount < 0) {
@@ -643,7 +628,7 @@ var Formula = BuildAction.extend({
             if (self.step == self.maxStep) {
                 self.step = 0;
             }
-            var runtimePlayer = getBuildActionRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             if (self.step == 1) {
                 runtimePlayer.costItems(scaledCost);
                 self.place();
@@ -830,7 +815,7 @@ var TrapBuildAction = Formula.extend({
             return false;
         }
 
-        var runtimePlayer = getBuildActionRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         runtimePlayer.costItems(cost);
         this.step = 1;
         var trapBuild = this.build || runtimePlayer.room.getBuild(this.bid);
@@ -840,7 +825,7 @@ var TrapBuildAction = Formula.extend({
         this.place();
         runtimePlayer.log.addMsg(stringUtil.getString("trap_auto_set_log", getBuildActionCostText(cost)));
         this._sendUpdageSignal();
-        getBuildActionRuntimeRecord().saveAll();
+        GameRuntime.getRecord().saveAll();
         return true;
     },
     _buildPlacedTimerOptions: function () {
@@ -974,16 +959,16 @@ var DogAutoFeedBuildAction = BuildAction.extend({
         uiUtil.showBuildActionDialog(this.bid, 1, 0);
     },
     clickAction1: function () {
-        var runtimePlayer = getBuildActionRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         var enabled = !runtimePlayer.dog.isAutoFeedEnabled();
         runtimePlayer.dog.setAutoFeedEnabled(enabled);
         if (!(enabled && runtimePlayer.dog.tryAutoFeed(runtimePlayer))) {
-            getBuildActionRuntimeRecord().saveAll();
+            GameRuntime.getRecord().saveAll();
         }
         this._sendUpdageSignal();
     },
     _getUpdateViewInfo: function () {
-        var runtimePlayer = getBuildActionRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         var iconName = "#build_action_" + this.id + "_0" + ".png";
         var cost = runtimePlayer.dog.getFeedCost();
         var isEnabled = runtimePlayer.dog.isAutoFeedEnabled();
@@ -1015,7 +1000,7 @@ var TrapAutoSetBuildAction = BuildAction.extend({
     clickAction1: function () {
         var enabled = !this.trapAction.isAutoSetEnabled();
         this.trapAction.setAutoSetEnabled(enabled);
-        getBuildActionRuntimeRecord().saveAll();
+        GameRuntime.getRecord().saveAll();
         this._sendUpdageSignal();
     },
     _getUpdateViewInfo: function () {
@@ -1249,10 +1234,10 @@ var BedBuildAction = BuildAction.extend({
                 time = 4 * 60 * 60;
                 break;
             case BedBuildActionType.SLEEP_ALL_NIGHT:
-                time = getBuildActionRuntimeTimer().getTimeFromNowToMorning();
+                time = GameRuntime.getTimer().getTimeFromNowToMorning();
                 break;
             case BedBuildActionType.SLEEP_TO_NIGHT:
-                time = getBuildActionRuntimeTimer().getTimeFromNowToNight();
+                time = GameRuntime.getTimer().getTimeFromNowToNight();
                 break;
         }
         //单位小时的影响
@@ -1266,7 +1251,7 @@ var BedBuildAction = BuildAction.extend({
                 totalEffect[key] = effect[key];
             }
         }
-        var runtimePlayer = getBuildActionRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         runtimePlayer.sleep();
         var self = this;
         this.addTimer(time, time, function () {

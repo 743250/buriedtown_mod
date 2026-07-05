@@ -979,6 +979,26 @@ var PurchaseService = {
         }
         return !!IAPPackage.recordPurchase(purchaseId, reason, payload);
     },
+    applyExternalReward: function (purchaseId, count) {
+        purchaseId = this._normalizePurchaseId(purchaseId);
+        if (purchaseId === null) {
+            return false;
+        }
+        if (typeof PurchaseList === "undefined" || !PurchaseList || !PurchaseList[purchaseId]) {
+            return false;
+        }
+        var effect = Array.isArray(PurchaseList[purchaseId].effect) ? PurchaseList[purchaseId].effect : [];
+        var multiplier = Math.max(0, parseInt(count, 10) || 0);
+        effect.forEach(function (obj) {
+            if (obj && obj.itemId && obj.num) {
+                player.storage.increaseItem(obj.itemId, obj.num * multiplier);
+            }
+        });
+        if (typeof Record !== "undefined" && Record && typeof Record.saveAll === "function") {
+            Record.saveAll();
+        }
+        return true;
+    },
     _getProductIdMap: function () {
         var productIdMap = {};
         if (typeof PurchaseList === "undefined" || !PurchaseList) {

@@ -22,18 +22,6 @@ var AD_SITE = 202;
 var BOSS_SITE = 61;
 var WORK_SITE = 204;
 
-var getSiteRuntimePlayer = function () {
-    return GameRuntime.getPlayer();
-};
-var getSiteRuntimeTimer = function () {
-    return GameRuntime.getTimer();
-};
-var getSiteRuntimeEmitter = function () {
-    return GameRuntime.getEmitter();
-};
-var getSiteRuntimeRecord = function () {
-    return GameRuntime.getRecord();
-};
 var getSiteTalentService = function () {
     return (typeof TalentService !== "undefined" && TalentService) ? TalentService : null;
 };
@@ -212,7 +200,7 @@ var Site = BaseSite.extend({
             var ITEM_FLASHLIGHT = 1305053;
 
             //密室收到道具影响
-            var runtimePlayer = getSiteRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             var maxCount = parseInt(this.secretRoomsConfig.maxCount);
             if (runtimePlayer.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
                 maxCount += specialItemConfig[ITEM_EXPLORER].maxCount;
@@ -325,7 +313,7 @@ var Site = BaseSite.extend({
     roomEnd: function (isWin) {
         if (isWin) {
             var doneRoom = this.roomBegin();
-            var runtimePlayer = getSiteRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             if (doneRoom.type === "battle") {
             } else {
                 runtimePlayer.log.addMsg(1117, stringUtil.getString(3007)[doneRoom.workType]);
@@ -338,7 +326,7 @@ var Site = BaseSite.extend({
         }
     },
     siteEnd: function () {
-        var runtimePlayer = getSiteRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         runtimePlayer.log.addMsg(1119, this.getName());
         var unlockValue = this.config.unlockValue;
         if (unlockValue.site) {
@@ -497,7 +485,7 @@ var WorkSite = Site.extend({
         return "";
     },
     _getRepairConfig: function () {
-        var runtimePlayer = getSiteRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         var roleType = runtimePlayer ? runtimePlayer.roleType : undefined;
         if (typeof RoleRuntimeService !== "undefined"
             && RoleRuntimeService
@@ -520,8 +508,8 @@ var WorkSite = Site.extend({
         return Math.max(0, Math.min(maxMaintenance, value));
     },
     _notifyWorkSiteChange: function () {
-        getSiteRuntimeEmitter().emit("onWorkSiteChange", this.isActive);
-        var runtimeRecord = getSiteRuntimeRecord();
+        GameRuntime.getEmitter().emit("onWorkSiteChange", this.isActive);
+        var runtimeRecord = GameRuntime.getRecord();
         if (runtimeRecord && typeof runtimeRecord.saveAll === "function") {
             runtimeRecord.saveAll();
         }
@@ -541,14 +529,14 @@ var WorkSite = Site.extend({
             return false;
         }
         this.maintenance = nextValue;
-        this.fixedTime = getSiteRuntimeTimer().time;
+        this.fixedTime = GameRuntime.getTimer().time;
         this._notifyWorkSiteChange();
         return true;
     },
     fix: function () {
         this.isActive = true;
         this.maintenance = this.getMaintenanceMax();
-        this.fixedTime = getSiteRuntimeTimer().time;
+        this.fixedTime = GameRuntime.getTimer().time;
         this._notifyWorkSiteChange();
     },
     performSmallMaintenance: function (value) {
@@ -562,7 +550,7 @@ var WorkSite = Site.extend({
         var changed = !this.isActive || this.getMaintenanceValue() !== nextMaintenance;
         this.isActive = true;
         this.maintenance = nextMaintenance;
-        this.fixedTime = getSiteRuntimeTimer().time;
+        this.fixedTime = GameRuntime.getTimer().time;
         if (changed) {
             this._notifyWorkSiteChange();
         }
@@ -575,7 +563,7 @@ var WorkSite = Site.extend({
             var maintenanceDecayPerHour = Math.max(0, Number(repairConfig.maintenanceDecayPerHour) || 0);
             var brokenProbability = Math.max(0, Number(repairConfig.brokenProbability) || 0);
             var maintenanceBefore = this.getMaintenanceValue();
-            var runtimeTimer = getSiteRuntimeTimer();
+            var runtimeTimer = GameRuntime.getTimer();
             var currentTime = (runtimeTimer && isFinite(Number(runtimeTimer.time)))
                 ? Number(runtimeTimer.time)
                 : 0;
@@ -653,7 +641,7 @@ var BossSite = Site.extend({
     //进度
     getProgressStr: function () {
         var doneNum = 0;
-        var runtimePlayer = getSiteRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         this.bossSubSiteIds.forEach(function (siteId) {
             var site = runtimePlayer.map.getSite(siteId);
             if (site) {
@@ -668,7 +656,7 @@ var BossSite = Site.extend({
     },
     getAllItemNum: function () {
         var num = 0;
-        var runtimePlayer = getSiteRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         this.bossSubSiteIds.forEach(function (siteId) {
             var site = runtimePlayer.map.getSite(siteId);
             if (site) {

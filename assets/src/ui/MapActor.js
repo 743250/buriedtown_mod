@@ -1,13 +1,6 @@
 /**
  * Encapsulates world-map movement and encounter stepping for the player marker.
  */
-var getMapActorRuntimePlayer = function () {
-    return GameRuntime.getPlayer();
-};
-
-var getMapActorRuntimeTimer = function () {
-    return GameRuntime.getTimer();
-};
 
 var MapActor = cc.Node.extend({
     ctor: function (mapView) {
@@ -29,7 +22,7 @@ var MapActor = cc.Node.extend({
         this.scheduleUpdate();
     },
     update: function (dt) {
-        var runtimeTimer = getMapActorRuntimeTimer();
+        var runtimeTimer = GameRuntime.getTimer();
         if (!runtimeTimer || runtimeTimer.isPaused()) {
             return;
         }
@@ -40,7 +33,7 @@ var MapActor = cc.Node.extend({
         this.unscheduleUpdate();
     },
     getMaxVelocity: function () {
-        var runtimePlayer = getMapActorRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         return TravelService.getEffectiveVelocity(runtimePlayer.storage, runtimePlayer.weather);
     },
     updateActor: function (dt) {
@@ -55,7 +48,7 @@ var MapActor = cc.Node.extend({
         });
         this.velocity = tripResult.velocity;
         this.setPosition(tripResult.position);
-        var runtimePlayer = getMapActorRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         runtimePlayer.map.updatePos(tripResult.position);
 
         if (tripResult.arrived) {

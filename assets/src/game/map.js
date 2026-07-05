@@ -1,13 +1,6 @@
 /**
  * Created by lancelot on 15/4/10.
  */
-var getMapRuntimePlayer = function () {
-    return GameRuntime.getPlayer();
-};
-
-var getMapRuntimeEmitter = function () {
-    return GameRuntime.getEmitter();
-};
 
 var Map = cc.Class.extend({
     ctor: function () {
@@ -66,10 +59,10 @@ var Map = cc.Class.extend({
         this.unlockSite(100);
         this.unlockSite(201);
 
-        this.unlockSiteByRole(getMapRuntimePlayer().roleType);
+        this.unlockSiteByRole(GameRuntime.getPlayer().roleType);
 
         //根据角色决定家的位置
-        var runtimePlayer = getMapRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         var homeNpc = runtimePlayer.npcManager.getNPC(runtimePlayer.roleType);
         var homePos = homeNpc && homeNpc.pos ? homeNpc.pos : this.getSite(HOME_SITE).pos;
         this.getSite(HOME_SITE).pos = homePos;
@@ -87,7 +80,7 @@ var Map = cc.Class.extend({
 
     forEach: function (func) {
         for (var npcId in this.npcMap) {
-            var npc = getMapRuntimePlayer().npcManager.getNPC(npcId);
+            var npc = GameRuntime.getPlayer().npcManager.getNPC(npcId);
             if (npc) {
                 func(npc);
             }
@@ -103,9 +96,9 @@ var Map = cc.Class.extend({
         if (!this.npcMap.hasOwnProperty(npcId)) {
             this.npcMap[npcId] = true;
 
-            var runtimePlayer = getMapRuntimePlayer();
+            var runtimePlayer = GameRuntime.getPlayer();
             var npc = runtimePlayer.npcManager.getNPC(npcId);
-            getMapRuntimeEmitter().emit("unlock_site", npc);
+            GameRuntime.getEmitter().emit("unlock_site", npc);
             runtimePlayer.log.addMsg(1125, npc.getName());
         }
     },
@@ -129,8 +122,8 @@ var Map = cc.Class.extend({
             }
             site.init();
             this.siteMap[siteId] = site;
-            getMapRuntimeEmitter().emit("unlock_site", site);
-            getMapRuntimePlayer().log.addMsg(1104, site.getName());
+            GameRuntime.getEmitter().emit("unlock_site", site);
+            GameRuntime.getPlayer().log.addMsg(1104, site.getName());
             DataLog.genSiteLog(siteId, 0);
         }
     },
@@ -138,7 +131,7 @@ var Map = cc.Class.extend({
         if (this.siteMap.hasOwnProperty(siteId)) {
             this.needDeleteSiteList.push(siteId);
             // 不需要处理on,暂时没有在大地图关闭site的需求
-            getMapRuntimeEmitter().emit("close_site", siteId);
+            GameRuntime.getEmitter().emit("close_site", siteId);
         }
     },
     deleteUnusableSite: function () {
@@ -159,7 +152,7 @@ var Map = cc.Class.extend({
         if (isNaN(normalizedNpcId) || !this.npcMap.hasOwnProperty(normalizedNpcId)) {
             return null;
         }
-        return getMapRuntimePlayer().npcManager.getNPC(normalizedNpcId) || null;
+        return GameRuntime.getPlayer().npcManager.getNPC(normalizedNpcId) || null;
     },
     getSite: function (siteId) {
         return this.siteMap[siteId];

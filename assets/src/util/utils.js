@@ -395,14 +395,11 @@ utils.doBridgeCall = function (jsonObj) {
 //TODO MrC 自定义BridgeReceive接口
 utils.doBridgeReceive = function (jsonObj) {
     var count = parseInt(jsonObj);
-    // for(var i=0;i-count<0;i++){
-        var effect = PurchaseList[201].effect;
-        effect.forEach(function (obj) {
-            player.storage.increaseItem(obj.itemId, obj.num*count);
-        });
-        Record.saveAll();//食品袋  MoreGame 发放奖励
-        //IAPPackage.payConsumeIAP(201);
-    // }
+    if (typeof PurchaseService !== "undefined"
+        && PurchaseService
+        && typeof PurchaseService.applyExternalReward === "function") {
+        PurchaseService.applyExternalReward(201, count);
+    }
 }
 
 utils.pay = function (purchaseId, target, cb) {
@@ -436,117 +433,8 @@ utils.pay = function (purchaseId, target, cb) {
     PurchaseService.purchase(purchaseId, target, cb);
 };
 
-/**
- * 将PurchaseList转化为ProductId映射表
- * @returns {{}}
- */
-utils.getProductIdMap = function () {
-    var productIdMap = {};
-    var purchaseIdList = Object.keys(PurchaseList);
-    purchaseIdList.forEach(function (purchaseId) {
-        var priceList = PurchaseList[purchaseId].priceList;
-        priceList.forEach(function (info) {
-            info.purchaseId = purchaseId;
-            productIdMap[info.productId] = info;
-        });
-    });
-    return productIdMap;
-};
-
 utils.updatePayInfoLegacy = function (target, cb, purchaseIdList) {
-    if (typeof PurchaseService !== "undefined"
-        && PurchaseService
-        && typeof PurchaseService.isPaySdkBypassedForTest === "function"
-        && PurchaseService.isPaySdkBypassedForTest()) {
-        if (cb) {
-            cb.call(target, null, {});
-        }
-        return;
-    }
-
-    if (cc.sys.isNative) {
-        if (cc.sys.os == cc.sys.OS_IOS) {
-            var productIdMap = utils.getProductIdMap();
-            var productIdList = Object.keys(productIdMap);
-            uiUtil.showLoadingView();
-            cc.purchase.getPurchaseList(productIdList, function (err, products) {
-                uiUtil.dismissLoadingView();
-                if (err) {
-                    CommonUtil.showCommonDialog(stringUtil.getString(1220), stringUtil.getString(1030));
-                } else {
-                    cc.log(JSON.stringify(products));
-                    for (var i = 0; i < products.length; i++) {
-                        var product = products[i];
-                        var purchaseInfo = productIdMap[product.productId];
-                        purchaseInfo.currencyCode = product.currencyCode;
-                        purchaseInfo.price = product.productPrice;
-                        purchaseInfo.productPriceStr = product.productPriceStr;
-                    }
-                    cb.call(target, err, products);
-                }
-            });
-        } else if (cc.sys.os == cc.sys.OS_ANDROID) {
-            uiUtil.showLoadingView();
-            PurchaseAndroid.getPurchaseList(purchaseIdList, function (err, queryResult) {
-                uiUtil.dismissLoadingView();
-                if (err) {
-                    cb.call(target, null);
-                } else {
-
-                    cc.log("queryResult: " + JSON.stringify(queryResult));
-
-                    var products = queryResult && queryResult.productInfo ? queryResult.productInfo : {};
-                    for (var purchaseId in products) {
-                        if (!PurchaseList[purchaseId] || !PurchaseList[purchaseId].priceList) {
-                            continue;
-                        }
-                        var purchasePriceList = PurchaseList[purchaseId].priceList;
-                        var productInfoList = products[purchaseId] || [];
-                        for (var i = 0; i < productInfoList.length; i++) {
-                            var product = productInfoList[i];
-                            var purchaseInfo = purchasePriceList[i];
-                            if (!purchaseInfo || !product) {
-                                continue;
-                            }
-
-                            if (product.currencyCode !== undefined && product.currencyCode !== null) {
-                                purchaseInfo.currencyCode = product.currencyCode;
-                            }
-                            if (product.productPrice !== undefined && product.productPrice !== null) {
-                                purchaseInfo.price = product.productPrice;
-                            }
-                            var productPriceStr = "";
-                            if (product.productPriceStr !== undefined && product.productPriceStr !== null) {
-                                productPriceStr = "" + product.productPriceStr;
-                            }
-                            purchaseInfo.productPriceStr = productPriceStr.replace('Â', '');
-                        }
-                    }
-
-                    var purchasedIds = queryResult && queryResult.purchasedIds ? queryResult.purchasedIds : {};
-                    for (var purchaseId in purchasedIds) {
-                        if (purchasedIds[purchaseId] && PurchaseList[purchaseId]) {
-                            // Keep purchase-state sync behind PurchaseService so utils does not
-                            // depend on IAPPackage internals.
-                            if (!(typeof PurchaseService !== "undefined"
-                                && PurchaseService
-                                && typeof PurchaseService.syncPurchasedUnlock === "function")) {
-                                cc.error("PurchaseService is unavailable during purchased id sync");
-                                continue;
-                            }
-                            PurchaseService.syncPurchasedUnlock(purchaseId);
-                        }
-                    }
-
-                    cb.call(target, err, products);
-                }
-            });
-        } else {
-            cb.call(target, null);
-        }
-    } else {
-        cb.call(target, null);
-    }
+    utils.updatePayInfo(target, cb, purchaseIdList);
 };
 
 utils.updatePayInfo = function (target, cb, purchaseIdList) {

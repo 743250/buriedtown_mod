@@ -2,18 +2,6 @@
  * 滑索管理器 - 管理贝尔角色的滑索系统
  */
 
-var getZiplineRuntimePlayer = function () {
-    return GameRuntime.getPlayer();
-};
-
-var getZiplineRuntimeTimer = function () {
-    return GameRuntime.getTimer();
-};
-
-var getZiplineRuntimeRecord = function () {
-    return GameRuntime.getRecord();
-};
-
 var ZiplineManager = cc.Class.extend({
     ctor: function () {
         this.map = {};
@@ -31,7 +19,7 @@ var ZiplineManager = cc.Class.extend({
 
     _resolveSite: function (siteId) {
         var normalizedSiteId = this._normalizeSiteId(siteId);
-        var runtimePlayer = getZiplineRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         if (!runtimePlayer || !runtimePlayer.map || !runtimePlayer.map.siteMap) {
             return null;
         }
@@ -39,7 +27,7 @@ var ZiplineManager = cc.Class.extend({
     },
 
     _canValidateSites: function () {
-        var runtimePlayer = getZiplineRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         return !!(runtimePlayer &&
             runtimePlayer.map &&
             runtimePlayer.map.siteMap &&
@@ -121,7 +109,7 @@ var ZiplineManager = cc.Class.extend({
         if (!this.isEnabled()) {
             return null;
         }
-        var runtimePlayer = getZiplineRuntimePlayer();
+        var runtimePlayer = GameRuntime.getPlayer();
         if (runtimePlayer && runtimePlayer.roleType !== RoleType.BELL) {
             return null;
         }
@@ -138,15 +126,15 @@ var ZiplineManager = cc.Class.extend({
             id: id,
             startSiteId: startSiteId,
             endSiteId: endSiteId,
-            createdDay: getZiplineRuntimeTimer().formatTime().d
+            createdDay: GameRuntime.getTimer().formatTime().d
         };
-        getZiplineRuntimeRecord().saveAll();
+        GameRuntime.getRecord().saveAll();
         return id;
     },
 
     removeZipline: function (ziplineId) {
         delete this.map[ziplineId];
-        getZiplineRuntimeRecord().saveAll();
+        GameRuntime.getRecord().saveAll();
     },
 
     hasZipline: function (startSiteId, endSiteId) {
