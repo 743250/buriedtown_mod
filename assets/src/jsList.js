@@ -82,6 +82,7 @@ var jsList = [
     "src/game/PlayerNavigationState.js",
     "src/game/MapDestinationRouter.js",
     "src/game/PlayerAttrService.js",
+    "src/game/PlayerMigrationService.js",
     "src/game/PlayerPersistenceService.js",
     "src/game/player.js",
     "src/game/userGuide.js",

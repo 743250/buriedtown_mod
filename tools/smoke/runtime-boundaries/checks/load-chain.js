@@ -259,11 +259,14 @@ function runLoadChainSmoke() {
         "ZiplineNetworkService should delegate runtime player access to GameRuntime");
     assert(playerPersistenceSource.indexOf("SAVE_SCHEMA_VERSION: 3") !== -1
         && playerPersistenceSource.indexOf("MIN_SUPPORTED_SCHEMA_VERSION: 2") !== -1
-        && playerPersistenceSource.indexOf("_clearUnsupportedSaveState") !== -1
-        && playerPersistenceSource.indexOf("_applyRestoreReconciliations") !== -1
+        && playerPersistenceSource.indexOf("PlayerMigrationService.migrate") !== -1
+        && playerPersistenceSource.indexOf("PlayerMigrationService.reconcile") !== -1
         && playerPersistenceSource.indexOf("schemaVersion") !== -1
         && playerPersistenceSource.indexOf("navigationState") !== -1
         && playerPersistenceSource.indexOf("ziplineNetwork") !== -1
+        && playerPersistenceSource.indexOf("_clearUnsupportedSaveState") === -1
+        && playerPersistenceSource.indexOf("_applyRestoreReconciliations") === -1
+        && playerPersistenceSource.indexOf("_persistPostRestoreChanges") === -1
         && playerPersistenceSource.indexOf("_applyRestoreStateSyncs") === -1
         && playerPersistenceSource.indexOf("_applyRestoreMigrations") === -1
         && playerPersistenceSource.indexOf("_applySelectionStateMigration") === -1
@@ -271,7 +274,7 @@ function runLoadChainSmoke() {
         && playerPersistenceSource.indexOf("_persistPostRestoreMutations") === -1
         && playerPersistenceSource.indexOf("_clearPostRestoreTransientState") === -1
         && playerPersistenceSource.indexOf("ziplineManager") === -1,
-        "PlayerPersistenceService should expose only the current schema restore pipeline without legacy migration layers");
+        "PlayerPersistenceService should delegate migration and reconciliation to PlayerMigrationService without keeping legacy helpers");
     assert(purchaseServiceSource.indexOf("LEGACY_PURCHASE_LOCK_PURCHASE_IDS") === -1
         && contentBlueprintSource.indexOf("_legacyPurchaseLockPurchaseIdMap") === -1
         && formulaSource.indexOf("\"checkFn\"") === -1,

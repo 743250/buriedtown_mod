@@ -1,14 +1,9 @@
 /**
  * Centralizes player save/restore so player.js can focus on gameplay flow.
+ * Migration and reconciliation live in PlayerMigrationService.
  */
-var getPlayerPersistenceRoleRuntimeService = function () {
-    return GameKernel.require("RoleRuntimeService", "PlayerPersistenceService");
-};
 var getPlayerPersistenceTalentService = function () {
     return GameKernel.get("TalentService");
-};
-var getPlayerPersistencePurchaseService = function () {
-    return GameKernel.get("PurchaseService");
 };
 var getPlayerPersistenceRecord = function () {
     return GameRuntime.requireRecord();
@@ -44,92 +39,6 @@ var PlayerPersistenceService = {
         {key: "npcManager", context: "Player.restore.npcManager"},
         {key: "map", context: "Player.restore.map"}
     ],
-    _isValidRoleType: function (roleType) {
-        roleType = parseInt(roleType);
-        return !(isNaN(roleType)
-            || typeof role === "undefined"
-            || !role
-            || typeof role.getRoleConfig !== "function"
-            || !role.getRoleConfig(roleType));
-    },
-    _normalizeRoleType: function (roleType, fallbackRoleType) {
-        fallbackRoleType = fallbackRoleType === undefined ? 6 : fallbackRoleType;
-        roleType = parseInt(roleType);
-        return this._isValidRoleType(roleType) ? roleType : fallbackRoleType;
-    },
-    _getFallbackRoleType: function (playerInstance) {
-        if (playerInstance && this._isValidRoleType(playerInstance.roleType)) {
-            return parseInt(playerInstance.roleType);
-        }
-        if (typeof Record !== "undefined"
-            && Record
-            && typeof Record.getSelectedRoleType === "function") {
-            var selectedRoleType = Record.getSelectedRoleType();
-            if (this._isValidRoleType(selectedRoleType)) {
-                return parseInt(selectedRoleType);
-            }
-        }
-        if (typeof RoleType !== "undefined" && RoleType && RoleType.STRANGER !== undefined) {
-            return RoleType.STRANGER;
-        }
-        return 6;
-    },
-    _getSaveSchemaVersion: function (saveData) {
-        var schemaVersion = saveData && saveData.schemaVersion !== undefined
-            ? Number(saveData.schemaVersion)
-            : 0;
-        if (!isFinite(schemaVersion) || schemaVersion < 0) {
-            return 0;
-        }
-        return parseInt(schemaVersion);
-    },
-    _isSupportedSaveData: function (saveData) {
-        var schemaVersion = this._getSaveSchemaVersion(saveData);
-        return !!(saveData
-            && schemaVersion >= this.MIN_SUPPORTED_SCHEMA_VERSION
-            && schemaVersion <= this.SAVE_SCHEMA_VERSION
-            && saveData.navigationState
-            && typeof saveData.navigationState === "object");
-    },
-    _restoreSelectionState: function (playerInstance, saveData) {
-        var restoredRoleType = saveData && this._isValidRoleType(saveData.roleType)
-            ? parseInt(saveData.roleType)
-            : this._normalizeRoleType(this._getFallbackRoleType(playerInstance));
-        playerInstance.roleType = restoredRoleType;
-        if (typeof role !== "undefined" && role && typeof role.chooseRoleType === "function") {
-            role.chooseRoleType(restoredRoleType);
-        }
-
-        var talentService = getPlayerPersistenceTalentService();
-        if (saveData
-            && Array.isArray(saveData.chosenTalentIds)
-            && talentService
-            && typeof talentService.chooseTalents === "function") {
-            talentService.chooseTalents(saveData.chosenTalentIds);
-        }
-    },
-    _clearUnsupportedSaveState: function (playerInstance, runtimeRecord) {
-        if (runtimeRecord && typeof runtimeRecord.deleteRecord === "function") {
-            runtimeRecord.deleteRecord();
-        } else if (runtimeRecord) {
-            runtimeRecord.recordObj = {};
-        }
-        if (runtimeRecord && typeof runtimeRecord.clearCurrentSlotCompatibilityState === "function") {
-            runtimeRecord.clearCurrentSlotCompatibilityState();
-        }
-
-        var talentService = getPlayerPersistenceTalentService();
-        if (talentService
-            && typeof talentService.resetChosenTalentCache === "function") {
-            talentService.resetChosenTalentCache();
-        }
-
-        var nextRoleType = this._normalizeRoleType(this._getFallbackRoleType(playerInstance));
-        playerInstance.roleType = nextRoleType;
-        if (typeof role !== "undefined" && role && typeof role.chooseRoleType === "function") {
-            role.chooseRoleType(nextRoleType);
-        }
-    },
     buildSaveData: function (playerInstance, attrHelper) {
         var attrData = attrHelper.saveAttrs(playerInstance, this.ATTR_KEYS);
         var saveData = {
@@ -167,10 +76,9 @@ var PlayerPersistenceService = {
         var saveData = runtimeRecord && typeof runtimeRecord.restore === "function"
             ? runtimeRecord.restore("player")
             : null;
-        if (saveData && !this._isSupportedSaveData(saveData)) {
-            this._clearUnsupportedSaveState(playerInstance, runtimeRecord);
-            saveData = null;
-        }
+        // Migration (support check, field normalization, purge) lives in
+        // PlayerMigrationService. Returns migrated saveData or null (unsupported).
+        saveData = PlayerMigrationService.migrate(saveData, playerInstance, runtimeRecord);
 
         if (saveData) {
             this._restoreExistingSave(playerInstance, saveData, attrHelper);
@@ -179,8 +87,11 @@ var PlayerPersistenceService = {
         }
 
         this._restoreDeferredComponents(playerInstance, saveData);
-        var hasRestoreMutation = this._applyRestoreReconciliations(playerInstance);
-        this._persistPostRestoreChanges(hasRestoreMutation);
+
+        var hasMutation = PlayerMigrationService.reconcile(playerInstance);
+        if (hasMutation && runtimeRecord && typeof runtimeRecord.saveAll === "function") {
+            runtimeRecord.saveAll();
+        }
     },
     _safeSaveComponent: function (playerInstance, component) {
         return ErrorHandler.safeExecute(function () {
@@ -203,6 +114,24 @@ var PlayerPersistenceService = {
         this.EARLY_RESTORE_COMPONENTS.forEach(function (component) {
             PlayerPersistenceService._safeRestoreComponent(playerInstance, component, saveData);
         });
+    },
+    _restoreSelectionState: function (playerInstance, saveData) {
+        // saveData.roleType and saveData.chosenTalentIds are already normalized
+        // by PlayerMigrationService.migrateSelectionState. Apply them to the
+        // player and sync the global role/talent singletons — these syncs must
+        // happen before map.restore (which reads role.getChoosenRoleType()) and
+        // before hp reconcile (which reads the talent cache).
+        playerInstance.roleType = parseInt(saveData.roleType);
+        if (typeof role !== "undefined" && role && typeof role.chooseRoleType === "function") {
+            role.chooseRoleType(playerInstance.roleType);
+        }
+
+        var talentService = getPlayerPersistenceTalentService();
+        if (Array.isArray(saveData.chosenTalentIds)
+            && talentService
+            && typeof talentService.chooseTalents === "function") {
+            talentService.chooseTalents(saveData.chosenTalentIds);
+        }
     },
     _restoreNewGame: function (playerInstance) {
         var runtimeRecord = getPlayerPersistenceRecord();
@@ -229,49 +158,8 @@ var PlayerPersistenceService = {
             playerInstance.ziplineNetwork.restore(saveData ? saveData.ziplineNetwork : null, playerInstance.map);
         }, "Player.restore.ziplineNetwork");
 
-        playerInstance.navigationState.syncMapEntityIdFromMap(playerInstance.map);
-    },
-    _applyRestoreReconciliations: function (playerInstance) {
-        var hasRestoreMutation = false;
-        var talentService = getPlayerPersistenceTalentService();
-        if (talentService
-            && typeof talentService.reconcilePlayerHpByTalentSelection === "function"
-            && talentService.reconcilePlayerHpByTalentSelection(playerInstance)) {
-            hasRestoreMutation = true;
-        }
-
-        var purchaseService = getPlayerPersistencePurchaseService();
-        if (purchaseService
-            && typeof purchaseService.reconcileUnlockRewardsForPlayer === "function"
-            && purchaseService.reconcileUnlockRewardsForPlayer(playerInstance)) {
-            hasRestoreMutation = true;
-        }
-
-        var roleRuntimeService = getPlayerPersistenceRoleRuntimeService();
-        if (typeof roleRuntimeService.ensureRoomBuildStates === "function"
-            && roleRuntimeService.ensureRoomBuildStates(playerInstance.room, playerInstance.roleType)) {
-            hasRestoreMutation = true;
-        }
-
-        if (typeof roleRuntimeService.ensureInitialUnlocks === "function"
-            && roleRuntimeService.ensureInitialUnlocks(playerInstance.map, playerInstance.roleType)) {
-            hasRestoreMutation = true;
-        }
-
-        if (typeof roleRuntimeService.ensureSpecialItems === "function"
-            && roleRuntimeService.ensureSpecialItems(playerInstance)) {
-            hasRestoreMutation = true;
-        }
-
-        return hasRestoreMutation;
-    },
-    _persistPostRestoreChanges: function (shouldSave) {
-        var runtimeRecord = getPlayerPersistenceRecord();
-        if (shouldSave
-            && runtimeRecord
-            && typeof runtimeRecord.saveAll === "function") {
-            runtimeRecord.saveAll();
-        }
+        // syncMapEntityIdFromMap moved to PlayerMigrationService.reconcile
+        // (runs after all deferred components are restored).
     }
 };
 

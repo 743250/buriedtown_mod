@@ -1541,6 +1541,7 @@ function createPersistencePlayer(calls) {
 function runPlayerPersistenceContractSmoke() {
     const sandbox = createVmSandbox();
     loadIntoSandbox(sandbox, "assets/src/game/GameKernel.js");
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerMigrationService.js");
     loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
     assert(sandbox.PlayerPersistenceService.SAVE_SCHEMA_VERSION === 3,
@@ -1657,6 +1658,7 @@ function runPlayerPersistenceUnsupportedSaveSmoke() {
     sandbox.GameKernel.register("TalentService", sandbox.TalentService);
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
     sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerMigrationService.js");
     loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
     const playerObj = createPersistencePlayer(calls);
@@ -1776,6 +1778,7 @@ function runPlayerPersistenceNewGameUnlockRewardSmoke() {
     sandbox.GameKernel.register("TalentService", sandbox.TalentService);
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
     sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerMigrationService.js");
     loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
     const playerObj = createPersistencePlayer(calls);
@@ -1915,6 +1918,7 @@ function runPlayerPersistenceSupportedRestoreSmoke() {
     sandbox.GameKernel.register("TalentService", sandbox.TalentService);
     sandbox.GameKernel.register("PurchaseService", sandbox.PurchaseService);
     sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
+    loadIntoSandbox(sandbox, "assets/src/game/PlayerMigrationService.js");
     loadIntoSandbox(sandbox, "assets/src/game/PlayerPersistenceService.js");
 
     const playerObj = createPersistencePlayer(calls);
