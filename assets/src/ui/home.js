@@ -264,7 +264,7 @@ var HomeNode = BottomFrameNode.extend({
     _init: function () {
         this.setName(Navigation.nodeName.HOME_NODE);
         this.uiConfig = {
-            title: Navigation.nodeName.HOME_NODE,
+            title: stringUtil.getString("site_100").name,
             leftBtn: false,
             rightBtn: false
         };

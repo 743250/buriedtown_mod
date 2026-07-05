@@ -89,7 +89,7 @@ var TopFrameNode = cc.Node.extend({
         this.firstLine.setContentSize(584, 50);
         bg.addChild(this.firstLine);
 
-        var btnSize = cc.size(this.firstLine.width / 6, this.firstLine.height); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域
+        var btnSize = cc.size(this.firstLine.width / 6, this.firstLine.height);
 
         var season = new StatusButton(btnSize, "#icon_season_0.png", "", {
             scale: 0.5,
@@ -100,7 +100,6 @@ var TopFrameNode = cc.Node.extend({
             showStatusDialog(2, label.getString(), sender.spriteFrameName);
         });
         season.setPosition(this.firstLine.getContentSize().width / 12 * 3, this.firstLine.getContentSize().height / 2);
-       //season.setPosition(btnSize.width*1.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         season.setName("season");
         this.firstLine.addChild(season);
 
@@ -113,7 +112,6 @@ var TopFrameNode = cc.Node.extend({
             showStatusDialog(11, label.getString(), sender.spriteFrameName);
         });
         weather.setPosition(this.firstLine.getContentSize().width / 12 * 9, this.firstLine.getContentSize().height / 2);
-        //weather.setPosition(btnSize.width*3.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         weather.setName("weather");
         this.firstLine.addChild(weather);
         getTopFrameRuntimeEmitter().on("weather_change", function (weatherId) {
@@ -126,7 +124,6 @@ var TopFrameNode = cc.Node.extend({
             showStatusDialog(1, getTopFrameRuntimeTimer().getTimeDayStr(), sender.spriteFrameName);
         });
         day.setPosition(this.firstLine.getContentSize().width / 12 * 1, this.firstLine.getContentSize().height / 2);
-        //day.setPosition(btnSize.width*0.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         day.setName("day");
         this.firstLine.addChild(day);
 
@@ -136,7 +133,6 @@ var TopFrameNode = cc.Node.extend({
             showStatusDialog(4, label.getString(), sender.spriteFrameName);
         });
         time.setPosition(this.firstLine.getContentSize().width / 12 * 5, this.firstLine.getContentSize().height / 2);
-        //time.setPosition(btnSize.width*2.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         time.setName("time");
         this.firstLine.addChild(time);
 
@@ -156,24 +152,11 @@ var TopFrameNode = cc.Node.extend({
             showStatusDialog(3, label.getString() + "℃", sender.spriteFrameName);
         });
         temperature.setPosition(this.firstLine.width / 12 * 11, this.firstLine.height / 2);
-        //temperature.setPosition(btnSize.width*4.5, this.firstLine.getContentSize().height / 2); //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域，原菜单调整坐标
         temperature.setName("temperature");
         this.firstLine.addChild(temperature);
         getTopFrameRuntimeEmitter().on("temperature_change", function (value) {
             temperature.updateView(null, formatTemperatureValue(memoryUtil.decode(getTopFrameRuntimePlayer().temperature)));
         });
-
-        //TODO MrC 游戏顶部菜单添加一个MoreGame按钮区域
-        /*var moregame = new StatusButton(btnSize, "#icon_moregame.png", "", {scale: 0.5});
-        moregame.setClickListener(this, function (sender) {
-            var paramObj = {"id":"moregame","cmd":1000};
-            utils.doBridgeCall(paramObj);
-            //jsb.reflection.callStaticMethod("com/locojoytj/sdk/Bridge", "doJsCallJava", "(Ljava/lang/String;)Ljava/lang/String;", JSON.stringify(paramObj));
-        });
-        moregame.setPosition(btnSize.width*5.5, this.firstLine.getContentSize().height / 2);
-        moregame.setName("moregame");
-        this.firstLine.addChild(moregame);
-        //TODO End*/
 
         this.secondLine = new cc.Node();
         this.secondLine.setAnchorPoint(0, 0);
