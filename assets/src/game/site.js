@@ -43,19 +43,32 @@ var hasExternalSiteServices = typeof SiteRewardService !== "undefined" && SiteRe
 
 var siteRewardServiceRef = hasExternalSiteServices ? SiteRewardService : {
     buildWorkRoomLoot: function (itemIds) {
-        var roomItemIds = itemIds ? itemIds.slice() : [];
-        var talentService = getSiteTalentService();
-        var scavengerDoubleTriggered = roomItemIds.length > 0
-            && talentService
-            && typeof talentService.rollScavengerDoubleDrop === "function"
-            && talentService.rollScavengerDoubleDrop();
-        if (scavengerDoubleTriggered) {
-            roomItemIds = roomItemIds.concat(roomItemIds);
-        }
         return {
-            list: utils.convertItemIds2Item(roomItemIds),
-            scavengerDoubleTriggered: !!scavengerDoubleTriggered
+            list: utils.convertItemIds2Item(itemIds ? itemIds.slice() : []),
+            scavengerDoubleTriggered: false
         };
+    },
+    applyScavengerDoubleToWorkRoom: function (workRoom) {
+        if (!workRoom || workRoom.scavengerDoubleTriggered) {
+            return;
+        }
+        if (!Array.isArray(workRoom.list) || workRoom.list.length === 0) {
+            return;
+        }
+        var talentService = getSiteTalentService();
+        if (!talentService || typeof talentService.rollScavengerDoubleDrop !== "function") {
+            return;
+        }
+        if (!talentService.rollScavengerDoubleDrop()) {
+            return;
+        }
+        workRoom.list = workRoom.list.map(function (itemInfo) {
+            return {
+                itemId: itemInfo.itemId,
+                num: (parseInt(itemInfo.num, 10) || 0) * 2
+            };
+        });
+        workRoom.scavengerDoubleTriggered = true;
     },
     buildFixedValueWorkLoot: function (produceValue, produceList) {
         return this.buildWorkRoomLoot(utils.getFixedValueItemIds(produceValue, produceList));

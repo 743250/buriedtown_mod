@@ -421,7 +421,16 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         sumRes.scavengerDoubleTriggered = battleLoot.scavengerDoubleTriggered;
     },
     _showWorkScavengerDoubleTip: function () {
-        if (!this.room || !this.room.scavengerDoubleTriggered) {
+        if (!this.room || this.room.type !== "work") {
+            return;
+        }
+        if (typeof SiteRewardService !== "undefined" && SiteRewardService
+            && typeof SiteRewardService.applyScavengerDoubleToWorkRoom === "function") {
+            SiteRewardService.applyScavengerDoubleToWorkRoom(this.room);
+        } else {
+            this._applyScavengerDoubleFallback(this.room);
+        }
+        if (!this.room.scavengerDoubleTriggered) {
             return;
         }
         try {
@@ -429,6 +438,26 @@ var BattleAndWorkNode = BottomFrameNode.extend({
         } catch (e) {
             cc.error("Error showing scavenger double tip: " + e);
         }
+    },
+    _applyScavengerDoubleFallback: function (workRoom) {
+        if (!workRoom || workRoom.scavengerDoubleTriggered) {
+            return;
+        }
+        if (!Array.isArray(workRoom.list) || workRoom.list.length === 0) {
+            return;
+        }
+        if (typeof TalentService === "undefined" || !TalentService
+            || typeof TalentService.rollScavengerDoubleDrop !== "function"
+            || !TalentService.rollScavengerDoubleDrop()) {
+            return;
+        }
+        workRoom.list = workRoom.list.map(function (itemInfo) {
+            return {
+                itemId: itemInfo.itemId,
+                num: (parseInt(itemInfo.num, 10) || 0) * 2
+            };
+        });
+        workRoom.scavengerDoubleTriggered = true;
     },
     createBattleEndView: function (sumRes) {
         this.bg.getChildByName("des").setString(stringUtil.getString(1118));
