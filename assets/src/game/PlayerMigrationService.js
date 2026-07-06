@@ -35,6 +35,9 @@ var PlayerMigrationService = {
      * Returns migrated saveData (truthy) or null (caller falls back to new game).
      */
     migrate: function (saveData, playerInstance, runtimeRecord) {
+        if (!saveData) {
+            return null;
+        }
         if (!this.isSaveDataSupported(saveData)) {
             this.purgeUnsupportedSlot(playerInstance, runtimeRecord);
             return null;

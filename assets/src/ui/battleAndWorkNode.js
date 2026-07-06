@@ -700,13 +700,13 @@ var BattleAndWorkNode = BottomFrameNode.extend({
             },
             end: function () {
                 node.removeFromParent();
+                self._showWorkScavengerDoubleTip();
                 if (self.site.isInSecretRooms) {
                     self.site.secretRoomEnd();
                 } else {
                     self.site.roomEnd(true);
                     self.site.testSecretRoomsBegin();
                 }
-                self._showWorkScavengerDoubleTip();
 
                 runtimePlayer.bag.testWeaponBroken(itemId);
 
