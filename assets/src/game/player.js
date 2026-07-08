@@ -803,6 +803,11 @@ var Player = cc.Class.extend({
     },
 
     start: function () {
+        if (this._started) {
+            cc.i("player start skipped: already started");
+            return;
+        }
+        this._started = true;
         cc.i("player start...");
         var self = this;
         var timer = this.getTimer();

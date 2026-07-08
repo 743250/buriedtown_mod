@@ -398,7 +398,7 @@ utils.doBridgeReceive = function (jsonObj) {
     if (typeof PurchaseService !== "undefined"
         && PurchaseService
         && typeof PurchaseService.applyExternalReward === "function") {
-        PurchaseService.applyExternalReward(201, count);
+        PurchaseService.applyExternalReward(PurchaseService.EXTERNAL_BRIDGE_PURCHASE_ID, count);
     }
 }
 

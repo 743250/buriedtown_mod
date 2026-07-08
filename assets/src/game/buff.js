@@ -148,38 +148,19 @@ var BuffItemEffectType = {
 var getItemBuffMeta = function (itemId, buffConfig) {
     itemId = Number(itemId);
     buffConfig = buffConfig || {};
-    switch (itemId) {
-        case BuffItemEffectType.ITEM_1107012:
-            return {
-                attrList: ["hp"],
-                statBonusMap: {
-                    hpMax: Number(buffConfig.value) || 0
-                },
-                value: Number(buffConfig.value) || 0
-            };
-        case BuffItemEffectType.ITEM_1107022:
-            return {
-                attrList: ["infect"],
-                blockChangeAttrMap: {infect: true},
-                suppressAttrEffectMap: {infect: true}
-            };
-        case BuffItemEffectType.ITEM_1107032:
-            return {
-                attrList: ["vigour"],
-                blockChangeAttrMap: {vigour: true},
-                suppressAttrEffectMap: {vigour: true}
-            };
-        case BuffItemEffectType.ITEM_1107042:
-            return {
-                attrList: ["starve"],
-                blockChangeAttrMap: {starve: true},
-                suppressAttrEffectMap: {starve: true}
-            };
-        default:
-            return {
-                attrList: []
-            };
+    if (!buffConfig.attrList || !Array.isArray(buffConfig.attrList)) {
+        return {attrList: []};
     }
+    var meta = {
+        attrList: buffConfig.attrList.slice(),
+        blockChangeAttrMap: cloneBuffMap(buffConfig.blockChangeAttrMap),
+        suppressAttrEffectMap: cloneBuffMap(buffConfig.suppressAttrEffectMap),
+        statBonusMap: cloneBuffMap(buffConfig.statBonusMap),
+        adverseAttrChangeRateMap: cloneBuffMap(buffConfig.adverseAttrChangeRateMap),
+        value: Number(buffConfig.value) || 0,
+        buffClass: buffConfig.buffClass || null
+    };
+    return meta;
 };
 
 var Buff = cc.Class.extend({
@@ -436,7 +417,7 @@ var BuffManager = cc.Class.extend({
             saveEnabled: true
         };
 
-        if (itemId === BuffItemEffectType.ITEM_1107012) {
+        if (itemMeta.buffClass === "maxHp") {
             return new MaxHpBuff(buffOpt);
         }
         return new Buff(buffOpt);

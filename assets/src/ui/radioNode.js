@@ -88,7 +88,11 @@ var RadioNode = BuildNode.extend({
         var feed = RadioFeedService.getFeed() || [];
         var self = this;
         feed.forEach(function (entry) {
-            self.addLocalSystemMsg(entry);
+            try {
+                self.addLocalSystemMsg(entry);
+            } catch (e) {
+                cc.error("RadioNode._flushRadioFeedBuffer entry failed: " + e);
+            }
         });
     },
 
@@ -103,18 +107,24 @@ var RadioNode = BuildNode.extend({
         var self = this;
         this._economyListener = function (payload) {
             if (!payload) return;
-            // 复用 RadioFeedService 的合成（保持 buffer 一致）
-            if (typeof RadioFeedService !== "undefined" && RadioFeedService) {
-                RadioFeedService.onPriceShift(payload);
-            }
-            // 立即把这一条灌进 UI（电台正打开）
+            // 立即把这一批新条目灌进 UI（电台正打开）
             var feed = (typeof RadioFeedService !== "undefined" && RadioFeedService)
                 ? RadioFeedService.getFeed() : [];
-            if (feed.length > 0) {
-                self.addLocalSystemMsg(feed[feed.length - 1]);
-            }
+            if (feed.length === 0) return;
+            // 找出本次 payload 拆出的 entry（_dedupKey 含 gameDay+npcId）
+            var batchKeys = {};
+            feed.forEach(function (e) {
+                if (e && e.npcId === payload.npcId && e.gameDay === payload.gameDay) {
+                    batchKeys[e._dedupKey] = true;
+                }
+            });
+            feed.forEach(function (e) {
+                if (e && batchKeys[e._dedupKey]) {
+                    self.addLocalSystemMsg(e);
+                }
+            });
         };
-        utils.emitter.on(NpcEconomyService.EVENT_PRICE_SHIFT, this._economyListener);
+        utils.emitter.on(NpcEconomyService.EVENT_DAILY_BROADCAST, this._economyListener);
         this._economyListenerBound = true;
     },
 

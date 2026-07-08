@@ -102,6 +102,8 @@ var RoleConfigTable = {
             id: 18,
             levels: [0]
         },
+        restActionTypes: [],
+        canSmoke: false,
         workSiteRepair: {
             lastTimeMinutes: 96 * 60,
             brokenProbability: 0.02,

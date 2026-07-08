@@ -5,18 +5,7 @@
 var TravelService = {
     CONFIG: {
         BASE_VELOCITY: 97 / (1 * 60 * 60) * 0.8 * 1.1,
-        BOOTS_ACCELERATE_REAL_TIME: 2,
-        DEFAULT_ACCELERATE_REAL_TIME: 3,
-        ITEMS: {
-            BOOTS: 1304024,
-            MOTO: 1305034,
-            ZHANSUN: 1305044
-        },
-        VELOCITY_BONUS: {
-            BOOTS: 0.25,
-            MOTO: 0.35,
-            ZHANSUN: 0.45
-        }
+        DEFAULT_ACCELERATE_REAL_TIME: 3
     },
     getBaseVelocity: function () {
         return this.CONFIG.BASE_VELOCITY;
@@ -26,20 +15,47 @@ var TravelService = {
             typeof storage.getNumByItemId === "function" &&
             storage.getNumByItemId(itemId) > 0);
     },
+    _resolveItemConfig: function (itemId) {
+        var entry = itemConfig[itemId];
+        if (!entry || !entry.travelKind) {
+            return null;
+        }
+        return entry;
+    },
+    _collectTravelEntries: function (storage, kind) {
+        var entries = [];
+        if (!storage || typeof storage.forEach !== "function") {
+            return entries;
+        }
+        storage.forEach(function (item, num) {
+            if (num <= 0) {
+                return;
+            }
+            var entry = itemConfig[item.id];
+            if (entry && entry.travelKind === kind && entry.travelSpeedBonus > 0) {
+                entries.push(entry);
+            }
+        });
+        return entries;
+    },
+    _maxSpeedBonus: function (entries, baseVelocity) {
+        var max = 0;
+        for (var i = 0; i < entries.length; i++) {
+            if (entries[i].travelSpeedBonus > max) {
+                max = entries[i].travelSpeedBonus;
+            }
+        }
+        return baseVelocity * max;
+    },
     getVehicleVelocityBonus: function (storage, baseVelocity) {
-        if (this.hasTravelItem(storage, this.CONFIG.ITEMS.ZHANSUN)) {
-            return baseVelocity * this.CONFIG.VELOCITY_BONUS.ZHANSUN;
-        }
-        if (this.hasTravelItem(storage, this.CONFIG.ITEMS.MOTO)) {
-            return baseVelocity * this.CONFIG.VELOCITY_BONUS.MOTO;
-        }
-        return 0;
+        return this._maxSpeedBonus(this._collectTravelEntries(storage, "vehicle"), baseVelocity);
     },
     getFootwearVelocityBonus: function (storage, baseVelocity) {
-        if (!this.hasTravelItem(storage, this.CONFIG.ITEMS.BOOTS)) {
-            return 0;
-        }
-        return baseVelocity * this.CONFIG.VELOCITY_BONUS.BOOTS;
+        var entries = this._collectTravelEntries(storage, "footwear");
+        var bonus = baseVelocity
+            ? this._maxSpeedBonus(entries, baseVelocity)
+            : 0;
+        return {bonus: bonus, hasFootwear: entries.length > 0};
     },
     getWeatherVelocityBonus: function (weather, baseVelocity) {
         if (!weather || typeof weather.getValue !== "function") {
@@ -49,16 +65,18 @@ var TravelService = {
     },
     getEffectiveVelocity: function (storage, weather) {
         var baseVelocity = this.getBaseVelocity();
+        var footwear = this.getFootwearVelocityBonus(storage, baseVelocity);
         return baseVelocity +
             this.getVehicleVelocityBonus(storage, baseVelocity) +
-            this.getFootwearVelocityBonus(storage, baseVelocity) +
+            footwear.bonus +
             this.getWeatherVelocityBonus(weather, baseVelocity);
     },
     getRouteModifiers: function (options) {
-        var hasBoots = this.hasTravelItem(options.storage, this.CONFIG.ITEMS.BOOTS);
-        var accelerateRealTime = hasBoots ?
-            this.CONFIG.BOOTS_ACCELERATE_REAL_TIME :
-            this.CONFIG.DEFAULT_ACCELERATE_REAL_TIME;
+        var footwear = this.getFootwearVelocityBonus(options.storage);
+        var hasBoots = footwear.hasFootwear;
+        var accelerateRealTime = hasBoots
+            ? this._footwearAccelerateRealTime(options.storage)
+            : this.CONFIG.DEFAULT_ACCELERATE_REAL_TIME;
         var ziplineRouteState = (typeof ZiplineTravelService !== "undefined" && ZiplineTravelService)
             ? ZiplineTravelService.buildRouteState(options)
             : {
@@ -74,6 +92,17 @@ var TravelService = {
             velocityMultiplier: ziplineRouteState.velocityMultiplier || 1,
             accelerateRealTime: accelerateRealTime * (ziplineRouteState.accelerateRealTimeMultiplier || 1)
         };
+    },
+    _footwearAccelerateRealTime: function (storage) {
+        var result = this.CONFIG.DEFAULT_ACCELERATE_REAL_TIME;
+        var entries = this._collectTravelEntries(storage, "footwear");
+        for (var i = 0; i < entries.length; i++) {
+            if (typeof entries[i].travelAccelerateRealTime === "number" &&
+                entries[i].travelAccelerateRealTime < result) {
+                result = entries[i].travelAccelerateRealTime;
+            }
+        }
+        return result;
     },
     buildPlan: function (options) {
         var startPos = options.startPos;

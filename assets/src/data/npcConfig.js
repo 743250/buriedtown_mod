@@ -3,154 +3,110 @@ var npcConfig = {
         "favorite": [
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.5
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.5
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.4
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.4
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.4
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.3
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.3
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.3
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.2
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.2
             }],
             [{
                 "itemId": 1105022,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1105033,
-                "price": 1.2,
-                "dailyConsume": 1,
-                "targetStock": 7
+                "price": 1.2
             }, {
                 "itemId": 1305011,
                 "price": 1.2
@@ -278,6 +234,24 @@ var npcConfig = {
             "itemId": "1305011",
             "num": "25"
         }],
+        "economyOverride": {
+            "1105022": {
+                "dailyConsume": 0.5,
+                "targetStock": 3
+            },
+            "1105033": {
+                "dailyConsume": 0.5,
+                "targetStock": 3
+            },
+            "1105061": {
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1105072": {
+                "dailyConsume": 1,
+                "targetStock": 5
+            }
+        },
         "coordinate": {
             "x": 386,
             "y": 211
@@ -738,6 +712,48 @@ var npcConfig = {
             "itemId": "1106054",
             "num": "1"
         }, null],
+        "economyOverride": {
+            "1103011": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103022": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103033": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103041": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103052": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103063": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103074": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            },
+            "1103083": {
+                "consumePool": "jin_food",
+                "dailyConsume": 2,
+                "targetStock": 10
+            }
+        },
         "coordinate": {
             "x": 380,
             "y": 326
@@ -1041,6 +1057,23 @@ var npcConfig = {
             "itemId": "1101011",
             "num": "6"
         }, null],
+        "economyOverride": {
+            "1302011": {
+                "consumePool": "jie_tool",
+                "dailyConsume": 1,
+                "targetStock": 5
+            },
+            "1302021": {
+                "consumePool": "jie_tool",
+                "dailyConsume": 1,
+                "targetStock": 5
+            },
+            "1302043": {
+                "consumePool": "jie_tool",
+                "dailyConsume": 1,
+                "targetStock": 5
+            }
+        },
         "coordinate": {
             "x": 246,
             "y": 474
@@ -1050,9 +1083,7 @@ var npcConfig = {
         "favorite": [
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.5
@@ -1068,9 +1099,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.5
@@ -1086,9 +1115,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.4
@@ -1104,9 +1131,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.4
@@ -1122,9 +1147,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.4
@@ -1140,9 +1163,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.3
@@ -1158,9 +1179,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.3
@@ -1176,9 +1195,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.3
@@ -1194,9 +1211,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.2
@@ -1212,9 +1227,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1.2
@@ -1230,9 +1243,7 @@ var npcConfig = {
             }],
             [{
                 "itemId": 1105011,
-                "price": 1.2,
-                "dailyConsume": 2,
-                "targetStock": 14
+                "price": 1.2
             }, {
                 "itemId": 1101021,
                 "price": 1
@@ -1363,6 +1374,12 @@ var npcConfig = {
             "itemId": "1302043",
             "num": "1"
         }, null],
+        "economyOverride": {
+            "1105011": {
+                "dailyConsume": 4,
+                "targetStock": 20
+            }
+        },
         "coordinate": {
             "x": 453,
             "y": 401
@@ -1491,6 +1508,12 @@ var npcConfig = {
             "itemId": "1303044",
             "num": "1"
         }, null, null, null],
+        "economyOverride": {
+            "1101073": {
+                "dailyConsume": 1,
+                "targetStock": 5
+            }
+        },
         "coordinate": {
             "x": 246,
             "y": 730
@@ -1616,22 +1639,8 @@ var npcConfig = {
             }, {
                 "itemId": 1101071,
                 "num": 1
-            }],
-            [{
-                "itemId": 1105022,
-                "num": 1
             }, {
-                "itemId": 1103074,
-                "num": 1
-            }, {
-                "itemId": 1101071,
-                "num": 1
-            }],
-            [{
-                "itemId": 1105022,
-                "num": 1
-            }, {
-                "itemId": 1101071,
+                "itemId": 1105011,
                 "num": 1
             }],
             [{
@@ -1643,6 +1652,9 @@ var npcConfig = {
             }, {
                 "itemId": 1101071,
                 "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
@@ -1650,22 +1662,8 @@ var npcConfig = {
             }, {
                 "itemId": 1101071,
                 "num": 1
-            }],
-            [{
-                "itemId": 1105022,
-                "num": 1
             }, {
-                "itemId": 1103074,
-                "num": 1
-            }, {
-                "itemId": 1101071,
-                "num": 1
-            }],
-            [{
-                "itemId": 1105022,
-                "num": 1
-            }, {
-                "itemId": 1101071,
+                "itemId": 1105011,
                 "num": 1
             }],
             [{
@@ -1677,12 +1675,18 @@ var npcConfig = {
             }, {
                 "itemId": 1101071,
                 "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
                 "num": 1
             }, {
                 "itemId": 1101071,
+                "num": 1
+            }, {
+                "itemId": 1105011,
                 "num": 1
             }],
             [{
@@ -1694,12 +1698,64 @@ var npcConfig = {
             }, {
                 "itemId": 1101071,
                 "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
             }],
             [{
                 "itemId": 1105022,
                 "num": 1
             }, {
                 "itemId": 1101071,
+                "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
+            }],
+            [{
+                "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1103074,
+                "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
+            }],
+            [{
+                "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
+            }],
+            [{
+                "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1103074,
+                "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
+            }, {
+                "itemId": 1105011,
+                "num": 1
+            }],
+            [{
+                "itemId": 1105022,
+                "num": 1
+            }, {
+                "itemId": 1101071,
+                "num": 1
+            }, {
+                "itemId": 1105011,
                 "num": 1
             }]
         ],
@@ -1762,6 +1818,16 @@ var npcConfig = {
             "itemId": "1103074",
             "num": "10"
         }],
+        "economyOverride": {
+            "1305011": {
+                "dailyConsume": 10,
+                "targetStock": 50
+            },
+            "1105011": {
+                "dailyProduce": 2,
+                "targetStock": 10
+            }
+        },
         "coordinate": {
             "x": 45,
             "y": 50

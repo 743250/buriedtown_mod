@@ -137,19 +137,14 @@ var BattleEquipmentSystem = (function () {
         if (id === Equipment.HAND) {
             return EQUIPMENT_KIND.MELEE;
         }
-        if (id === 1303022) {
-            return EQUIPMENT_KIND.TRAP;
-        }
-        if (id === 1303012 || id === 1303033 || id === 1303044) {
-            return EQUIPMENT_KIND.BOMB;
-        }
-        if (id === 1301071 || id === 1301082) {
-            return EQUIPMENT_KIND.ELECTRIC_GUN;
-        }
 
         var itemInfo = itemConfig[id];
         if (!itemInfo || !itemInfo.effect_weapon) {
             return null;
+        }
+
+        if (itemInfo.effect_weapon.equipmentKind) {
+            return itemInfo.effect_weapon.equipmentKind;
         }
 
         var typePrefix = getItemTypePrefix(id);
@@ -327,6 +322,9 @@ var BattleEquipmentSystem = (function () {
     });
 
     var BattleWeapon = BattleEquipment.extend({
+        usesSharedAttackCooldown: function () {
+            return true;
+        },
         playEffect: function (soundName) {
             if (this.effectId) {
                 audioManager.stopEffect(this.effectId);
@@ -487,11 +485,10 @@ var BattleEquipmentSystem = (function () {
                         if (!hasRecordedUse) {
                             this.battlePlayer.battle.recordWeaponUse(1);
 
-                            var soundName;
-                            if (this.id == 1301071) {
-                                soundName = audioManager.sound.ATTACK_7;
-                            } else if (this.id == 1301082) {
-                                soundName = audioManager.sound.ATTACK_8;
+                            var soundName = null;
+                            var weaponEntry = itemConfig[this.id] && itemConfig[this.id].effect_weapon;
+                            if (weaponEntry && weaponEntry.attackSound) {
+                                soundName = audioManager.sound[weaponEntry.attackSound];
                             }
                             this.playEffect(soundName);
                             hasRecordedUse = true;

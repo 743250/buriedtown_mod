@@ -93,6 +93,9 @@ var SiteConfigService = {
         }).filter(function (npcId) {
             return !isNaN(npcId);
         });
+    },
+    getSecretRoomModifierItemIds: function () {
+        return [1305064, 1305053];
     }
 };
 

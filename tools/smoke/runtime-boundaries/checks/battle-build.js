@@ -151,7 +151,7 @@ function runBattleCadenceSmoke() {
     };
 }
 
-function runMeleeIndependentCooldownSmoke() {
+function runMeleeSharedCooldownSmoke() {
     const sandbox = createVmSandbox();
     let weaponUses = 0;
     let bulletConsumed = 0;
@@ -278,16 +278,16 @@ function runMeleeIndependentCooldownSmoke() {
     const melee = new sandbox.BattleEquipmentSystem.Weapon(1302011, battlePlayer);
 
     assert(gun.action(0) === true, "gun should fire at the start of combat");
-    assert(melee.action(0) === true, "melee weapon should no longer be blocked by gun shared cooldown");
-    assert(gunHitCount === 1 && meleeHitCount === 1,
-        "gun and melee should both attack during the same combat tick when ready");
-    assert(weaponUses === 2, "gun and melee should both record weapon usage when they attack independently");
-    assert(bulletConsumed === 1, "melee attacks should not consume bullets while gun cooldown remains shared");
+    assert(melee.action(0) === false, "melee weapon is blocked by gun shared cooldown while active");
+    assert(gunHitCount === 1 && meleeHitCount === 0,
+        "only gun should land hits during the gun cooldown window");
+    assert(weaponUses === 1, "only gun should record weapon usage during the gun cooldown window");
+    assert(bulletConsumed === 1, "only gun should consume a bullet during the gun cooldown window");
 
     return {
-        name: "battle-melee-independent-cooldown",
+        name: "battle-melee-shared-cooldown",
         ok: true,
-        detail: "validated melee weapon cooldown stays independent from gun shared cooldown"
+        detail: "validated melee weapon now respects gun shared cooldown per design"
     };
 }
 
@@ -1101,7 +1101,7 @@ function runBuildActionRuntimeRoleSmoke() {
 
 module.exports = [
     runBattleCadenceSmoke,
-    runMeleeIndependentCooldownSmoke,
+    runMeleeSharedCooldownSmoke,
     runBattleHeadshotLogSmoke,
     runCraftBuildActionReuseSmoke,
     runBonfireStateSmoke,

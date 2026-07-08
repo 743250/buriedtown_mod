@@ -1,6 +1,6 @@
 var npcGiftConfig = {
     "produceValue": 4,
-    "favorGiftThreshold": 100,
+    "favorGiftThreshold": 300,
     "favorGiftRatio": 0.5,
     "favorGiftValue": 4,
     "produceList": [{

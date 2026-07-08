@@ -74,9 +74,22 @@ var MessageView = LogView.extend({
         this._super(size);
     },
     createOneItem: function (log) {
-        // 本地系统消息（NPC 经济变动）走单独渲染分支：左侧头像 + 右侧带颜色文本
+        // 本地系统消息（NPC 经济变动）走纯文字渲染分支
         if (log && log.kind === "npc_economy") {
-            return this._createNpcEconomyItem(log);
+            try {
+                return this._createNpcEconomyItem(log);
+            } catch (e) {
+                cc.error("MessageView._createNpcEconomyItem failed: " + e);
+                // 回退到普通渲染，避免一条坏消息让整个电台 UI 崩掉
+                var node = new cc.Node();
+                var fallbackMsg = new cc.LabelTTF("[" + (log.npcId || "?") + " item " + (log.itemId || "?") + " " + (log.tier || "?") + "]",
+                    uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(this.getViewSize().width, 0));
+                fallbackMsg.setAnchorPoint(0, 0);
+                node.addChild(fallbackMsg);
+                node.setContentSize(this.getViewSize().width, fallbackMsg.height + 10);
+                node.log = log;
+                return node;
+            }
         }
         var node = new cc.Node();
 
@@ -124,45 +137,60 @@ var MessageView = LogView.extend({
             cc.error("MessageView._createNpcEconomyItem name lookup failed: " + e);
         }
 
-        // 1377 favorite up / 1378 favorite down / 1379 trading up / 1380 trading down
-        var stringId;
-        if (log.economyKind === "trading") {
-            stringId = log.dir === "up" ? 1379 : 1380;
-        } else {
-            stringId = log.dir === "up" ? 1377 : 1378;
-        }
-        var msgText;
+        // 优先查 npcBroadcastConfig[npcId][itemId][tier]，命中用 NPC 自己的文案
+        var msgText = null;
         try {
-            msgText = stringUtil.getString(stringId, npcName, itemName, log.deltaPercent);
+            if (typeof npcBroadcastConfig !== "undefined" && npcBroadcastConfig) {
+                var npcTexts = npcBroadcastConfig[log.npcId];
+                if (npcTexts) {
+                    var dir = (log.economyKind === "trading") ? npcTexts.trading : npcTexts.favorite;
+                    if (dir) {
+                        var key = String(log.itemId);
+                        var itemTexts = dir[key] || dir[parseInt(log.itemId, 10)];
+                        if (itemTexts && itemTexts[log.tier]) {
+                            msgText = itemTexts[log.tier];
+                        }
+                    }
+                }
+            }
         } catch (e2) {
-            msgText = npcName + " · " + itemName + " " + (log.dir === "up" ? "+" : "-") + log.deltaPercent + "%";
+            msgText = null;
         }
 
-        // —— 头像 sprite（小图，地图头像） —— //
-        var avatarSize = 36;
-        var avatar = null;
-        try {
-            var frameName = (typeof IconHelper !== "undefined" && IconHelper)
-                ? IconHelper.getRoleMapFrameName(log.npcId, false, "npc_1.png")
-                : ("npc_" + log.npcId + ".png");
-            avatar = (typeof SafetyHelper !== "undefined" && SafetyHelper)
-                ? SafetyHelper.safeLoadSprite(frameName, "npc_1.png")
-                : null;
-        } catch (e3) {
-            avatar = null;
-        }
-        if (avatar) {
-            avatar.setAnchorPoint(0, 0.5);
-            // 缩放到 avatarSize
-            var origSize = avatar.getContentSize();
-            var maxSide = Math.max(origSize.width, origSize.height) || avatarSize;
-            avatar.setScale(avatarSize / maxSide);
-            node.addChild(avatar);
+        // 回退到通用模板。balanced 是“不变”，不能落到涨跌 0%。
+        if (!msgText) {
+            var tierToDelta = {
+                very_low: 40, low: 20, balanced: 0, high: -20, very_high: -40
+            };
+            var deltaPercent = tierToDelta.hasOwnProperty(log.tier) ? tierToDelta[log.tier] : 0;
+            if (log.tier === "balanced") {
+                if (log.economyKind === "trading") {
+                    msgText = npcName + " 的 " + itemName + " 库存稳定，卖价未变";
+                } else {
+                    msgText = npcName + " 对 " + itemName + " 的收购价保持稳定";
+                }
+                log._dir = "stable";
+            } else {
+                var isUp = deltaPercent > 0;
+                var stringId = log.economyKind === "trading"
+                    ? (isUp ? 1379 : 1380)
+                    : (isUp ? 1377 : 1378);
+                try {
+                    msgText = stringUtil.getString(stringId, npcName, itemName, Math.abs(deltaPercent));
+                } catch (e3) {
+                    msgText = "";
+                }
+                if (!msgText) {
+                    msgText = npcName + " · " + itemName + " " + (isUp ? "+" : "-") + Math.abs(deltaPercent) + "%";
+                }
+                log._dir = isUp ? "up" : "down";
+            }
+            log._deltaPercent = deltaPercent;
         }
 
-        // —— 时间 + 文本（右侧） —— //
-        var textX = avatar ? (avatarSize + 8) : 0;
-        var textWidth = Math.max(60, width - textX);
+        // 纯文字版电台广播：不加载角色头像，避免资源依赖影响消息列表。
+        var textX = 0;
+        var textWidth = Math.max(60, width);
 
         var time = new cc.LabelTTF(utils.timeToStr(Number(log.time)),
             uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(textWidth, 0));
@@ -173,18 +201,21 @@ var MessageView = LogView.extend({
         var msg = new cc.LabelTTF(msgText, uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2, cc.size(textWidth, 0));
         msg.setAnchorPoint(0, 0);
         msg.tag = 2;
-        msg.setColor(log.dir === "up" ? UITheme.colors.TEXT_ERROR : UITheme.colors.TEXT_SUCCESS);
+        // 颜色：缺货涨价红，过剩降价绿，其它默认
+        var tierDirMap = { very_low: "up", low: "up", high: "down", very_high: "down" };
+        var tierDir = tierDirMap[log.tier];
+        if (tierDir === "up") {
+            msg.setColor(UITheme.colors.TEXT_ERROR);
+        } else if (tierDir === "down") {
+            msg.setColor(UITheme.colors.TEXT_SUCCESS);
+        }
         node.addChild(msg);
 
-        var contentH = Math.max(avatarSize, time.height + msg.height + 10);
+        var contentH = time.height + msg.height + 10;
         node.setContentSize(width, contentH);
 
         time.setPosition(textX, contentH - 5);
         msg.setPosition(textX, 5);
-        if (avatar) {
-            avatar.setPosition(0, contentH / 2);
-        }
-
         node.log = log;
         return node;
     },

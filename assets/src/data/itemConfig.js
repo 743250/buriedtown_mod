@@ -313,7 +313,10 @@ var itemConfig = {
             "effect": 1,
             "effectType": 1,
             "value": 60,
-            "lastTime": 72
+            "lastTime": 72,
+            "buffClass": "maxHp",
+            "attrList": ["hp"],
+            "statBonusMap": {"hpMax": 60}
         }
     },
     "1107022": {
@@ -326,7 +329,10 @@ var itemConfig = {
             "effect": 2,
             "effectType": 2,
             "value": 0,
-            "lastTime": 72
+            "lastTime": 72,
+            "attrList": ["infect"],
+            "blockChangeAttrMap": {"infect": true},
+            "suppressAttrEffectMap": {"infect": true}
         }
     },
     "1107032": {
@@ -339,7 +345,10 @@ var itemConfig = {
             "effect": 3,
             "effectType": 2,
             "value": 0,
-            "lastTime": 72
+            "lastTime": 72,
+            "attrList": ["vigour"],
+            "blockChangeAttrMap": {"vigour": true},
+            "suppressAttrEffectMap": {"vigour": true}
         }
     },
     "1107042": {
@@ -352,7 +361,10 @@ var itemConfig = {
             "effect": 4,
             "effectType": 2,
             "value": 0,
-            "lastTime": 72
+            "lastTime": 72,
+            "attrList": ["starve"],
+            "blockChangeAttrMap": {"starve": true},
+            "suppressAttrEffectMap": {"starve": true}
         }
     },
     "1301011": {
@@ -513,7 +525,9 @@ var itemConfig = {
             "dtPrecise": 0,
             "deathHit": 0.1,
             "dtDeathHit": 0.05,
-            "brokenProbability": 0.04
+            "brokenProbability": 0.04,
+            "equipmentKind": "electric_gun",
+            "attackSound": "ATTACK_7"
         }
     },
     "1301082": {
@@ -536,7 +550,9 @@ var itemConfig = {
             "dtPrecise": 0,
             "deathHit": 0.1,
             "dtDeathHit": 0.05,
-            "brokenProbability": 0.04
+            "brokenProbability": 0.04,
+            "equipmentKind": "electric_gun",
+            "attackSound": "ATTACK_8"
         }
     },
     "1301091": {
@@ -676,7 +692,8 @@ var itemConfig = {
             "dtPrecise": 0,
             "deathHit": 0,
             "dtDeathHit": 0,
-            "brokenProbability": 0
+            "brokenProbability": 0,
+            "equipmentKind": "bomb"
         }
     },
     "1303022": {
@@ -697,7 +714,8 @@ var itemConfig = {
             "dtPrecise": 0,
             "deathHit": 0,
             "dtDeathHit": 0,
-            "brokenProbability": 0
+            "brokenProbability": 0,
+            "equipmentKind": "trap"
         }
     },
     "1303033": {
@@ -718,7 +736,8 @@ var itemConfig = {
             "dtPrecise": 0,
             "deathHit": 0,
             "dtDeathHit": 0,
-            "brokenProbability": 0
+            "brokenProbability": 0,
+            "equipmentKind": "bomb"
         }
     },
     "1303044": {
@@ -739,7 +758,8 @@ var itemConfig = {
             "dtPrecise": 0,
             "deathHit": 0,
             "dtDeathHit": 0,
-            "brokenProbability": 0
+            "brokenProbability": 0,
+            "equipmentKind": "bomb"
         }
     },
     "1304012": {
@@ -766,7 +786,10 @@ var itemConfig = {
         "id": "1304024",
         "weight": 0,
         "price": 8,
-        "value": 7.878000000000001
+        "value": 7.878000000000001,
+        "travelKind": "footwear",
+        "travelSpeedBonus": 0.25,
+        "travelAccelerateRealTime": 2
     },
     "1305011": {
         "id": "1305011",
@@ -807,14 +830,18 @@ var itemConfig = {
         "id": 1305034,
         "weight": 0,
         "price": 40,
-        "value": 40
+        "value": 40,
+        "travelKind": "vehicle",
+        "travelSpeedBonus": 0.35
     },
     "1305044": {
         "id": 1305044,
         "weight": 0,
         "price": 65,
         "value": 65,
-        "bagWeightBonus": 15
+        "bagWeightBonus": 15,
+        "travelKind": "vehicle",
+        "travelSpeedBonus": 0.45
     },
     "1305053": {
         "id": "1305053",

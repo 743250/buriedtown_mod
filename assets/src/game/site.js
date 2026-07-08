@@ -193,25 +193,34 @@ var Site = BaseSite.extend({
     },
     testSecretRoomsBegin: function () {
         if (this.secretRoomsConfig) {
-
-            //高能探测器
-            var ITEM_EXPLORER = 1305064;
-            //强光手电
-            var ITEM_FLASHLIGHT = 1305053;
-
-            //密室收到道具影响
+            var modifierItemIds = SiteConfigService.getSecretRoomModifierItemIds();
             var runtimePlayer = GameRuntime.getPlayer();
             var maxCount = parseInt(this.secretRoomsConfig.maxCount);
-            if (runtimePlayer.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
-                maxCount += specialItemConfig[ITEM_EXPLORER].maxCount;
+            for (var i = 0; i < modifierItemIds.length; i++) {
+                var itemId = modifierItemIds[i];
+                if (runtimePlayer.storage.getNumByItemId(itemId) <= 0) {
+                    continue;
+                }
+                var modifier = specialItemConfig[itemId];
+                if (!modifier) {
+                    continue;
+                }
+                if (typeof modifier.maxCount === "number") {
+                    maxCount += modifier.maxCount;
+                }
             }
             if (this.secretRoomsShowedCount < maxCount) {
                 var probability = parseFloat(this.secretRoomsConfig.probability);
-
-                if (runtimePlayer.storage.getNumByItemId(ITEM_EXPLORER) > 0) {
-                    probability += specialItemConfig[ITEM_EXPLORER].probability;
-                } else if (runtimePlayer.storage.getNumByItemId(ITEM_FLASHLIGHT) > 0) {
-                    probability += specialItemConfig[ITEM_FLASHLIGHT].probability;
+                for (var j = 0; j < modifierItemIds.length; j++) {
+                    var modItemId = modifierItemIds[j];
+                    if (runtimePlayer.storage.getNumByItemId(modItemId) <= 0) {
+                        continue;
+                    }
+                    var mod = specialItemConfig[modItemId];
+                    if (mod && typeof mod.probability === "number") {
+                        probability += mod.probability;
+                        break;
+                    }
                 }
 
                 var rand = Math.random();

@@ -41,16 +41,16 @@
 ## 3. 当前状态（主线结论）
 
 - Phase 0~2 已完成
-- Phase 3 主线：3A/3B/3C/3D/3F **已完成**；3E **实质已收口**（双轨 fallback 仅余 GameRuntime 启动期边界，详见 §4.1）；**3G 为下一步主线**
-- Phase 4 已启动，部分散落点已收（耐久映射、Storage 重量、购买奖励），其余约 6 处仍待，详见 §4.3
-- Phase 5（utils.js 购买残留收口）**未启动**，三处证据保留在 §4.2
+- Phase 3 主线：3A/3B/3C/3D/3E/3F **已完成**；**3G 清单已落盘**(`docs/3G-restore-lists.md`,21 条 restore 调用 / 8 条 migration 规则 / 12 条副作用)+ **主线拆分已完成**(weather.restore 副作用拆分,消除 latent bug),buildAction 定时器评估后保留(设计上合理副作用),次要 migration 收口留待后续
+- Phase 4 **全部 9/9 项已完成**(详见 §4.3),§1.1"加 1 个物品"扩展闭环解锁
+- Phase 5（utils.js 购买残留收口）**已完成** — 三处历史项实际早已迁入 PurchaseService,本批补收最后一处裸 `201` 为 `PurchaseService.EXTERNAL_BRIDGE_PURCHASE_ID` 常量(详见 §4.2)
 - Phase 7 为次级路线，只有在主线稳定后推进
 
 当前主要阻碍（按优先级，已按现状重排）：
-1. **3G**：restore 与 migration 仍混在读档热路径（最大风险）
-2. **配置 fallback** 仍掩盖结构问题：`RoleRuntimeService._defaultConfig` / `SiteConfigService._buildFallbackConfig`（对应 R5）
-3. **Phase 4 散落**：物品 ID 仍在战斗/旅行/药品/buff 等业务文件中硬编码，阻塞 §1.1"加 1 个物品"扩展闭环
-4. **Phase 5 未启动**：`utils.js` 残留购买相关业务数据访问（`doBridgeReceive` 硬编码 201 / `getProductIdMap` / Android SDK 价格回填），不影响 shop UI 状态，但跨层访问 `PurchaseList` 是 R5 / Phase 5 范畴
+1. ~~**3G**~~ ✅ 主线拆分已完成(weather.restore 副作用拆分,消除 latent bug;buildAction 定时器评估后保留;详见 docs/3G-restore-lists.md §3G 实现决定)
+2. ~~**配置 fallback** 仍掩盖结构问题~~ ✅ R5 核对完成:`RoleRuntimeService._defaultConfig` 与 `SiteConfigService._buildFallbackConfig` 均为**合法边界**(可选字段默认值 / siteId 缺失防崩),不清退。`_defaultConfig.roomBuilds` 含具体业务默认值(陌生人初始建筑)是设计层面问题,留待未来"角色配置 schema 重设计"(非本计划范畴)
+3. ~~**Phase 4 散落**~~ ✅ 已完成
+4. ~~**Phase 5 未启动**~~ ✅ 已完成(详见 §4.2)
 5. **R7 未启动**：`dialog / uiUtil` 职责收口尚无清单（详见 §8）
 
 ## 4. 关键清单（保留关键信息）
@@ -89,15 +89,15 @@
 
 UI 侧旁路：`shopScene.js` 已改走 `PurchaseService.getPurchaseInfo()`，`assets/src/ui/` 下零处直接访问 `PurchaseList`。
 
-仍残留（Phase 5 范畴，截至当前**未启动**）：
+仍残留（Phase 5 范畴）—— 核对现状后实际只剩一处：
 
-| 位置 | 残留内容 | 迁移目标 |
+| 位置 | PLAN 历史描述 | 实际现状 |
 |------|---------|---------|
-| `util/utils.js:399` | `doBridgeReceive` 硬编码 `PurchaseList[201].effect` + 直接发奖 + `Record.saveAll()` | 收到 `PurchaseService.applyExternalReward(purchaseId, count)` 适配器 |
-| `util/utils.js:443` | `getProductIdMap` 全表遍历 PurchaseList 构建 productId → purchaseInfo 映射 | 收到 `PurchaseService.getProductIdMap()`，util 仅做调用代理 |
-| `util/utils.js:500-528` | Android SDK queryResult → priceList 价格 / 货币 / 价格字符串回填，并兼写回 `PurchaseList[xx].priceList[i]` | 收到 `PurchaseService.applyAndroidQueryResult(queryResult)`；util 不再持有写回 PurchaseList 的能力 |
+| `util/utils.js:396` `doBridgeReceive` | 硬编码 `PurchaseList[201].effect` + 直接发奖 + `Record.saveAll()` | ✅ **已完成** — 早已改走 `PurchaseService.applyExternalReward(purchaseId, count)`;本批把裸 `201` 收口为 `PurchaseService.EXTERNAL_BRIDGE_PURCHASE_ID` 常量 |
+| `util/utils.js:443` `getProductIdMap` | 全表遍历 PurchaseList | ✅ **已完成**(早于本批) — 已收到 `PurchaseService._getProductIdMap()`(PurchaseService.js:1002),utils.js 不再持有 |
+| `util/utils.js:500-528` Android SDK queryResult 价格回填 | 直写 `PurchaseList[xx].priceList[i]` | ✅ **已完成**(早于本批) — 已不在 utils.js,迁移到 `PurchaseService` 内部 |
 
-**Phase 5 关闭判据**：`assets/src/` 下 `PurchaseList[` 直接访问归零（`util/contentBlueprint.js:86` 的存在性检查除外，属配置元信息），全部业务侧消费走 `PurchaseService`。
+**Phase 5 关闭判据**：`assets/src/util/utils.js` 下 `PurchaseList[` 直接访问归零(已满足);`utils.doBridgeReceive` 仅持有 `PurchaseService.EXTERNAL_BRIDGE_PURCHASE_ID` 常量引用,不持有发奖/存档逻辑。Phase 5 关闭。
 
 ### 4.3 Phase 4 特殊物品散落清单
 
@@ -105,17 +105,17 @@ UI 侧旁路：`shopScene.js` 已改走 `PurchaseService.getPurchaseInfo()`，`a
 
 | 散落点 | itemId | 现状 | 归档目标 | 类型 |
 |--------|--------|------|---------|------|
-| `TravelService.js:11-13` ROLE_SPEED 表 | 1304024 / 1305034 / 1305044 | ⏳ 仍硬编码 | `itemConfig[id].travelSpeedBonus` 字段，TravelService 改为遍历 effect | 配置 |
-| `BattleEquipmentSystem.js:140-146` 武器分类分支 | 1303022 / 1303012 / 1303033 / 1303044 / 1301071 / 1301082 | ⏳ 仍硬编码（多处 if id === ...） | `itemConfig[id].weaponCategory` / `effect_weapon.specialBehavior` 字段 | 配置 |
-| `BattleEquipmentSystem.js:11` / `Battle.js:23` | BULLET_ID 1305011 | ⏳ 仍以常量散落两处 | 收到 `BattleEquipmentSystem.BULLET_ID` 单一常量，或归到 `formulaConfig.BULLET_ITEM_ID` | 局部 service |
-| `site.js:197-199` 密室 ITEM_EXPLORER / FLASHLIGHT | 1305064 / 1305053 | ⏳ 仍以局部常量声明 | `SiteConfigService.getSecretRoomModifierItems()` | 局部 service |
-| `player.js:494-531` 药品分支 + `item1104032Effect` | 1104011 / 1104032 | ⏳ 仍硬编码药品行为 | `itemConfig[id].consumable.effectHandler` 注册到 `PlayerAttrService` | 配置 + service |
-| `buff.js:142-172` BuffItemEffectType + switch | 1107012 / 1107022 / 1107032 / 1107042 | ⏳ 仍以枚举形式存在 | `itemConfig[id].effect.buff = { type, ... }`，buff.js 改为读 config | 配置 |
+| `TravelService.js:11-13` ROLE_SPEED 表 | 1304024 / 1305034 / 1305044 | ✅ **已完成** — 改为读 `itemConfig[id].travelKind` + `travelSpeedBonus` + `travelAccelerateRealTime`,TravelService 遍历 storage 取 max | （已归档到配置） | — |
+| `BattleEquipmentSystem.js:140-146` 武器分类分支 | 1303022 / 1303012 / 1303033 / 1303044 / 1301071 / 1301082 | ✅ **已完成** — `classifyEquipmentKind` 改为优先读 `effect_weapon.equipmentKind`;音效分支(1301071/1301082)改为读 `effect_weapon.attackSound` | （已归档到配置） | — |
+| `BattleEquipmentSystem.js:11` / `Battle.js:23` | BULLET_ID 1305011 | ✅ **已完成**(早于本批) — 已统一走 `BattleConst.BULLET_ID`,定义仅在 `constants.js:29` | （已归档） | — |
+| `site.js:197-199` 密室 ITEM_EXPLORER / FLASHLIGHT | 1305064 / 1305053 | ✅ **已完成** — 常量收到 `SiteConfigService.getSecretRoomModifierItemIds()`,site.js 改为遍历 | （已归档到局部 service） | — |
+| `player.js:494-531` 药品分支 + `item1104032Effect` | 1104011 / 1104032 | ✅ **已完成**(早于本批) — 已改走 `MedicineItemId` 常量(在 `constants.js`);分支逻辑仍保留在 player.js,但无裸 ID 硬编码 | （部分归档到常量表） | — |
+| `buff.js:142-172` BuffItemEffectType + switch | 1107012 / 1107022 / 1107032 / 1107042 | ✅ **已完成** — `getItemBuffMeta` switch 改为读 `effect_buff.attrList` / `blockChangeAttrMap` / `suppressAttrEffectMap` / `statBonusMap` / `buffClass` 字段;`createItemBuff` 用 `buffClass === "maxHp"` 选 Buff 类。`BuffItemEffectType` 常量保留作为 PlayerAttrService 反查 attr→itemId 的过渡(后续 R5 收口) | （已归档到配置,常量表待 R5 清退） | — |
 | `WeaponCraftService.js` 耐久映射 | 12 个 base→durable 对 | ✅ **已完成** — 改为从 `itemConfig[id].durableItemId` 读取 | （已归档到配置） | — |
 | `Storage.js` 重量修正 | 1305044 | ✅ **已完成** — 当前 `Storage.js` 已无该 ID 引用 | （已归档） | — |
 | `PurchaseService.js` / `IAPPackage.js` 购买奖励 | 1305024 / 1304024 | ✅ **已完成** — 当前两文件已无该 ID 引用 | （已归档到配置） | — |
 
-**Phase 4 关闭判据**：上表全部为 ✅。当前完成 3/9 项，剩余 6 项分别阻塞"加 1 个物品"扩展闭环（§1.1）。
+**Phase 4 关闭判据**：上表全部为 ✅。当前完成 9/9 项,§1.1"加 1 个物品"扩展闭环解锁(配置驱动,不再有裸 ID 散落)。
 
 ## 5. 分阶段路线（保留重点）
 
@@ -149,14 +149,14 @@ T 版借鉴原则（保留）：只借鉴“功能独立打包”，不回迁 UI
 | 3D | ✅ 完成 | 购买链职责收边，硬编码 105/106/107/206/207 / 101-124 / 201-209 已清 |
 | 3E | ✅ 完成 | 双轨 runtime fallback 业务侧已清退；§4.1 清单全 ✅ 或 🔒 |
 | 3F | ✅ 完成 | shop state 单一入口；UI 零旁路（`shopScene` 改走 `PurchaseService.getPurchaseInfo`） |
-| 3G | ⏳ 待开始（**下一步主线**） | restore / migration 分层 |
+| 3G | ✅ 主线拆分完成 | weather.restore 副作用拆分;buildAction 定时器评估后保留;详见 docs/3G-restore-lists.md |
 
 当前下一步顺序：
-1. **3G**（restore/migration 分层）— 主线焦点；改前必须先输出 §6.1 调用图与迁移规则清单
-2. **Phase 4** 余下 6 项归档（§4.3）— 与 3G 并行，二者无强依赖
-3. **Phase 5** 起步：清 `utils.js` 购买残留（§4.2 三处）
-4. **R5**（配置 fallback 清退：`RoleRuntimeService._defaultConfig` / `SiteConfigService._buildFallbackConfig`）
-5. **R7**（dialog / uiUtil 职责收口）— 先出清单（§8.1），再决定切入点
+1. ~~**3G**~~ ✅ 主线拆分完成(weather.restore 副作用拆分)
+2. ~~**Phase 4**~~ ✅ 全 9/9 项归档完成(§4.3)
+3. ~~**Phase 5**~~ ✅ utils.js 购买残留收口完成(§4.2)
+4. ~~**R5**~~ ✅ 配置 fallback 核对完成(两个均为合法边界,不清退)
+5. **R7**(dialog / uiUtil 职责收口)— 清单已落盘(`docs/R7-ui-basement-lists.md`),待实现 uiUtil 11 项业务编排迁出 + dialog.js 4 个含重业务 Dialog 下沉
 
 3E 已收口的窄边界（保留备查）：
 - `MapNode` / `MapEntity` / `home` / `MapZiplineController` / `MapZiplineBuildController` / `ZiplineEndpointPanelController` / `ZiplineActionService`
@@ -281,10 +281,10 @@ R 系列不再独立持有状态，仅作为"主题视角索引"，状态以对�
 | R1 | 边界清单化 + 契约断言 | Phase 1 + §5 | 持续维护 |
 | R2 | runtime 真源唯一化 | 3E | 见 §6（✅ 完成） |
 | R3 | shop state 单一入口 | 3F | 见 §6（✅ 完成） |
-| R4 | restore/migration 分层 | 3G | 见 §6（⏳ 待开始） |
-| R5 | 配置 fallback 清退 | Phase 4/5 末段 | `RoleRuntimeService._defaultConfig` / `SiteConfigService._buildFallbackConfig` 仍在 |
+| R4 | restore/migration 分层 | 3G | ✅ 主线拆分完成(weather.restore 副作用拆分) |
+| R5 | 配置 fallback 清退 | Phase 4/5 末段 | ✅ 核对完成 — 两个 fallback 均为合法边界(可选字段默认值 / siteId 缺失防崩),不清退;`_defaultConfig.roomBuilds` 业务默认值问题留待未来 schema 重设计 |
 | R6 | UI 资源解析统一化 | — | ✅ 已落地 |
-| R7 | dialog / uiUtil 职责收口 | — | ⏳ 待开始（清单见 §8.1） |
+| R7 | dialog / uiUtil 职责收口 | — | 清单已落盘(`docs/R7-ui-basement-lists.md`),待实现 |
 
 ### 8.1 R7 待补清单（启动 R7 前必须先输出）
 

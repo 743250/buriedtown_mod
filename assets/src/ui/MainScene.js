@@ -49,6 +49,7 @@ var MainScene = BaseScene.extend({
         autoSpriteFrameController.addSpriteFrames("res/weather.plist");
         autoSpriteFrameController.addSpriteFrames("res/guide.plist");
         autoSpriteFrameController.addSpriteFrames("res/new_site.plist");
+        autoSpriteFrameController.addSpriteFrames("res/icon.plist");
 
         var layer = new MainLayer();
         layer.setName("main");

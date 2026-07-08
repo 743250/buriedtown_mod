@@ -10,6 +10,7 @@ var PurchaseGatewayResultCode = {
 };
 
 var PurchaseService = {
+    EXTERNAL_BRIDGE_PURCHASE_ID: 201,
     FAIL_REASON: {
         INVALID_PURCHASE: "INVALID_PURCHASE",
         INSUFFICIENT_POINTS: "INSUFFICIENT_POINTS",

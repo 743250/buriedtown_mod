@@ -1,40 +1,69 @@
 /**
  * NpcEconomyService —— NPC 动态库存与价格服务
  *
- * 设计稿：docs/npc-economy-plan.md §3 / §5 / §16 / §17
+ * 设计稿：docs/npc-trade-*.md（6 份角色设计文档）
  *
- * 本服务集中三件事：
- *   1. 库存↔价格曲线（getFavoritePriceMultiplier / getTradingSellMultiplier）
- *   2. 日产/日消结算（runDailyTick）
- *   3. 价格变动事件派发（utils.emitter "npcEconomy:priceShift"）
+ * 三件事：
+ *   1. 五档固定价格曲线（getFavoritePriceMultiplier / getTradingSellMultiplier）
+ *   2. 日产/日消结算（runDailyTick），含 consumePool 合并池消耗
+ *   3. 每日统一广播（emit EVENT_DAILY_BROADCAST），把当日各物品档位摘要派给电台
  *
- * 装配点：jsList.js，**排在 npc.js 之前**
+ * 数据分层：基础表 itemEconomyConfig + NPC 覆盖 economyOverride → 合并视图 _getEffectiveEntry
  *
- * 兼容/兜底原则：
- *   - 拿不到 dailyConsume / dailyProduce → 退回 num 字段（旧行为等价）
- *   - 拿不到 targetStock → 用比例常量推算
- *   - 自产自销物品（trading ∩ favorite）只作收购意向，不进入日消
- *   - npc.isUnlocked === false → 不广播（避免剧透）
+ * 五档倍率（基于 currentStock / targetStock 比值 r）：
+ *   r < 0.2   极缺  +40%
+ *   r < 0.6   偏少  +20%
+ *   r < 1.4   平衡   0%
+ *   r < 1.8   偏多  -20%
+ *   r >= 1.8  过剩  -40%
+ *
+ * 装配点：jsList.js，排在 npc.js 之前
+ *
+ * 兼容兜底：
+ *   - dailyConsume / dailyProduce / targetStock 缺失 → 退回默认 0（不自产不自消）
+ *   - 自产自销物品（trading ∩ favorite）不进日消、不广播
+ *   - npc.isUnlocked === false → 不广播
  */
 var NpcEconomyService = {
-    // —— 调参常量（集中在文件顶部，方便平衡） ——
-    PRICE_SHIFT_BROADCAST_THRESHOLD: 0.15,   // 倍率变化绝对值 ≥15% 才广播
-    TARGET_STOCK_PRODUCE_RATIO: 3,           // trading 默认目标库存 = num × 3
-    TARGET_STOCK_CONSUME_RATIO: 7,           // favorite 默认目标库存 = consume × 7
-    DAYS_ELAPSED_CLAMP: 30,                  // 跨天补算上限
+    // 五档倍率
+    TIER_VERY_LOW: 1.4,
+    TIER_LOW: 1.2,
+    TIER_BALANCED: 1.0,
+    TIER_HIGH: 0.8,
+    TIER_VERY_HIGH: 0.6,
 
-    FAV_MUL_LOW: 0.5,
-    FAV_MUL_HIGH: 1.8,
-    TRD_MUL_LOW: 0.7,
-    TRD_MUL_HIGH: 1.6,
+    // 档位阈值（基于 r = currentStock / targetStock）
+    RATIO_VERY_LOW: 0.2,
+    RATIO_LOW: 0.6,
+    RATIO_BALANCED: 1.4,
+    RATIO_HIGH: 1.8,
 
+    // 调参常量
+    TARGET_STOCK_PRODUCE_RATIO: 5,
+    TARGET_STOCK_CONSUME_RATIO: 5,
+    DAYS_ELAPSED_CLAMP: 30,
+
+    EVENT_DAILY_BROADCAST: "npcEconomy:dailyBroadcast",
     EVENT_PRICE_SHIFT: "npcEconomy:priceShift",
+
+    // ===== 合并视图 =====
+
+    _getEffectiveEntry: function (npc, itemId, kind) {
+        var base = (typeof itemEconomyConfig !== "undefined" && itemEconomyConfig)
+            ? (itemEconomyConfig[itemId] || {}) : {};
+        var override = (npc && npc.config && npc.config.economyOverride)
+            ? (npc.config.economyOverride[String(itemId)] || npc.config.economyOverride[itemId] || {}) : {};
+        return {
+            dailyConsume: override.dailyConsume != null ? Number(override.dailyConsume) : (Number(base.defaultDailyConsume) || 0),
+            targetStock: override.targetStock != null ? Number(override.targetStock) : (Number(base.defaultTargetStock) || 0),
+            dailyProduce: override.dailyProduce != null ? Number(override.dailyProduce) : (Number(base.defaultDailyProduce) || 0),
+            consumePool: override.consumePool || null,
+            category: base.category || null
+        };
+    },
 
     // ===== 公共 API =====
 
-    /**
-     * 取 NPC 自产自销物品集合：trading.itemId ∩ favorite.itemId。
-     */
     getSelfTradedItemIds: function (npc) {
         var result = {};
         if (!npc || !npc.config) {
@@ -58,78 +87,78 @@ var NpcEconomyService = {
         return result;
     },
 
-    /**
-     * 取 favorite 物品当前的实时收购倍率。
-     * 返回 null 表示走调用方旧行为兜底（兼容老配置/合成物品）。
-     */
+    _getTierMultiplier: function (currentStock, targetStock) {
+        if (targetStock <= 0) {
+            return 1.0;
+        }
+        var r = currentStock / targetStock;
+        if (r < this.RATIO_VERY_LOW) return this.TIER_VERY_LOW;
+        if (r < this.RATIO_LOW) return this.TIER_LOW;
+        if (r < this.RATIO_BALANCED) return this.TIER_BALANCED;
+        if (r < this.RATIO_HIGH) return this.TIER_HIGH;
+        return this.TIER_VERY_HIGH;
+    },
+
     getFavoritePriceMultiplier: function (npc, itemId) {
         var entry = this._findFavoriteEntry(npc, itemId);
         if (!entry) {
             return null;
         }
         var basePrice = Number(entry.price) || 1;
-        var dailyConsume = Number(entry.dailyConsume) || 0;
-        if (dailyConsume <= 0) {
-            // 没消耗 → 静态价格（兼容老配置 / 自产自销物品）
+        var effective = this._getEffectiveEntry(npc, itemId, "favorite");
+        if (effective.consumePool) {
+            var poolState = this._getPoolState(npc, effective.consumePool, "favorite");
+            if (poolState.targetStock > 0) {
+                var k = this._getTierMultiplier(poolState.currentStock, poolState.targetStock);
+                return basePrice * k;
+            }
             return basePrice;
         }
-        var targetStock = Number(entry.targetStock) || (dailyConsume * this.TARGET_STOCK_CONSUME_RATIO);
+        if (effective.dailyConsume <= 0) {
+            return basePrice;
+        }
+        var targetStock = effective.targetStock || (effective.dailyConsume * this.TARGET_STOCK_CONSUME_RATIO);
         var current = this._getStock(npc, itemId);
-        var ratio = targetStock > 0 ? current / targetStock : 1;
-        var k = this._clamp(2 - ratio, this.FAV_MUL_LOW, this.FAV_MUL_HIGH);
+        var k = this._getTierMultiplier(current, targetStock);
         return basePrice * k;
     },
 
-    /**
-     * 取 trading 物品当前的实时卖价倍率（NPC 卖给玩家）。
-     * 返回 null 表示该物品不在 trading 列表里（调用方按 1.0 兜底）。
-     */
     getTradingSellMultiplier: function (npc, itemId) {
         var entry = this._findTradingEntry(npc, itemId);
         if (!entry) {
             return null;
         }
-        var baseMul = Number(entry.basePriceMultiplier) || 1;
-        var num = Number(entry.num) || 0;
-        if (num <= 0) {
+        var effective = this._getEffectiveEntry(npc, itemId, "trading");
+        var baseMul;
+        if (npc && npc.config && npc.config.economyOverride) {
+            var ovr = npc.config.economyOverride[String(itemId)] || npc.config.economyOverride[itemId] || {};
+            if (ovr.basePriceMultiplier != null) {
+                baseMul = Number(ovr.basePriceMultiplier);
+            }
+        }
+        if (baseMul == null) {
+            var base = (typeof itemEconomyConfig !== "undefined" && itemEconomyConfig)
+                ? (itemEconomyConfig[itemId] || {}) : {};
+            baseMul = base.defaultBasePriceMultiplier != null ? Number(base.defaultBasePriceMultiplier) : 1.0;
+        }
+        if (effective.dailyProduce <= 0) {
             return baseMul;
         }
-        var targetStock = Number(entry.targetStock) || (num * this.TARGET_STOCK_PRODUCE_RATIO);
+        var targetStock = effective.targetStock || (effective.dailyProduce * this.TARGET_STOCK_PRODUCE_RATIO);
         var current = this._getStock(npc, itemId);
-        var ratio = targetStock > 0 ? current / targetStock : 1;
-        var k = this._clamp(1.5 - 0.5 * ratio, this.TRD_MUL_LOW, this.TRD_MUL_HIGH);
+        var k = this._getTierMultiplier(current, targetStock);
         return baseMul * k;
     },
 
-    /**
-     * 每日结算：日产/日消 + 价格变动广播。
-     * 由 NPC.updateTradingItem 调用，每个游戏日"白天"触发一次。
-     *
-     * @param {NPC} npc
-     * @param {number} daysElapsed 已过去天数（跨天补算用，clamp 到 DAYS_ELAPSED_CLAMP）
-     */
     runDailyTick: function (npc, daysElapsed) {
         if (!npc || !npc.config || !npc.storage) {
             return;
         }
         daysElapsed = Math.max(1, Math.min(this.DAYS_ELAPSED_CLAMP, Number(daysElapsed) || 1));
 
-        var favIds = this._listFavoriteItemIds(npc);
-        var trdIds = this._listTradingItemIds(npc);
         var selfTraded = this.getSelfTradedItemIds(npc);
 
-        // 结算前快照（用于对比）
-        var beforeFav = {};
-        var self = this;
-        favIds.forEach(function (id) {
-            beforeFav[id] = self.getFavoritePriceMultiplier(npc, id);
-        });
-        var beforeTrd = {};
-        trdIds.forEach(function (id) {
-            beforeTrd[id] = self.getTradingSellMultiplier(npc, id);
-        });
-
-        // 日产
+        // 日产（trading dailyProduce）
         var produceMap = this._getProduceMap(npc);
         Object.keys(produceMap).forEach(function (id) {
             var amt = produceMap[id] * daysElapsed;
@@ -138,7 +167,7 @@ var NpcEconomyService = {
             }
         });
 
-        // 日消（自产自销跳过）
+        // 日消（独立 dailyConsume）
         var consumeMap = this._getConsumeMap(npc);
         Object.keys(consumeMap).forEach(function (id) {
             if (selfTraded[id]) {
@@ -152,14 +181,56 @@ var NpcEconomyService = {
             }
         });
 
-        // 结算后对比 + 广播
-        this._broadcastShifts(npc, favIds, trdIds, selfTraded, beforeFav, beforeTrd);
+        // 日消（consumePool 合并池）
+        this._consumePools(npc, daysElapsed, selfTraded);
+
+        // 清理非保留物品：NPC storage 中不在保留集的物品每日清空。
+        // 保留集 = trading ∪ favorite 数组里所有 itemId（NPC 的商品与收购品）
+        //         ∪ economyOverride 所有 key（显式配了日产/日消/池/basePrice 的）
+        //         ∪ itemEconomyConfig 默认日产/日消 > 0 的物品
+        // 三者并集，确保"角色产出但不消耗"的 trading 物品（如陌生人产咖啡豆）不会被误清。
+        var retainedIds = {};
+        (npc.config.trading || []).forEach(function (tier) {
+            (tier || []).forEach(function (entry) {
+                if (entry && entry.itemId != null) {
+                    retainedIds[String(entry.itemId)] = true;
+                }
+            });
+        });
+        (npc.config.favorite || []).forEach(function (tier) {
+            (tier || []).forEach(function (entry) {
+                if (entry && entry.itemId != null) {
+                    retainedIds[String(entry.itemId)] = true;
+                }
+            });
+        });
+        if (npc.config.economyOverride) {
+            Object.keys(npc.config.economyOverride).forEach(function (id) {
+                retainedIds[id] = true;
+            });
+        }
+        if (typeof itemEconomyConfig !== "undefined" && itemEconomyConfig) {
+            Object.keys(itemEconomyConfig).forEach(function (id) {
+                var entry = itemEconomyConfig[id];
+                if ((Number(entry.defaultDailyConsume) || 0) > 0 || (Number(entry.defaultDailyProduce) || 0) > 0) {
+                    retainedIds[id] = true;
+                }
+            });
+        }
+        Object.keys(npc.storage.map).forEach(function (id) {
+            if (!retainedIds[id]) {
+                var iid = parseInt(id, 10);
+                var cur = npc.storage.getNumByItemId(iid);
+                if (cur > 0) {
+                    npc.storage.decreaseItem(iid, cur);
+                }
+            }
+        });
+
+        // 每日统一广播
+        this._emitDailyBroadcast(npc);
     },
 
-    /**
-     * 取当前游戏日（来自 GameRuntime.getTimer().formatTime().d）。
-     * 失败时返回 0。
-     */
     getCurrentGameDay: function () {
         try {
             if (typeof GameRuntime !== "undefined"
@@ -178,13 +249,6 @@ var NpcEconomyService = {
     },
 
     // ===== 内部辅助 =====
-
-    _clamp: function (v, lo, hi) {
-        if (typeof cc !== "undefined" && cc && typeof cc.clampf === "function") {
-            return cc.clampf(v, lo, hi);
-        }
-        return Math.max(lo, Math.min(hi, v));
-    },
 
     _getReputationTier: function (npc) {
         if (typeof memoryUtil !== "undefined" && memoryUtil && typeof memoryUtil.decode === "function") {
@@ -274,9 +338,8 @@ var NpcEconomyService = {
                 if (!e || e.itemId == null) {
                     continue;
                 }
-                var amt = e.dailyProduce != null ? Number(e.dailyProduce) : Number(e.num) || 0;
+                var amt = this._getEffectiveEntry(npc, e.itemId, "trading").dailyProduce;
                 if (amt > 0) {
-                    // 高声望 NPC 的同物品多 tier 配置：取最大值，不叠加，避免日产爆膨
                     map[e.itemId] = Math.max(map[e.itemId] || 0, amt);
                 }
             }
@@ -288,57 +351,191 @@ var NpcEconomyService = {
         var rep = this._getReputationTier(npc);
         var fav = (npc.config.favorite || [])[rep] || [];
         var map = {};
+        var self = this;
         fav.forEach(function (e) {
             if (!e || e.itemId == null) {
                 return;
             }
-            var dc = Number(e.dailyConsume) || 0;
-            if (dc > 0) {
-                map[e.itemId] = dc;
+            var eff = self._getEffectiveEntry(npc, e.itemId, "favorite");
+            if (eff.consumePool) {
+                return;
+            }
+            if (eff.dailyConsume > 0) {
+                map[e.itemId] = eff.dailyConsume;
             }
         });
         return map;
     },
 
-    _broadcastShifts: function (npc, favIds, trdIds, selfTraded, beforeFav, beforeTrd) {
+    /**
+     * 合并池消耗：从 economyOverride 读池配置。
+     * poolId → { dailyConsume, members[] }，按库存多的优先扣。
+     */
+    _consumePools: function (npc, daysElapsed, selfTraded) {
+        var override = (npc && npc.config && npc.config.economyOverride) ? npc.config.economyOverride : {};
+        var pools = {};
+        var self = this;
+        var keys = Object.keys(override);
+        for (var i = 0; i < keys.length; i++) {
+            var itemId = keys[i];
+            var eff = self._getEffectiveEntry(npc, itemId, "favorite");
+            if (!eff.consumePool) {
+                continue;
+            }
+            var pid = eff.consumePool;
+            if (!pools[pid]) {
+                pools[pid] = { dailyConsume: 0, members: [] };
+            }
+            pools[pid].dailyConsume = Math.max(pools[pid].dailyConsume, eff.dailyConsume || 0);
+            pools[pid].members.push(parseInt(itemId, 10));
+        }
+        keys = Object.keys(pools);
+        for (var p = 0; p < keys.length; p++) {
+            var pid = keys[p];
+            var pool = pools[pid];
+            var totalConsume = pool.dailyConsume * daysElapsed;
+            if (totalConsume <= 0) {
+                continue;
+            }
+            var members = pool.members.map(function (iid) {
+                return { id: iid, stock: self._getStock(npc, iid) };
+            }).filter(function (m) {
+                return m.stock > 0 && !selfTraded[m.id];
+            }).sort(function (a, b) {
+                return b.stock - a.stock;
+            });
+            var remaining = totalConsume;
+            for (var j = 0; j < members.length && remaining > 0; j++) {
+                var take = Math.min(members[j].stock, remaining);
+                npc.storage.decreaseItem(members[j].id, take);
+                remaining -= take;
+            }
+        }
+    },
+
+    /**
+     * 取池总库存和总 targetStock（用于价格曲线）。
+     * targetStock = 池日消最大值 * TARGET_STOCK_CONSUME_RATIO。
+     * 池配置从 economyOverride 读。
+     */
+    _getPoolState: function (npc, poolId, kind) {
+        var override = (npc && npc.config && npc.config.economyOverride) ? npc.config.economyOverride : {};
+        var totalStock = 0;
+        var totalConsume = 0;
+        var self = this;
+        var keys = Object.keys(override);
+        for (var i = 0; i < keys.length; i++) {
+            var itemId = keys[i];
+            var eff = self._getEffectiveEntry(npc, itemId, "favorite");
+            if (eff.consumePool !== poolId) {
+                continue;
+            }
+            totalConsume = Math.max(totalConsume, eff.dailyConsume || 0);
+        }
+        for (var j = 0; j < keys.length; j++) {
+            var itemId2 = keys[j];
+            var eff2 = self._getEffectiveEntry(npc, itemId2, "favorite");
+            if (eff2.consumePool !== poolId) {
+                continue;
+            }
+            totalStock += self._getStock(npc, itemId2);
+        }
+        return {
+            currentStock: totalStock,
+            targetStock: totalConsume * this.TARGET_STOCK_CONSUME_RATIO
+        };
+    },
+
+    /**
+     * 每日统一广播：把当日所有走五档物品的档位摘要 emit 给电台。
+     * balanced 档也广播，用于电台说明价格/库存不变。自产自销物品 favorite 方向不广播。无日产 trading 不广播。
+     */
+    _emitDailyBroadcast: function (npc) {
         if (!npc.isUnlocked) {
-            // 未解锁不广播（避免剧透）
             return;
         }
         var emit = (typeof utils !== "undefined" && utils && utils.emitter) ? utils.emitter : null;
         if (!emit || typeof emit.emit !== "function") {
             return;
         }
-
-        var threshold = this.PRICE_SHIFT_BROADCAST_THRESHOLD;
+        // emitter 被 GameRuntime.setEmitter 替换后，RadioFeedService 可能还挂在旧 emitter 上；
+        // 广播前确保它已绑到当前 emitter，否则电台缓冲收不到消息
+        if (typeof RadioFeedService !== "undefined" && RadioFeedService
+            && typeof RadioFeedService.bind === "function") {
+            try { RadioFeedService.bind(); } catch (e) {}
+        }
         var gameDay = this.getCurrentGameDay();
+        var selfTraded = this.getSelfTradedItemIds(npc);
         var self = this;
-        var tryEmit = function (kind, itemId, oldM, newM) {
-            if (typeof oldM !== "number" || !isFinite(oldM) || oldM <= 0) return;
-            if (typeof newM !== "number" || !isFinite(newM) || newM <= 0) return;
-            var delta = (newM - oldM) / oldM;
-            if (Math.abs(delta) < threshold) return;
-            emit.emit(self.EVENT_PRICE_SHIFT, {
-                npcId: npc.id,
-                itemId: parseInt(itemId, 10),
-                kind: kind,           // "favorite" | "trading"
-                oldMul: oldM,
-                newMul: newM,
-                dir: delta > 0 ? "up" : "down",
-                deltaPercent: Math.round(Math.abs(delta) * 100),
-                gameDay: gameDay,
-                time: Date.now()
-            });
-        };
 
+        // favorite 方向
+        var favIds = this._listFavoriteItemIds(npc);
+        var favEntries = [];
         favIds.forEach(function (id) {
             if (selfTraded[id]) {
-                return;     // 自产自销不广播 favorite 方向
+                return;
             }
-            tryEmit("favorite", id, beforeFav[id], self.getFavoritePriceMultiplier(npc, id));
+            var eff = self._getEffectiveEntry(npc, id, "favorite");
+            var current, target;
+            if (eff.consumePool) {
+                var ps = self._getPoolState(npc, eff.consumePool, "favorite");
+                current = ps.currentStock;
+                target = ps.targetStock;
+            } else if (eff.dailyConsume > 0) {
+                current = self._getStock(npc, id);
+                target = eff.targetStock || (eff.dailyConsume * self.TARGET_STOCK_CONSUME_RATIO);
+            } else {
+                return;
+            }
+            var tier = self._getTierLabel(current, target);
+            favEntries.push({
+                itemId: parseInt(id, 10),
+                tier: tier,
+                currentStock: current,
+                targetStock: target
+            });
         });
+
+        // trading 方向
+        var trdIds = this._listTradingItemIds(npc);
+        var trdEntries = [];
         trdIds.forEach(function (id) {
-            tryEmit("trading", id, beforeTrd[id], self.getTradingSellMultiplier(npc, id));
+            var eff = self._getEffectiveEntry(npc, id, "trading");
+            if (eff.dailyProduce <= 0) {
+                return;
+            }
+            var current = self._getStock(npc, id);
+            var target = eff.targetStock || (eff.dailyProduce * self.TARGET_STOCK_PRODUCE_RATIO);
+            var tier = self._getTierLabel(current, target);
+            trdEntries.push({
+                itemId: parseInt(id, 10),
+                tier: tier,
+                currentStock: current,
+                targetStock: target
+            });
         });
+
+        if (favEntries.length === 0 && trdEntries.length === 0) {
+            return;
+        }
+        emit.emit(self.EVENT_DAILY_BROADCAST, {
+            npcId: npc.id,
+            gameDay: gameDay,
+            time: Date.now(),
+            favorite: favEntries,
+            trading: trdEntries
+        });
+    },
+
+    _getTierLabel: function (currentStock, targetStock) {
+        if (targetStock <= 0) {
+            return "balanced";
+        }
+        var r = currentStock / targetStock;
+        if (r < this.RATIO_VERY_LOW) return "very_low";
+        if (r < this.RATIO_LOW) return "low";
+        if (r < this.RATIO_BALANCED) return "balanced";
+        if (r < this.RATIO_HIGH) return "high";
+        return "very_high";
     }
 };

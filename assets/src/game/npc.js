@@ -699,6 +699,8 @@ var NPC = BaseSite.extend({
 var NPCManager = cc.Class.extend({
     ctor: function () {
         this.npcList = {};
+        this.lastVisitDay = -1;
+        this.lastVisitorNpcId = null;
     },
     save: function () {
         var npcSaveObj = {};
@@ -706,7 +708,9 @@ var NPCManager = cc.Class.extend({
             npcSaveObj[npcId] = this.npcList[npcId].save();
         }
         return {
-            npcList: npcSaveObj
+            npcList: npcSaveObj,
+            lastVisitDay: this.lastVisitDay,
+            lastVisitorNpcId: this.lastVisitorNpcId
         };
     },
     restore: function (saveObj) {
@@ -716,6 +720,11 @@ var NPCManager = cc.Class.extend({
                 npc.restore(saveObj.npcList[npcId]);
                 this.npcList[npcId] = npc;
             }
+            this.lastVisitDay = Number(saveObj.lastVisitDay);
+            if (!isFinite(this.lastVisitDay)) {
+                this.lastVisitDay = -1;
+            }
+            this.lastVisitorNpcId = saveObj.lastVisitorNpcId || null;
         } else {
             this.init();
         }
@@ -727,7 +736,9 @@ var NPCManager = cc.Class.extend({
         }
     },
     visitPlayer: function () {
-        if (cc.timer.formatTime().d < 2) {
+        var timeObj = cc.timer.formatTime();
+        var currentDay = Number(timeObj && timeObj.d) || 0;
+        if (currentDay < 2 || this.lastVisitDay === currentDay) {
             return;
         }
         var rand = utils.getRandomInt(0, 100);
@@ -738,9 +749,14 @@ var NPCManager = cc.Class.extend({
             if (!npcId) {
                 return;
             }
+            this.lastVisitDay = currentDay;
+            this.lastVisitorNpcId = npcId;
             this.unlockNpc(npcId);
             var npc = this.npcList[npcId];
-            if (npc.needSendGift()) {
+            // 上门触发后：达到送礼阈值则送礼，否则要东西
+            var canFavorGift = npc._canSendFavorGift && npc._canSendFavorGift();
+            var hasQueuedGift = Array.isArray(npc.needSendGiftList["item"]) && npc.needSendGiftList["item"].length > 0;
+            if (canFavorGift || hasQueuedGift) {
                 npc.sendGift();
             } else {
                 npc.needHelp();

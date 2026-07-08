@@ -48,12 +48,16 @@ var WeatherSystem = cc.Class.extend({
         saveObj.lastDays = this.lastDays;
         return saveObj;
     },
+    _applyWeatherState: function (weatherId) {
+        this.weatherId = weatherId;
+        this.weatherConfig = weatherConfig[this.weatherId];
+    },
     restore: function (saveObj) {
         if (saveObj) {
             this.weatherId = saveObj.weatherId;
             this.lastDays = saveObj.lastDays;
 
-            this.changeWeather(this.weatherId);
+            this._applyWeatherState(this.weatherId);
         }
     },
     checkWeather: function () {
@@ -71,8 +75,7 @@ var WeatherSystem = cc.Class.extend({
         }
     },
     changeWeather: function (weatherId, sendLog) {
-        this.weatherId = weatherId;
-        this.weatherConfig = weatherConfig[this.weatherId];
+        this._applyWeatherState(weatherId);
         this.lastDays = 0;
         cc.d("change weather " + this.weatherId);
         getWeatherRuntimeEmitter().emit("weather_change", weatherId);

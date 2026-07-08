@@ -24,6 +24,8 @@ var jsList = [
     "src/data/string/string.js",
     "src/data/blackList.js",
     "src/data/npcConfig.js",
+    "src/data/itemEconomyConfig.js",
+    "src/data/npcBroadcastConfig.js",
     "src/data/itemConfig.js",
     "src/data/buildConfig.js",
     "src/data/buildActionConfig.js",

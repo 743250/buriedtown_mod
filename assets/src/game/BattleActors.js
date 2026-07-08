@@ -269,9 +269,9 @@ var BattleActors = (function () {
         },
         action: function (battleTime) {
             battleTime = this._resolveBattleTime(battleTime);
+            this._safeActionStep(this.useEquip, "equip", battleTime);
             this._safeActionStep(this.useWeapon1, "weapon1", battleTime);
             this._safeActionStep(this.useWeapon2, "weapon2", battleTime);
-            this._safeActionStep(this.useEquip, "equip", battleTime);
         },
         _updateEscape: function (battleTime) {
             if (!(this.escapeReadyAt > 0)) {
