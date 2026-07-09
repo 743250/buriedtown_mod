@@ -1824,8 +1824,8 @@ var npcConfig = {
                 "targetStock": 50
             },
             "1105011": {
-                "dailyProduce": 2,
-                "targetStock": 10
+                "dailyProduce": 4,
+                "targetStock": 20
             }
         },
         "coordinate": {

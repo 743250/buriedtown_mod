@@ -15,7 +15,6 @@ var RoleRuntimeService = {
         ],
         temperatureBuild: {id: 5},
         restActionTypes: [],
-        canSmoke: true,
         buildLevelCaps: {},
         actionTags: [],
         specialItems: [],
@@ -185,7 +184,6 @@ var RoleRuntimeService = {
                 levels: this._cloneNumberList(temperatureBuild.levels)
             },
             restActionTypes: (config.restActionTypes || defaultConfig.restActionTypes).slice(),
-            canSmoke: config.canSmoke !== false,
             buildLevelCaps: config.buildLevelCaps || defaultConfig.buildLevelCaps,
             actionTags: this._cloneStringList(config.actionTags || defaultConfig.actionTags),
             specialItems: this._normalizeSpecialItems(config.specialItems || defaultConfig.specialItems),
@@ -266,9 +264,6 @@ var RoleRuntimeService = {
 
     getRestActionTypes: function (roleType) {
         return this.getRuntimeConfig(roleType).restActionTypes;
-    },
-    canSmoke: function (roleType) {
-        return this.getRuntimeConfig(roleType).canSmoke !== false;
     },
     getWorkSiteRepairConfig: function (roleType) {
         return this.getRuntimeConfig(roleType).workSiteRepair;

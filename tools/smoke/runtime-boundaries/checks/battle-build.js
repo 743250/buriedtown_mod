@@ -278,7 +278,7 @@ function runMeleeSharedCooldownSmoke() {
     const melee = new sandbox.BattleEquipmentSystem.Weapon(1302011, battlePlayer);
 
     assert(gun.action(0) === true, "gun should fire at the start of combat");
-    assert(melee.action(0) === false, "melee weapon is blocked by gun shared cooldown while active");
+    assert(melee.action(0) === false, "melee weapon should be blocked by active gun shared cooldown");
     assert(gunHitCount === 1 && meleeHitCount === 0,
         "only gun should land hits during the gun cooldown window");
     assert(weaponUses === 1, "only gun should record weapon usage during the gun cooldown window");
@@ -287,7 +287,98 @@ function runMeleeSharedCooldownSmoke() {
     return {
         name: "battle-melee-shared-cooldown",
         ok: true,
-        detail: "validated melee weapon now respects gun shared cooldown per design"
+        detail: "validated melee weapon respects gun shared cooldown"
+    };
+}
+
+function runYaziElectricPistolBreakSettlementSmoke() {
+    const sandbox = createVmSandbox();
+    const originalRandom = Math.random;
+
+    sandbox.cc.timer = {
+        formatTime: function () { return { d: 5 }; }
+    };
+    sandbox.cc.log = function () {};
+    sandbox.stringUtil = {
+        getString: function (id) {
+            return { title: "item-" + id };
+        }
+    };
+    sandbox.TalentService = {
+        isElitePistolItem: function () { return false; },
+        getWeaponBrokenProbability: function (value) { return value; },
+        getBattleWinRecoverHp: function () { return 0; }
+    };
+    sandbox.Medal = {
+        trackWeaponBroken: function () {}
+    };
+    sandbox.Achievement.checkGetItem = function () {};
+
+    loadIntoSandbox(sandbox, "assets/src/util/emitter.js");
+    loadIntoSandbox(sandbox, "assets/src/util/utils.js");
+    loadIntoSandbox(sandbox, "assets/src/game/GameRuntime.js");
+    loadIntoSandbox(sandbox, "assets/src/util/memoryUtil.js");
+    loadIntoSandbox(sandbox, "assets/src/data/blackList.js");
+    loadIntoSandbox(sandbox, "assets/src/data/itemConfig.js");
+    loadIntoSandbox(sandbox, "assets/src/game/constants.js");
+    loadIntoSandbox(sandbox, "assets/src/game/Item.js");
+    loadIntoSandbox(sandbox, "assets/src/game/Storage.js");
+    loadIntoSandbox(sandbox, "assets/src/game/equipment.js");
+    loadIntoSandbox(sandbox, "assets/src/game/BattleSummary.js");
+    loadIntoSandbox(sandbox, "assets/src/game/BattleSettlementService.js");
+
+    const runtimePlayer = {
+        bag: new sandbox.Bag("player"),
+        equip: new sandbox.Equipment(),
+        log: { addMsg: function () {} },
+        changeHp: function () {},
+        hp: sandbox.memoryUtil.encode(100)
+    };
+    runtimePlayer.bag.decreaseItem = function (itemId, num) {
+        sandbox.Storage.prototype.decreaseItem.call(this, itemId, num);
+        if (this.getNumByItemId(itemId) === 0 && runtimePlayer.equip.isEquiped(itemId)) {
+            runtimePlayer.equip.unequipByItemId(itemId);
+        }
+    };
+    sandbox.GameRuntime.bootstrap({
+        player: runtimePlayer,
+        timer: sandbox.cc.timer,
+        emitter: sandbox.utils.emitter,
+        record: sandbox.Record
+    });
+    runtimePlayer.bag.increaseItem(1301071, 1);
+    runtimePlayer.equip.equip(sandbox.EquipmentPos.GUN, 1301071);
+
+    sandbox.Math = Object.create(Math);
+    sandbox.Math.random = function () { return 0; };
+    Math.random = function () { return 0; };
+    try {
+        const summary = new sandbox.BattleSummary();
+        summary.recordWeaponUse(1);
+        sandbox.BattleSettlementService.settle({
+            summary: summary,
+            battlePlayer: { bulletNum: 0, toolNum: 0, equip: null },
+            bulletItemId: sandbox.BattleConst.BULLET_ID,
+            isWin: true,
+            isDodge: false
+        });
+        const data = summary.getData();
+        assert(runtimePlayer.bag.getNumByItemId(1301071) === 0,
+            "Yazi electric pistol should be removed from bag when broken");
+        assert(runtimePlayer.bag.getNumByItemId(1102011) === 1,
+            "Yazi electric pistol should return its broken material result");
+        assert(!runtimePlayer.equip.getEquip(sandbox.EquipmentPos.GUN),
+            "Yazi electric pistol should be unequipped when broken");
+        assert(JSON.stringify(data.brokenWeapon) === "[1102011]",
+            "Broken weapon summary should show the returned material, not duplicate the pistol");
+    } finally {
+        Math.random = originalRandom;
+    }
+
+    return {
+        name: "battle-yazi-electric-pistol-break-settlement",
+        ok: true,
+        detail: "validated Yazi electric pistol break settlement removes the pistol and returns material"
     };
 }
 
@@ -1103,6 +1194,7 @@ module.exports = [
     runBattleCadenceSmoke,
     runMeleeSharedCooldownSmoke,
     runBattleHeadshotLogSmoke,
+    runYaziElectricPistolBreakSettlementSmoke,
     runCraftBuildActionReuseSmoke,
     runBonfireStateSmoke,
     runBuildRegistrySmoke,

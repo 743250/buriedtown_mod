@@ -8,6 +8,7 @@ const CHECKS = []
     .concat(require("./checks/runtime-core"))
     .concat(require("./checks/role-rules"))
     .concat(require("./checks/time-site"))
+    .concat(require("./checks/npc-economy-broadcast"))
     .concat(require("./checks/battle-build"))
     .concat(require("./checks/medal-aggregation"))
     .concat(require("./checks/purchase-persistence"))

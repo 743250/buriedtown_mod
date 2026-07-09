@@ -1169,12 +1169,9 @@ var BuildActionFactory = {
     },
     createRestActions: function (bid, level, roleType) {
         var actions = [
-            this.createActionByType("rest", { bid: bid, level: level })
+            this.createActionByType("rest", { bid: bid, level: level }),
+            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 })
         ];
-        if (getBuildActionRoleRuntimeService().canSmoke(roleType)) {
-            actions.push(this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 3 }));
-            actions.push(this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 }));
-        }
         getBuildActionRoleRuntimeService().getRestActionTypes(roleType).forEach(function (actionType) {
             var action = this.createRestActionByType(actionType, bid, level);
             if (action) {

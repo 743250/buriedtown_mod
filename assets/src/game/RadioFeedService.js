@@ -54,7 +54,7 @@ var RadioFeedService = {
 
     /**
      * 拆条：把 batch payload 拆成单条 entry 存进 buffer。
-     * 同一天同一 NPC 同一物品同一 kind 只保留最新一条。
+     * 同一次广播内同一 NPC 同一物品同一 kind 只保留最新一条。
      */
     onDailyBroadcast: function (payload) {
         if (!payload || payload.npcId == null) {
@@ -73,7 +73,7 @@ var RadioFeedService = {
                 if (!item || item.itemId == null || !item.tier) {
                     return;
                 }
-                var key = gameDay + "|" + npcId + "|" + item.itemId + "|" + kind;
+                var key = time + "|" + npcId + "|" + item.itemId + "|" + kind;
                 // 去重：同 key 旧条删掉
                 for (var i = self._buffer.length - 1; i >= 0; i--) {
                     if (self._buffer[i]._dedupKey === key) {

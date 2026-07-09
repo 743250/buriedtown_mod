@@ -63,6 +63,14 @@ var RadioNode = BuildNode.extend({
         this.msgView.addLog(msg);
     },
 
+    _getLocalSystemDedupKey: function (entry) {
+        if (!entry) {
+            return null;
+        }
+        return entry._dedupKey
+            || (entry.time + "|" + entry.npcId + "|" + entry.itemId + "|" + entry.economyKind);
+    },
+
     /**
      * 本地系统消息（NPC 经济变动等）。绝不走 networkUtil.sendMsg。
      */
@@ -70,11 +78,10 @@ var RadioNode = BuildNode.extend({
         if (!entry) {
             return;
         }
-        // 与 RadioFeedService 同款去重：同一天同一 NPC 同一物品同一 kind 只保留最新一条
-        var key = entry._dedupKey
-            || (entry.gameDay + "|" + entry.npcId + "|" + entry.itemId + "|" + entry.economyKind);
+        // 与 RadioFeedService 同款去重：同一次广播内同一 NPC 同一物品同一 kind 只保留最新一条
+        var key = this._getLocalSystemDedupKey(entry);
         for (var i = this.data.length - 1; i >= 0; i--) {
-            if (this.data[i] && this.data[i]._dedupKey === key) {
+            if (this._getLocalSystemDedupKey(this.data[i]) === key) {
                 return;     // 重复，跳过
             }
         }
@@ -111,10 +118,13 @@ var RadioNode = BuildNode.extend({
             var feed = (typeof RadioFeedService !== "undefined" && RadioFeedService)
                 ? RadioFeedService.getFeed() : [];
             if (feed.length === 0) return;
-            // 找出本次 payload 拆出的 entry（_dedupKey 含 gameDay+npcId）
+            // 找出本次 payload 拆出的 entry；生产路径 payload.time 一定存在，测试桩缺省时回退 gameDay。
             var batchKeys = {};
             feed.forEach(function (e) {
-                if (e && e.npcId === payload.npcId && e.gameDay === payload.gameDay) {
+                if (!e || e.npcId !== payload.npcId) {
+                    return;
+                }
+                if (payload.time != null ? e.time === payload.time : e.gameDay === payload.gameDay) {
                     batchKeys[e._dedupKey] = true;
                 }
             });
