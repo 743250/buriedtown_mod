@@ -102,15 +102,8 @@ function runBattleCadenceSmoke() {
             monsterDodgeRate: 0
         },
         currentTime: 0,
-        sharedAttackReadyAt: 0,
         getBattleTime: function () {
             return this.currentTime;
-        },
-        isInSharedAttackCooldown: function (battleTime) {
-            return this.sharedAttackReadyAt > battleTime;
-        },
-        enterSharedAttackCooldown: function (cooldown, battleTime) {
-            this.sharedAttackReadyAt = Number((battleTime + cooldown).toFixed(3));
         },
         battle: {
             targetMon: targetMonster,
@@ -151,7 +144,7 @@ function runBattleCadenceSmoke() {
     };
 }
 
-function runMeleeSharedCooldownSmoke() {
+function runMeleeIndependentCooldownSmoke() {
     const sandbox = createVmSandbox();
     let weaponUses = 0;
     let bulletConsumed = 0;
@@ -251,15 +244,8 @@ function runMeleeSharedCooldownSmoke() {
             monsterDodgeRate: 0
         },
         currentTime: 0,
-        sharedAttackReadyAt: 0,
         getBattleTime: function () {
             return this.currentTime;
-        },
-        isInSharedAttackCooldown: function (battleTime) {
-            return this.sharedAttackReadyAt > battleTime;
-        },
-        enterSharedAttackCooldown: function (cooldown, battleTime) {
-            this.sharedAttackReadyAt = Number((battleTime + cooldown).toFixed(3));
         },
         battle: {
             targetMon: targetMonster,
@@ -277,17 +263,23 @@ function runMeleeSharedCooldownSmoke() {
     const gun = new sandbox.BattleEquipmentSystem.Gun(1301052, battlePlayer);
     const melee = new sandbox.BattleEquipmentSystem.Weapon(1302011, battlePlayer);
 
+    // 原版：枪/近战各自独立 CD，同帧可双挥
     assert(gun.action(0) === true, "gun should fire at the start of combat");
-    assert(melee.action(0) === false, "melee weapon should be blocked by active gun shared cooldown");
-    assert(gunHitCount === 1 && meleeHitCount === 0,
-        "only gun should land hits during the gun cooldown window");
-    assert(weaponUses === 1, "only gun should record weapon usage during the gun cooldown window");
-    assert(bulletConsumed === 1, "only gun should consume a bullet during the gun cooldown window");
+    assert(melee.action(0) === true, "melee should act independently while gun is on its own CD");
+    assert(gunHitCount === 1 && meleeHitCount === 1,
+        "gun and melee should both land hits at t=0 with independent CDs");
+    assert(weaponUses === 2, "both weapons should record usage at t=0");
+    assert(bulletConsumed === 1, "only gun should consume a bullet");
+
+    // 枪仍在 CD、近战已就绪
+    assert(gun.action(1) === false, "gun should still be on its own 2s CD at t=1");
+    assert(melee.action(1) === true, "melee should be ready again at t=1 (own 1s CD)");
+    assert(meleeHitCount === 2, "melee should hit twice by t=1");
 
     return {
-        name: "battle-melee-shared-cooldown",
+        name: "battle-melee-independent-cooldown",
         ok: true,
-        detail: "validated melee weapon respects gun shared cooldown"
+        detail: "validated gun and melee use independent per-weapon cooldowns"
     };
 }
 
@@ -559,6 +551,34 @@ function runCraftBuildActionReuseSmoke() {
             makeTime: 240,
             max: 6
         }],
+        // 沙发：level 数组 → 每 level 为动作槽位数组（0 rest/coffee, 1 drink, 3 tobacco, 4 cigarette）
+        "10": [[
+            {
+                cost: [{ itemId: 1105011, num: 4 }],
+                makeTime: 60,
+                effect: { spirit: 60, spirit_chance: 1 }
+            },
+            {
+                cost: [{ itemId: 1105022, num: 3 }],
+                makeTime: 60,
+                effect: { spirit: 60, spirit_chance: 1 }
+            },
+            {
+                cost: [{ itemId: 1105051, num: 4 }],
+                makeTime: 10,
+                effect: { hp: 100, hp_chance: 1 }
+            },
+            {
+                cost: [{ itemId: 1105061, num: 1 }],
+                makeTime: 10,
+                effect: { spirit: 12, spirit_chance: 1 }
+            },
+            {
+                cost: [{ itemId: 1105072, num: 1 }],
+                makeTime: 15,
+                effect: { spirit: 40, spirit_chance: 1, vigour: 4, vigour_chance: 1 }
+            }
+        ]],
         "12": [{
             cost: [{ itemId: 1103041, num: 2 }],
             makeTime: 30
@@ -585,11 +605,17 @@ function runCraftBuildActionReuseSmoke() {
         }]
     };
     sandbox.formulaConfig = {};
+    // rest/smoke 角色契约见 checks/role-rest.js；此处只保证 registry 可解析
     sandbox.RoleRuntimeService = {
-        getRestActionTypes: function () {
-            return [];
+        getRestActionTypes: function () { return []; },
+        canSmoke: function () { return true; },
+        getRestActionPlan: function () {
+            return { includeSmoke: true, extraActionTypes: [] };
         }
     };
+    if (sandbox.GameKernel && typeof sandbox.GameKernel.register === "function") {
+        sandbox.GameKernel.register("RoleRuntimeService", sandbox.RoleRuntimeService);
+    }
 
     bootstrapGameRuntime(sandbox);
     loadIntoSandbox(sandbox, "assets/src/game/BuildActionEffectService.js");
@@ -602,6 +628,8 @@ function runCraftBuildActionReuseSmoke() {
     assert(sandbox.BuildActionTypeRegistry._types.formula, "formula action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.rest, "rest action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.smoke, "smoke action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.drink, "drink action type should be registered");
+    assert(sandbox.BuildActionTypeRegistry._types.drink_tea, "drink_tea action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.trap, "trap action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.bed, "bed action type should be registered");
     assert(sandbox.BuildActionTypeRegistry._types.dog, "dog action type should be registered");
@@ -611,6 +639,8 @@ function runCraftBuildActionReuseSmoke() {
         "BuildActionFactory should expose build-action group registration");
     assert(typeof sandbox.BuildActionFactory.createBuildActions === "function",
         "BuildActionFactory should expose build-action group creation");
+    assert(typeof sandbox.BuildActionFactory.createRestActions === "function",
+        "BuildActionFactory should expose createRestActions");
 
     assert(formulaProto.getBatchCount.call({ config: { batchCount: 7 } }) === 7, "Formula should read batchCount from config");
 
@@ -1192,7 +1222,7 @@ function runBuildActionRuntimeRoleSmoke() {
 
 module.exports = [
     runBattleCadenceSmoke,
-    runMeleeSharedCooldownSmoke,
+    runMeleeIndependentCooldownSmoke,
     runBattleHeadshotLogSmoke,
     runYaziElectricPistolBreakSettlementSmoke,
     runCraftBuildActionReuseSmoke,

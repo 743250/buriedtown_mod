@@ -679,11 +679,14 @@ function runChecks() {
     return runSmokeSuite(CHECKS);
 }
 
-function runCli() {
+function runCli(options) {
+    options = options || {};
     return runSmokeSuiteCli({
         successTitle: "Startup smoke checks passed",
         failureTitle: "Startup smoke checks failed",
-        checks: CHECKS
+        checks: CHECKS,
+        grep: options.grep,
+        continueOnFail: options.continueOnFail
     });
 }
 

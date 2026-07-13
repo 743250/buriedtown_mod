@@ -235,6 +235,30 @@ var npcConfig = {
             "num": "25"
         }],
         "economyOverride": {
+            "1305011": {
+                "dailyProduce": 8,
+                "targetStock": 24
+            },
+            "1303022": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1102011": {
+                "dailyProduce": 2,
+                "targetStock": 6
+            },
+            "1303012": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1102022": {
+                "dailyProduce": 2,
+                "targetStock": 6
+            },
+            "1102033": {
+                "dailyProduce": 3,
+                "targetStock": 9
+            },
             "1105022": {
                 "dailyConsume": 0.5,
                 "targetStock": 3
@@ -242,14 +266,6 @@ var npcConfig = {
             "1105033": {
                 "dailyConsume": 0.5,
                 "targetStock": 3
-            },
-            "1105061": {
-                "dailyConsume": 2,
-                "targetStock": 10
-            },
-            "1105072": {
-                "dailyConsume": 1,
-                "targetStock": 5
             }
         },
         "coordinate": {
@@ -713,6 +729,18 @@ var npcConfig = {
             "num": "1"
         }, null],
         "economyOverride": {
+            "1104021": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1104011": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1104043": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
             "1103011": {
                 "consumePool": "jin_food",
                 "dailyConsume": 2,
@@ -1058,6 +1086,14 @@ var npcConfig = {
             "num": "6"
         }, null],
         "economyOverride": {
+            "1101011": {
+                "dailyProduce": 10,
+                "targetStock": 30
+            },
+            "1101031": {
+                "dailyProduce": 5,
+                "targetStock": 15
+            },
             "1302011": {
                 "consumePool": "jie_tool",
                 "dailyConsume": 1,
@@ -1070,7 +1106,7 @@ var npcConfig = {
             },
             "1302043": {
                 "consumePool": "jie_tool",
-                "dailyConsume": 1,
+                "dailyConsume": 0.5,
                 "targetStock": 5
             }
         },
@@ -1375,6 +1411,22 @@ var npcConfig = {
             "num": "1"
         }, null],
         "economyOverride": {
+            "1101021": {
+                "dailyProduce": 6,
+                "targetStock": 18
+            },
+            "1101041": {
+                "dailyProduce": 6,
+                "targetStock": 18
+            },
+            "1101051": {
+                "dailyProduce": 3,
+                "targetStock": 9
+            },
+            "1302043": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
             "1105011": {
                 "dailyConsume": 4,
                 "targetStock": 20
@@ -1509,6 +1561,26 @@ var npcConfig = {
             "num": "1"
         }, null, null, null],
         "economyOverride": {
+            "1107012": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1107022": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1107032": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1107042": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1303044": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
             "1101073": {
                 "dailyConsume": 1,
                 "targetStock": 5
@@ -1822,6 +1894,18 @@ var npcConfig = {
             "1305011": {
                 "dailyConsume": 10,
                 "targetStock": 50
+            },
+            "1105022": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1101071": {
+                "dailyProduce": 1,
+                "targetStock": 3
+            },
+            "1103074": {
+                "dailyProduce": 1,
+                "targetStock": 3
             },
             "1105011": {
                 "dailyProduce": 4,

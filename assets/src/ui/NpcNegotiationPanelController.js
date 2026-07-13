@@ -35,11 +35,34 @@ var NpcNegotiationPanelController = cc.Class.extend({
             && typeof npc.getCurrentFavoriteTradeInfo === "function"
             && npc.getCurrentFavoriteTradeInfo().length);
     },
+    formatFavoriteItemLine: function (itemInfo) {
+        var itemString = stringUtil.getString(itemInfo.itemId) || {};
+        var itemName = itemString.title || ("ID " + itemInfo.itemId);
+        // 有点价情报时：酒 4.5→6.3 (+40%)；否则退回旧倍率展示
+        if (itemInfo
+            && itemInfo.baseValue != null
+            && itemInfo.currentValue != null
+            && isFinite(Number(itemInfo.baseValue))
+            && isFinite(Number(itemInfo.currentValue))) {
+            var from = Number(itemInfo.baseValue).toFixed(1);
+            var to = Number(itemInfo.currentValue).toFixed(1);
+            var d = Number(itemInfo.deltaPercent) || 0;
+            if (d === 0) {
+                return itemName + " " + to + " (平稳)";
+            }
+            var sign = d > 0 ? "+" : "";
+            return itemName + " " + from + "→" + to + " (" + sign + d + "%)";
+        }
+        var price = Number(itemInfo && itemInfo.price);
+        if (!isFinite(price)) {
+            return itemName;
+        }
+        return itemName + " x" + price.toFixed(1);
+    },
     buildFavoriteText: function (favoriteInfoList) {
+        var self = this;
         return (favoriteInfoList || []).map(function (itemInfo) {
-            var itemString = stringUtil.getString(itemInfo.itemId) || {};
-            var itemName = itemString.title || ("ID " + itemInfo.itemId);
-            return itemName + " x" + itemInfo.price.toFixed(1);
+            return self.formatFavoriteItemLine(itemInfo);
         }).join("，");
     },
     refresh: function () {

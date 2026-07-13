@@ -29,6 +29,8 @@ var LogView = cc.ScrollView.extend({
 
         this.data.push(newItem);
         this.updateContentSize();
+        // 新消息在容器底部（y=0）；把视口钉在底部，避免内容增高后仍停在空白区
+        this.setContentOffset(cc.p(0, 0));
     },
     updateContentSize: function () {
         var height = 0;
@@ -115,19 +117,118 @@ var MessageView = LogView.extend({
 
         return node;
     },
+    _resolveNpcEconomySpeakerName: function (log) {
+        if (!log) {
+            return "未知";
+        }
+        if (log._npcName) {
+            return log._npcName;
+        }
+        var npcName = "NPC " + log.npcId;
+        try {
+            if (typeof stringUtil !== "undefined" && stringUtil) {
+                var npcStr = stringUtil.getString("npc_" + log.npcId);
+                if (npcStr && npcStr.name) {
+                    npcName = npcStr.name;
+                }
+            }
+        } catch (e) {
+            // keep fallback
+        }
+        log._npcName = npcName;
+        return npcName;
+    },
+    _resolveNpcEconomyTimeStr: function (log) {
+        // 广播存的是游戏内时间串（与玩家主日志一致），禁止 utils.timeToStr 现实相对时间
+        if (log && typeof log.time === "string" && log.time) {
+            return log.time;
+        }
+        try {
+            if (typeof NpcEconomyService !== "undefined" && NpcEconomyService
+                && typeof NpcEconomyService.getCurrentGameTimeStr === "function") {
+                return NpcEconomyService.getCurrentGameTimeStr();
+            }
+        } catch (e) {}
+        try {
+            if (typeof GameRuntime !== "undefined" && GameRuntime
+                && typeof GameRuntime.getTimer === "function") {
+                var timer = GameRuntime.getTimer();
+                if (timer
+                    && typeof timer.getTimeDayStr === "function"
+                    && typeof timer.getTimeHourStr === "function") {
+                    return timer.getTimeDayStr() + " " + timer.getTimeHourStr();
+                }
+            }
+        } catch (e2) {}
+        if (log && log.gameDay != null) {
+            var dayNum = Number(log.gameDay) || 0;
+            try {
+                if (typeof stringUtil !== "undefined" && stringUtil
+                    && typeof stringUtil.getString === "function") {
+                    var dayStr = stringUtil.getString(1000, dayNum + 1);
+                    if (dayStr) {
+                        return dayStr;
+                    }
+                }
+            } catch (e3) {}
+            return "第" + (dayNum + 1) + "天";
+        }
+        return "";
+    },
+    _formatNpcEconomyHeader: function (log) {
+        var npcName = this._resolveNpcEconomySpeakerName(log);
+        var timeStr = this._resolveNpcEconomyTimeStr(log);
+        // 自定义广播多为第一人称，标题行必须标明说话人
+        return npcName + " · " + timeStr;
+    },
+    _resolveNpcEconomyPriceIntelText: function (log) {
+        if (!log) {
+            return "";
+        }
+        // 谈判专家：有天赋才加点价；换挡 基准→当前，同档只写当前价
+        if (typeof NpcEconomyService === "undefined" || !NpcEconomyService
+            || typeof NpcEconomyService.canShowNegotiationPriceIntel !== "function"
+            || !NpcEconomyService.canShowNegotiationPriceIntel()) {
+            return "";
+        }
+        if (log._priceIntelText) {
+            return log._priceIntelText;
+        }
+        try {
+            var npc = null;
+            if (typeof GameRuntime !== "undefined" && GameRuntime
+                && typeof GameRuntime.getPlayer === "function") {
+                var player = GameRuntime.getPlayer();
+                if (player && player.npcManager && typeof player.npcManager.getNPC === "function") {
+                    npc = player.npcManager.getNPC(log.npcId);
+                }
+            }
+            if (!npc) {
+                return "";
+            }
+            var intel = typeof NpcEconomyService.getBroadcastPriceIntel === "function"
+                ? NpcEconomyService.getBroadcastPriceIntel(npc, log.itemId, log.economyKind)
+                : null;
+            if (!intel || typeof NpcEconomyService.formatPriceShiftText !== "function") {
+                return "";
+            }
+            log._priceIntelText = NpcEconomyService.formatPriceShiftText(intel, log.economyKind, {
+                tierChanged: !!log.tierChanged
+            }) || "";
+            return log._priceIntelText;
+        } catch (e) {
+            return "";
+        }
+    },
     _createNpcEconomyItem: function (log) {
         var node = new cc.Node();
         var width = this.getViewSize().width;
 
         // —— 文案合成 —— //
-        var npcName = "NPC " + log.npcId;
+        var npcName = this._resolveNpcEconomySpeakerName(log);
         var itemName = "#" + log.itemId;
         try {
-            if (typeof npcConfig !== "undefined" && npcConfig && typeof stringUtil !== "undefined") {
-                var npcStr = stringUtil.getString("npc_" + log.npcId);
-                if (npcStr && npcStr.name) {
-                    npcName = npcStr.name;
-                }
+            if (typeof stringUtil !== "undefined" && stringUtil) {
                 var itemStr = stringUtil.getString(parseInt(log.itemId, 10));
                 if (itemStr && itemStr.title) {
                     itemName = itemStr.title;
@@ -141,7 +242,8 @@ var MessageView = LogView.extend({
         var msgText = null;
         try {
             if (typeof npcBroadcastConfig !== "undefined" && npcBroadcastConfig) {
-                var npcTexts = npcBroadcastConfig[log.npcId];
+                var npcTexts = npcBroadcastConfig[log.npcId]
+                    || npcBroadcastConfig[String(log.npcId)];
                 if (npcTexts) {
                     var dir = (log.economyKind === "trading") ? npcTexts.trading : npcTexts.favorite;
                     if (dir) {
@@ -157,7 +259,7 @@ var MessageView = LogView.extend({
             msgText = null;
         }
 
-        // 回退到通用模板。balanced 是“不变”，不能落到涨跌 0%。
+        // 回退通用模板：正文第一人称；说话人只在标题行。balanced 不能落到涨跌 0%。
         if (!msgText) {
             var tierToDelta = {
                 very_low: 40, low: 20, balanced: 0, high: -20, very_high: -40
@@ -165,9 +267,9 @@ var MessageView = LogView.extend({
             var deltaPercent = tierToDelta.hasOwnProperty(log.tier) ? tierToDelta[log.tier] : 0;
             if (log.tier === "balanced") {
                 if (log.economyKind === "trading") {
-                    msgText = npcName + " 的 " + itemName + " 库存稳定，卖价未变";
+                    msgText = "我的 " + itemName + " 库存稳定，卖价未变";
                 } else {
-                    msgText = npcName + " 对 " + itemName + " 的收购价保持稳定";
+                    msgText = "我对 " + itemName + " 的收购价保持稳定";
                 }
                 log._dir = "stable";
             } else {
@@ -176,23 +278,29 @@ var MessageView = LogView.extend({
                     ? (isUp ? 1379 : 1380)
                     : (isUp ? 1377 : 1378);
                 try {
-                    msgText = stringUtil.getString(stringId, npcName, itemName, Math.abs(deltaPercent));
+                    msgText = stringUtil.getString(stringId, itemName, Math.abs(deltaPercent));
                 } catch (e3) {
                     msgText = "";
                 }
                 if (!msgText) {
-                    msgText = npcName + " · " + itemName + " " + (isUp ? "+" : "-") + Math.abs(deltaPercent) + "%";
+                    msgText = "我的 " + itemName + " " + (isUp ? "+" : "-") + Math.abs(deltaPercent) + "%";
                 }
                 log._dir = isUp ? "up" : "down";
             }
             log._deltaPercent = deltaPercent;
         }
 
+        // 谈判专家：正文追加具体点价 基准→当前
+        var priceIntelText = this._resolveNpcEconomyPriceIntelText(log);
+        if (priceIntelText) {
+            msgText = msgText + "\n" + priceIntelText;
+        }
+
         // 纯文字版电台广播：不加载角色头像，避免资源依赖影响消息列表。
         var textX = 0;
         var textWidth = Math.max(60, width);
 
-        var time = new cc.LabelTTF(utils.timeToStr(Number(log.time)),
+        var time = new cc.LabelTTF(this._formatNpcEconomyHeader(log),
             uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_3, cc.size(textWidth, 0));
         time.setAnchorPoint(0, 1);
         time.tag = 1;
@@ -224,14 +332,15 @@ var MessageView = LogView.extend({
         this.updateTime();
     },
     updateTime: function () {
+        var self = this;
         this.mycontainer.getChildren().forEach(function (child) {
             var time = child.getChildByTag(1);
             if (!time || !child.log) {
                 return;
             }
-            // npc_economy 消息显示绝对游戏时间，不走"自己/别人"两套模板
+            // npc_economy：标题行固定带说话人（自定义文案是第一人称）
             if (child.log.kind === "npc_economy") {
-                time.setString(utils.timeToStr(Number(child.log.time)));
+                time.setString(self._formatNpcEconomyHeader(child.log));
                 return;
             }
             time.setString(stringUtil.getString(child.log.uid == Record.getUUID() ? 1150 : 1149, utils.timeToStr(Number(child.log.time))));

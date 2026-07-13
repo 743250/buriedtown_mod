@@ -60,6 +60,13 @@ var BuildActionEffectService = {
     updateConfig: function (action) {
         var level = action.getCurrentBuildLevel();
         level = level >= 0 ? level : 0;
+        // 抽烟等动作可按库存动态选配置下标（烟草 / 手卷香烟）
+        if (action && typeof action.resolveConfigIndex === "function") {
+            var resolved = action.resolveConfigIndex(level);
+            if (resolved !== undefined && resolved !== null && !isNaN(Number(resolved))) {
+                action.index = Number(resolved);
+            }
+        }
         action.config = action.configs[level][action.index];
         return action.config;
     },

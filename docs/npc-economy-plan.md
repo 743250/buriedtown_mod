@@ -1,22 +1,18 @@
 # NPC 真实库存与动态贸易定价 设计
 
-> 状态：设计稿，未动代码。
+> 状态：**已实现（核心路径）**，以代码 + smoke 为准。
+> 实现落点：`NpcEconomyService` / `RadioFeedService` / `npcConfig.economyOverride` / 电台 UI。
+> 内容契约：`tools/smoke/lib/fixtures/npc-economy-design.js`（§16 产消表）+ `npc-economy-all-npc-design-produce-consume`。
 > 范围：贸易品（NPC 经济）。
-> 约束：遵守 CLAUDE.md §5 高风险入口清单与 §11 安全编码约定，先收口到服务层再说扩展。
+> 约束：遵守 CLAUDE.md §5 高风险入口清单与 §11 安全编码约定。
+>
+> 下文 §1「现状」保留的是改造前代码事实，便于对照；**不要当成当前行为**。
 
-## 1. 现状（代码事实）
+## 1. 改造前现状（历史代码事实）
 
-- `NPCManager.updateTradingItem()`（`assets/src/game/npc.js:716`）每个游戏日的"白天"flag 调用一次，逻辑：
-  ```
-  this.storage = new Storage();
-  for tier in 0..reputation: unlockTrading(tier);
-  ```
-  即**日出清空 NPC 仓库 → 按声望档位把 `npcConfig[i].trading[tier]` 全量塞回去**。
-  → 玩家与 NPC 的交易痕迹在第二天日出全部归零，NPC 没有"持续库存"。
-- `NPC._getTradeFavoritePrice(favorite, itemId)`（`npc.js:493`）只查 `npcConfig[i].favorite[reputation]` 里的固定 `price` 倍率。库存与价格脱钩。
-- `_getTradeSummary` 用同一倍率算 payValue 与 takeValue，没有区分"NPC 收"和"NPC 卖"的方向。
-- `npc.tradingCount` 字段已存在，自增点在 `assets/src/ui/npcStorageNode.js:158`，**当前游戏内没有读取**。
-- 物品集合天然固定：例如雅子 (`npcConfig["4"]`) 始终喜欢咖啡豆 1105011 与零件 1101021/1101041/1101051/电子元件 1302043；卖的也始终是这些零件。
+- 改造前 `NPCManager.updateTradingItem()` 每个游戏日"白天"会清空 NPC 仓库并按声望把 `trading[tier]` 全量塞回 → 无持续库存。
+- 改造前价格只读 `favorite` 固定 `price` 倍率，与库存脱钩。
+- 当前实现：`runDailyTick` 日产/日消 + 五档库存定价 + 电台广播；见 `assets/src/game/NpcEconomyService.js`。
 
 ## 2. 设计目标
 

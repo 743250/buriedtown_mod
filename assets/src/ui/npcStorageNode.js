@@ -123,9 +123,25 @@ var NpcStorageNode = BottomFrameNode.extend({
         }
 
         var favoriteText = favoriteInfoList.map(function (itemInfo) {
+            // 与 NpcNegotiationPanelController 同口径：有点价则 基准→当前
+            if (typeof NpcNegotiationPanelController !== "undefined"
+                && NpcNegotiationPanelController
+                && NpcNegotiationPanelController.prototype
+                && typeof NpcNegotiationPanelController.prototype.formatFavoriteItemLine === "function") {
+                return NpcNegotiationPanelController.prototype.formatFavoriteItemLine.call({}, itemInfo);
+            }
             var itemString = stringUtil.getString(itemInfo.itemId) || {};
             var itemName = itemString.title || ("ID " + itemInfo.itemId);
-            return itemName + " x" + itemInfo.price.toFixed(1);
+            if (itemInfo && itemInfo.baseValue != null && itemInfo.currentValue != null) {
+                var from = Number(itemInfo.baseValue).toFixed(1);
+                var to = Number(itemInfo.currentValue).toFixed(1);
+                var d = Number(itemInfo.deltaPercent) || 0;
+                if (d === 0) {
+                    return itemName + " " + to + " (平稳)";
+                }
+                return itemName + " " + from + "→" + to + " (" + (d > 0 ? "+" : "") + d + "%)";
+            }
+            return itemName + " x" + Number(itemInfo.price).toFixed(1);
         }).join("，");
 
         favoriteHint.setString(favoriteText);

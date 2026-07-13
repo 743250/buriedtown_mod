@@ -28,8 +28,19 @@ var Map = cc.Class.extend({
         if (saveObj) {
             var self = this;
             var npcSaveObj = saveObj.npcMap || [];
+            var runtimePlayer = typeof GameRuntime !== "undefined" && GameRuntime
+                && typeof GameRuntime.getPlayer === "function"
+                ? GameRuntime.getPlayer()
+                : null;
             npcSaveObj.forEach(function (npcId) {
                 self.npcMap[npcId] = true;
+                // 旧档/角色初始解锁可能只写了 map.npcMap，没写 npc.isUnlocked
+                if (runtimePlayer && runtimePlayer.npcManager) {
+                    var restoredNpc = runtimePlayer.npcManager.getNPC(npcId);
+                    if (restoredNpc) {
+                        restoredNpc.isUnlocked = true;
+                    }
+                }
             });
 
             var siteSaveObj = saveObj.siteMap || {};
@@ -93,13 +104,21 @@ var Map = cc.Class.extend({
         }
     },
     unlockNpc: function (npcId) {
+        var runtimePlayer = GameRuntime.getPlayer();
+        var npc = runtimePlayer && runtimePlayer.npcManager
+            ? runtimePlayer.npcManager.getNPC(npcId)
+            : null;
+        // 地图解锁与 npc.isUnlocked 必须同步。角色初始解锁/ensureInitialUnlocks
+        // 只走 map.unlockNpc；若这里不置 true，贸易广播会永久静默。
+        if (npc) {
+            npc.isUnlocked = true;
+        }
         if (!this.npcMap.hasOwnProperty(npcId)) {
             this.npcMap[npcId] = true;
-
-            var runtimePlayer = GameRuntime.getPlayer();
-            var npc = runtimePlayer.npcManager.getNPC(npcId);
             GameRuntime.getEmitter().emit("unlock_site", npc);
-            runtimePlayer.log.addMsg(1125, npc.getName());
+            if (runtimePlayer && runtimePlayer.log && npc && typeof npc.getName === "function") {
+                runtimePlayer.log.addMsg(1125, npc.getName());
+            }
         }
     },
     unlockSite: function (siteId) {

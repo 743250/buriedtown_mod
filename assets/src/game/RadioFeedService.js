@@ -62,7 +62,35 @@ var RadioFeedService = {
         }
         var npcId = payload.npcId;
         var gameDay = payload.gameDay;
-        var time = payload.time || Date.now();
+        // 优先用广播自带的游戏内时间串；缺省再问 timer，绝不回落到 Date.now
+        var time = payload.time;
+        if (!time || typeof time !== "string") {
+            try {
+                if (typeof NpcEconomyService !== "undefined" && NpcEconomyService
+                    && typeof NpcEconomyService.getCurrentGameTimeStr === "function") {
+                    time = NpcEconomyService.getCurrentGameTimeStr();
+                }
+            } catch (e) {}
+        }
+        if (!time || typeof time !== "string") {
+            var dayNum = gameDay != null ? Number(gameDay) : NaN;
+            if (isFinite(dayNum)) {
+                try {
+                    if (typeof stringUtil !== "undefined" && stringUtil
+                        && typeof stringUtil.getString === "function") {
+                        var dayStr = stringUtil.getString(1000, dayNum + 1);
+                        if (dayStr) {
+                            time = dayStr;
+                        }
+                    }
+                } catch (e2) {}
+                if (!time || typeof time !== "string") {
+                    time = "第" + (dayNum + 1) + "天";
+                }
+            } else {
+                time = "第?天";
+            }
+        }
         var self = this;
 
         var collect = function (list, kind) {
@@ -73,7 +101,9 @@ var RadioFeedService = {
                 if (!item || item.itemId == null || !item.tier) {
                     return;
                 }
-                var key = time + "|" + npcId + "|" + item.itemId + "|" + kind;
+                // 按 gameDay 去重：同一天同 NPC 同物同方向只保留一条
+                var key = (gameDay != null ? gameDay : time)
+                    + "|" + npcId + "|" + item.itemId + "|" + kind;
                 // 去重：同 key 旧条删掉
                 for (var i = self._buffer.length - 1; i >= 0; i--) {
                     if (self._buffer[i]._dedupKey === key) {
@@ -88,7 +118,10 @@ var RadioFeedService = {
                     tier: item.tier,
                     economyKind: kind,
                     gameDay: gameDay,
-                    time: time
+                    time: time,
+                    // 谈判专家点价仅在换挡时展示
+                    tierChanged: !!item.tierChanged,
+                    previousTier: item.previousTier || null
                 });
             });
         };

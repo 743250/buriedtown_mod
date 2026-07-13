@@ -31,6 +31,8 @@ var NPC = BaseSite.extend({
 
         //上次执行 NpcEconomyService.runDailyTick 的游戏日（跨天补算用）
         this.dailyTickDay = 0;
+        // 上次电台广播的物品档位，用于判断是否换挡（仅换挡时附带点价）
+        this.economyLastTiers = { favorite: {}, trading: {} };
 
         this.storage = new Storage();
         this.giftProgress = 0;
@@ -63,7 +65,8 @@ var NPC = BaseSite.extend({
             isUnlocked: this.isUnlocked,
             tradingCount: this.tradingCount,
             giftProgress: this.giftProgress,
-            dailyTickDay: this.dailyTickDay
+            dailyTickDay: this.dailyTickDay,
+            economyLastTiers: this.economyLastTiers || { favorite: {}, trading: {} }
         };
     },
     restore: function (saveObj) {
@@ -77,6 +80,11 @@ var NPC = BaseSite.extend({
             this.tradingCount = Number(saveObj.tradingCount) || 0;
             this.giftProgress = Number(saveObj.giftProgress) || 0;
             this.dailyTickDay = Number(saveObj.dailyTickDay) || 0;
+            var lastTiers = saveObj.economyLastTiers || {};
+            this.economyLastTiers = {
+                favorite: lastTiers.favorite || {},
+                trading: lastTiers.trading || {}
+            };
         } else {
             this.init();
         }
@@ -494,6 +502,7 @@ var NPC = BaseSite.extend({
         var favorite = this._getCurrentFavoriteList();
         var favoriteInfoList = [];
         var seenItemMap = {};
+        var self = this;
         favorite.forEach(function (itemInfo) {
             var itemId = parseInt(itemInfo.itemId);
             var price = Number(itemInfo.price);
@@ -501,10 +510,24 @@ var NPC = BaseSite.extend({
                 return;
             }
             seenItemMap[itemId] = true;
-            favoriteInfoList.push({
+            var row = {
                 itemId: itemId,
                 price: price
-            });
+            };
+            // 谈判专家面板：附带库存驱动后的基准点→当前点
+            if (typeof NpcEconomyService !== "undefined"
+                && NpcEconomyService
+                && typeof NpcEconomyService.getFavoritePriceIntel === "function") {
+                var intel = NpcEconomyService.getFavoritePriceIntel(self, itemId);
+                if (intel) {
+                    row.price = intel.currentMultiplier;
+                    row.basePrice = intel.baseMultiplier;
+                    row.baseValue = intel.baseValue;
+                    row.currentValue = intel.currentValue;
+                    row.deltaPercent = intel.deltaPercent;
+                }
+            }
+            favoriteInfoList.push(row);
         });
         return favoriteInfoList;
     },
@@ -773,6 +796,17 @@ var NPCManager = cc.Class.extend({
         }
     },
     updateTradingItem: function () {
+        // 早晨日更前先对齐 map.npcMap → npc.isUnlocked，避免角色初始解锁只进地图却不广播
+        if (typeof NpcEconomyService !== "undefined" && NpcEconomyService
+            && typeof NpcEconomyService.syncUnlockedFlagsFromMap === "function") {
+            try {
+                NpcEconomyService.syncUnlockedFlagsFromMap(this);
+            } catch (e) {
+                if (typeof cc !== "undefined" && cc && typeof cc.error === "function") {
+                    cc.error("NPCManager.updateTradingItem unlock sync failed: " + e);
+                }
+            }
+        }
         for (var npcId in this.npcList) {
             var npc = this.npcList[npcId];
             npc.updateTradingItem();

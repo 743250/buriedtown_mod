@@ -14,9 +14,12 @@ var RadioNode = BuildNode.extend({
         this._super(userData);
     },
     _init: function () {
+        // 必须在 _super 之前初始化。BuildNode._init → createTableView → checkVisible
+        // 会同步 _flushRadioFeedBuffer；若 this.data 仍是 undefined，addLocalSystemMsg
+        // 读 this.data.length 会抛错，本地经济广播被 try/catch 静默丢掉，电台空白。
+        this.data = [];
         this._super();
         this.setName(Navigation.nodeName.RADIO_NODE);
-        this.data = [];
     },
 
     cleanBuildAction: function () {
@@ -67,8 +70,10 @@ var RadioNode = BuildNode.extend({
         if (!entry) {
             return null;
         }
+        // 优先 gameDay：同一天同 NPC 同物同方向只一条；time 已是游戏内展示串
         return entry._dedupKey
-            || (entry.time + "|" + entry.npcId + "|" + entry.itemId + "|" + entry.economyKind);
+            || ((entry.gameDay != null ? entry.gameDay : entry.time)
+                + "|" + entry.npcId + "|" + entry.itemId + "|" + entry.economyKind);
     },
 
     /**
@@ -77,6 +82,9 @@ var RadioNode = BuildNode.extend({
     addLocalSystemMsg: function (entry) {
         if (!entry) {
             return;
+        }
+        if (!Array.isArray(this.data)) {
+            this.data = [];
         }
         // 与 RadioFeedService 同款去重：同一次广播内同一 NPC 同一物品同一 kind 只保留最新一条
         var key = this._getLocalSystemDedupKey(entry);
@@ -91,6 +99,18 @@ var RadioNode = BuildNode.extend({
     _flushRadioFeedBuffer: function () {
         if (typeof RadioFeedService === "undefined" || !RadioFeedService) {
             return;
+        }
+        // 读档/冷启动后 buffer 为空：按当前 NPC 库存补一份“今日广播”
+        if (typeof NpcEconomyService !== "undefined" && NpcEconomyService
+            && typeof NpcEconomyService.ensureTodayRadioFeed === "function") {
+            try {
+                var player = getRadioNodeRuntimePlayer();
+                if (player && player.npcManager) {
+                    NpcEconomyService.ensureTodayRadioFeed(player.npcManager);
+                }
+            } catch (e0) {
+                cc.error("RadioNode ensureTodayRadioFeed failed: " + e0);
+            }
         }
         var feed = RadioFeedService.getFeed() || [];
         var self = this;
@@ -113,18 +133,28 @@ var RadioNode = BuildNode.extend({
         }
         var self = this;
         this._economyListener = function (payload) {
-            if (!payload) return;
+            if (!payload) {
+                return;
+            }
+            // 节点已销毁时跳过；smoke 环境可能没有 cc.sys.isObjectValid
+            if (typeof cc !== "undefined" && cc.sys && typeof cc.sys.isObjectValid === "function"
+                && !cc.sys.isObjectValid(self)) {
+                return;
+            }
             // 立即把这一批新条目灌进 UI（电台正打开）
             var feed = (typeof RadioFeedService !== "undefined" && RadioFeedService)
                 ? RadioFeedService.getFeed() : [];
             if (feed.length === 0) return;
-            // 找出本次 payload 拆出的 entry；生产路径 payload.time 一定存在，测试桩缺省时回退 gameDay。
+            // 找出本次 payload 拆出的 entry。
+            // 优先 gameDay（日更广播身份），其次匹配游戏内 time 串。
             var batchKeys = {};
             feed.forEach(function (e) {
                 if (!e || e.npcId !== payload.npcId) {
                     return;
                 }
-                if (payload.time != null ? e.time === payload.time : e.gameDay === payload.gameDay) {
+                var sameDay = payload.gameDay != null && e.gameDay === payload.gameDay;
+                var sameTime = payload.time != null && e.time === payload.time;
+                if (sameDay || sameTime) {
                     batchKeys[e._dedupKey] = true;
                 }
             });
@@ -134,8 +164,33 @@ var RadioNode = BuildNode.extend({
                 }
             });
         };
-        utils.emitter.on(NpcEconomyService.EVENT_DAILY_BROADCAST, this._economyListener);
+        this._economyEmitter = utils.emitter;
+        this._economyEmitter.on(NpcEconomyService.EVENT_DAILY_BROADCAST, this._economyListener);
         this._economyListenerBound = true;
+    },
+
+    _unbindEconomyListener: function () {
+        if (!this._economyListenerBound) {
+            return;
+        }
+        var emitter = this._economyEmitter
+            || (typeof utils !== "undefined" && utils ? utils.emitter : null);
+        if (emitter && this._economyListener && typeof emitter.off === "function"
+            && typeof NpcEconomyService !== "undefined" && NpcEconomyService) {
+            try {
+                emitter.off(NpcEconomyService.EVENT_DAILY_BROADCAST, this._economyListener);
+            } catch (e) {
+                cc.error("RadioNode._unbindEconomyListener failed: " + e);
+            }
+        }
+        this._economyListener = null;
+        this._economyEmitter = null;
+        this._economyListenerBound = false;
+    },
+
+    onExit: function () {
+        this._unbindEconomyListener();
+        this._super();
     },
 
     createTableView: function () {

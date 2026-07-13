@@ -240,7 +240,6 @@ var BattleActors = (function () {
 
             this.bulletNum = playerObj.bulletNum;
             this.toolNum = playerObj.toolNum;
-            this.sharedAttackReadyAt = 0;
             this.escapeReadyAt = 0;
 
             this.weapon1 = BattleEquipmentSystem.createEquipment(playerObj.weapon1, this);
@@ -269,9 +268,10 @@ var BattleActors = (function () {
         },
         action: function (battleTime) {
             battleTime = this._resolveBattleTime(battleTime);
-            this._safeActionStep(this.useEquip, "equip", battleTime);
+            // 原版顺序：枪 → 近战 → 道具；各武器独立 CD
             this._safeActionStep(this.useWeapon1, "weapon1", battleTime);
             this._safeActionStep(this.useWeapon2, "weapon2", battleTime);
+            this._safeActionStep(this.useEquip, "equip", battleTime);
         },
         _updateEscape: function (battleTime) {
             if (!(this.escapeReadyAt > 0)) {
@@ -301,17 +301,6 @@ var BattleActors = (function () {
                 return;
             }
             this.action(battleTime);
-        },
-        isInSharedAttackCooldown: function (battleTime) {
-            battleTime = this._resolveBattleTime(battleTime);
-            return this.sharedAttackReadyAt > battleTime;
-        },
-        enterSharedAttackCooldown: function (cooldown, battleTime) {
-            if (!(cooldown > 0)) {
-                cooldown = 0.1;
-            }
-            battleTime = this._resolveBattleTime(battleTime);
-            this.sharedAttackReadyAt = addBattleTime(battleTime, cooldown);
         },
         getPlayerDodgeRate: function () {
             return CombatResolver.normalizeRate(this.runtimeConfig && this.runtimeConfig.playerDodgeRate, 0);

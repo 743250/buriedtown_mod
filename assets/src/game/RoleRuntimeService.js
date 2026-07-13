@@ -15,6 +15,9 @@ var RoleRuntimeService = {
         ],
         temperatureBuild: {id: 5},
         restActionTypes: [],
+        // 默认男性可抽烟；女性角色在 RoleConfigTable 标 gender/canSmoke
+        gender: "male",
+        canSmoke: true,
         buildLevelCaps: {},
         actionTags: [],
         specialItems: [],
@@ -184,6 +187,11 @@ var RoleRuntimeService = {
                 levels: this._cloneNumberList(temperatureBuild.levels)
             },
             restActionTypes: (config.restActionTypes || defaultConfig.restActionTypes).slice(),
+            gender: config.gender || defaultConfig.gender,
+            // 显式 false / 女性 → 不可抽；其余默认 true
+            canSmoke: config.canSmoke === false
+                ? false
+                : (config.gender === "female" ? false : (config.canSmoke !== undefined ? !!config.canSmoke : defaultConfig.canSmoke)),
             buildLevelCaps: config.buildLevelCaps || defaultConfig.buildLevelCaps,
             actionTags: this._cloneStringList(config.actionTags || defaultConfig.actionTags),
             specialItems: this._normalizeSpecialItems(config.specialItems || defaultConfig.specialItems),
@@ -264,6 +272,19 @@ var RoleRuntimeService = {
 
     getRestActionTypes: function (roleType) {
         return this.getRuntimeConfig(roleType).restActionTypes;
+    },
+    canSmoke: function (roleType) {
+        return !!this.getRuntimeConfig(roleType).canSmoke;
+    },
+    /**
+     * 沙发 rest 编排计划：是否挂抽烟 + 额外 rest 动作类型。
+     * buildAction.createRestActions 只消费此计划，不散读角色字段。
+     */
+    getRestActionPlan: function (roleType) {
+        return {
+            includeSmoke: this.canSmoke(roleType),
+            extraActionTypes: this.getRestActionTypes(roleType).slice()
+        };
     },
     getWorkSiteRepairConfig: function (roleType) {
         return this.getRuntimeConfig(roleType).workSiteRepair;

@@ -20,7 +20,8 @@
  * 装配点：jsList.js，排在 npc.js 之前
  *
  * 兼容兜底：
- *   - dailyConsume / dailyProduce / targetStock 缺失 → 退回默认 0（不自产不自消）
+ *   - dailyConsume 缺失 → 默认 0；dailyProduce 缺失时 trading 回退 trading.num
+ *   - 显式 dailyProduce: 0 关闭日产；targetStock 缺失且有日产时 = produce × TARGET_STOCK_PRODUCE_RATIO
  *   - 自产自销物品（trading ∩ favorite）不进日消、不广播
  *   - npc.isUnlocked === false → 不广播
  */
@@ -50,13 +51,31 @@ var NpcEconomyService = {
 
     _getEffectiveEntry: function (npc, itemId, kind) {
         var base = (typeof itemEconomyConfig !== "undefined" && itemEconomyConfig)
-            ? (itemEconomyConfig[itemId] || {}) : {};
+            ? (itemEconomyConfig[itemId] || itemEconomyConfig[String(itemId)] || {}) : {};
         var override = (npc && npc.config && npc.config.economyOverride)
             ? (npc.config.economyOverride[String(itemId)] || npc.config.economyOverride[itemId] || {}) : {};
+        var hasOverrideProduce = override.dailyProduce != null;
+        var dailyProduce = hasOverrideProduce
+            ? Number(override.dailyProduce)
+            : (Number(base.defaultDailyProduce) || 0);
+        // 设计稿默认：trading.num 即日产量；未显式配置时回退，避免贸易品静默不产。
+        // 显式 dailyProduce: 0 表示关闭日产，不再回退 num。
+        if (!hasOverrideProduce && !(dailyProduce > 0) && kind === "trading") {
+            var tradingEntry = this._findTradingEntry(npc, itemId);
+            if (tradingEntry && tradingEntry.num != null) {
+                dailyProduce = Number(tradingEntry.num) || 0;
+            }
+        }
+        var targetStock = override.targetStock != null
+            ? Number(override.targetStock)
+            : (Number(base.defaultTargetStock) || 0);
+        if (!(targetStock > 0) && dailyProduce > 0) {
+            targetStock = dailyProduce * this.TARGET_STOCK_PRODUCE_RATIO;
+        }
         return {
             dailyConsume: override.dailyConsume != null ? Number(override.dailyConsume) : (Number(base.defaultDailyConsume) || 0),
-            targetStock: override.targetStock != null ? Number(override.targetStock) : (Number(base.defaultTargetStock) || 0),
-            dailyProduce: override.dailyProduce != null ? Number(override.dailyProduce) : (Number(base.defaultDailyProduce) || 0),
+            targetStock: targetStock,
+            dailyProduce: dailyProduce,
             consumePool: override.consumePool || null,
             category: base.category || null
         };
@@ -128,19 +147,8 @@ var NpcEconomyService = {
         if (!entry) {
             return null;
         }
+        var baseMul = this._getTradingBaseMultiplier(npc, itemId);
         var effective = this._getEffectiveEntry(npc, itemId, "trading");
-        var baseMul;
-        if (npc && npc.config && npc.config.economyOverride) {
-            var ovr = npc.config.economyOverride[String(itemId)] || npc.config.economyOverride[itemId] || {};
-            if (ovr.basePriceMultiplier != null) {
-                baseMul = Number(ovr.basePriceMultiplier);
-            }
-        }
-        if (baseMul == null) {
-            var base = (typeof itemEconomyConfig !== "undefined" && itemEconomyConfig)
-                ? (itemEconomyConfig[itemId] || {}) : {};
-            baseMul = base.defaultBasePriceMultiplier != null ? Number(base.defaultBasePriceMultiplier) : 1.0;
-        }
         if (effective.dailyProduce <= 0) {
             return baseMul;
         }
@@ -148,6 +156,128 @@ var NpcEconomyService = {
         var current = this._getStock(npc, itemId);
         var k = this._getTierMultiplier(current, targetStock);
         return baseMul * k;
+    },
+
+    /**
+     * 谈判专家天赋：可查看库存驱动的具体点价涨跌（基准 → 当前）。
+     */
+    canShowNegotiationPriceIntel: function () {
+        return typeof TalentService !== "undefined"
+            && TalentService
+            && typeof TalentService.hasChosenTalent === "function"
+            && TalentService.hasChosenTalent(123);
+    },
+
+    _getItemUnitPrice: function (itemId) {
+        try {
+            if (typeof Item !== "undefined") {
+                return Number(new Item(itemId).getPrice()) || 0;
+            }
+        } catch (e) {}
+        if (typeof itemConfig !== "undefined" && itemConfig) {
+            var cfg = itemConfig[itemId] || itemConfig[String(itemId)];
+            if (cfg && cfg.price != null) {
+                return Number(cfg.price) || 0;
+            }
+        }
+        return 0;
+    },
+
+    _getTradingBaseMultiplier: function (npc, itemId) {
+        if (npc && npc.config && npc.config.economyOverride) {
+            var ovr = npc.config.economyOverride[String(itemId)] || npc.config.economyOverride[itemId] || {};
+            if (ovr.basePriceMultiplier != null) {
+                return Number(ovr.basePriceMultiplier);
+            }
+        }
+        if (typeof itemEconomyConfig !== "undefined" && itemEconomyConfig) {
+            var base = itemEconomyConfig[itemId] || itemEconomyConfig[String(itemId)] || {};
+            if (base.defaultBasePriceMultiplier != null) {
+                return Number(base.defaultBasePriceMultiplier);
+            }
+        }
+        return 1.0;
+    },
+
+    _buildPriceIntel: function (itemId, baseMultiplier, currentMultiplier, kind) {
+        if (typeof currentMultiplier !== "number" || !isFinite(currentMultiplier) || currentMultiplier <= 0) {
+            return null;
+        }
+        var baseMul = Number(baseMultiplier);
+        if (!isFinite(baseMul) || baseMul <= 0) {
+            baseMul = 1;
+        }
+        var unit = this._getItemUnitPrice(itemId);
+        var deltaPercent = Math.round((currentMultiplier / baseMul - 1) * 100);
+        return {
+            kind: kind,
+            itemId: parseInt(itemId, 10),
+            baseMultiplier: baseMul,
+            currentMultiplier: currentMultiplier,
+            unitPrice: unit,
+            baseValue: unit * baseMul,
+            currentValue: unit * currentMultiplier,
+            deltaPercent: deltaPercent
+        };
+    },
+
+    getFavoritePriceIntel: function (npc, itemId) {
+        var entry = this._findFavoriteEntry(npc, itemId);
+        if (!entry) {
+            return null;
+        }
+        var baseMul = Number(entry.price) || 1;
+        var currentMul = this.getFavoritePriceMultiplier(npc, itemId);
+        return this._buildPriceIntel(itemId, baseMul, currentMul, "favorite");
+    },
+
+    getTradingPriceIntel: function (npc, itemId) {
+        if (!this._findTradingEntry(npc, itemId)) {
+            return null;
+        }
+        var baseMul = this._getTradingBaseMultiplier(npc, itemId);
+        var currentMul = this.getTradingSellMultiplier(npc, itemId);
+        return this._buildPriceIntel(itemId, baseMul, currentMul, "trading");
+    },
+
+    getBroadcastPriceIntel: function (npc, itemId, economyKind) {
+        if (economyKind === "trading") {
+            return this.getTradingPriceIntel(npc, itemId);
+        }
+        return this.getFavoritePriceIntel(npc, itemId);
+    },
+
+    /**
+     * 谈判专家点价文案。
+     * options.tierChanged === true：收购价/卖价 4.5→6.3 (+40%)
+     * 否则（同档连播/首播）：只写当前价 收购价/卖价 6.3
+     */
+    formatPriceShiftText: function (intel, economyKind, options) {
+        if (!intel) {
+            return "";
+        }
+        options = options || {};
+        var label = (economyKind || intel.kind) === "trading" ? "卖价" : "收购价";
+        var from = Number(intel.baseValue);
+        var to = Number(intel.currentValue);
+        if (!isFinite(to)) {
+            return "";
+        }
+        var toStr = to.toFixed(1);
+        // 同档连播/首播：只展示当前价
+        if (!options.tierChanged) {
+            return label + " " + toStr;
+        }
+        if (!isFinite(from)) {
+            return label + " " + toStr;
+        }
+        var fromStr = from.toFixed(1);
+        var d = Number(intel.deltaPercent) || 0;
+        if (d === 0) {
+            return label + " " + toStr;
+        }
+        var sign = d > 0 ? "+" : "";
+        return label + " " + fromStr + "→" + toStr + " (" + sign + d + "%)";
     },
 
     runDailyTick: function (npc, daysElapsed) {
@@ -227,8 +357,8 @@ var NpcEconomyService = {
             }
         });
 
-        // 每日统一广播
-        this._emitDailyBroadcast(npc);
+        // 每日统一广播（早晨 tick 同时写入玩家主日志，便于 6 点可见）
+        this._emitDailyBroadcast(npc, { writePlayerLog: true });
     },
 
     getCurrentGameDay: function () {
@@ -246,6 +376,108 @@ var NpcEconomyService = {
             cc.error("NpcEconomyService.getCurrentGameDay failed: " + e);
         }
         return 0;
+    },
+
+    /**
+     * 游戏内时间展示串，与玩家主日志 / NPC 对话标题同口径：
+     * getTimeDayStr() + " " + getTimeHourStr()，例如「第3天 06:00」。
+     * 电台广播禁止用 Date.now() + 现实相对时间。
+     */
+    getCurrentGameTimeStr: function () {
+        try {
+            if (typeof GameRuntime !== "undefined"
+                && GameRuntime
+                && typeof GameRuntime.getTimer === "function") {
+                var timer = GameRuntime.getTimer();
+                if (timer
+                    && typeof timer.getTimeDayStr === "function"
+                    && typeof timer.getTimeHourStr === "function") {
+                    return timer.getTimeDayStr() + " " + timer.getTimeHourStr();
+                }
+            }
+        } catch (e) {
+            cc.error("NpcEconomyService.getCurrentGameTimeStr failed: " + e);
+        }
+        // 中文回退，避免 timer 未就绪时露出英文 Day
+        var dayNum = Number(this.getCurrentGameDay()) || 0;
+        try {
+            if (typeof stringUtil !== "undefined" && stringUtil
+                && typeof stringUtil.getString === "function") {
+                var dayStr = stringUtil.getString(1000, dayNum + 1);
+                if (dayStr) {
+                    return dayStr;
+                }
+            }
+        } catch (e2) {}
+        return "第" + (dayNum + 1) + "天";
+    },
+
+    /**
+     * 把当前已解锁 NPC 的经济档位快照推到电台缓冲。
+     * 用于：读档后缓冲为空、跨天 tick 丢失、打开电台时补齐“今日广播”。
+     * 同一 gameDay 已有缓冲则跳过，避免反复打开电台刷屏。
+     * 打开电台补发不写 player.log，避免重复刷主日志。
+     */
+    ensureTodayRadioFeed: function (npcManager) {
+        if (typeof RadioFeedService === "undefined" || !RadioFeedService) {
+            return false;
+        }
+        if (typeof RadioFeedService.bind === "function") {
+            try { RadioFeedService.bind(); } catch (e) {}
+        }
+        this.syncUnlockedFlagsFromMap(npcManager);
+        var gameDay = this.getCurrentGameDay();
+        var feed = typeof RadioFeedService.getFeed === "function" ? (RadioFeedService.getFeed() || []) : [];
+        for (var i = 0; i < feed.length; i++) {
+            if (feed[i] && Number(feed[i].gameDay) === gameDay) {
+                return false;
+            }
+        }
+        this.publishCurrentBroadcasts(npcManager, { writePlayerLog: false });
+        return true;
+    },
+
+    /**
+     * map.npcMap 是“地图上可见 NPC”的权威；与 npc.isUnlocked 对齐。
+     */
+    syncUnlockedFlagsFromMap: function (npcManager) {
+        var player = null;
+        try {
+            if (typeof GameRuntime !== "undefined" && GameRuntime
+                && typeof GameRuntime.getPlayer === "function") {
+                player = GameRuntime.getPlayer();
+            }
+        } catch (e) {
+            player = null;
+        }
+        if (!player || !player.map || !player.map.npcMap || !npcManager || !npcManager.npcList) {
+            return;
+        }
+        for (var npcId in player.map.npcMap) {
+            if (!player.map.npcMap.hasOwnProperty(npcId)) {
+                continue;
+            }
+            var npc = npcManager.getNPC
+                ? npcManager.getNPC(npcId)
+                : npcManager.npcList[npcId];
+            if (npc) {
+                npc.isUnlocked = true;
+            }
+        }
+    },
+
+    publishCurrentBroadcasts: function (npcManager, options) {
+        if (!npcManager || !npcManager.npcList) {
+            return;
+        }
+        options = options || {};
+        this.syncUnlockedFlagsFromMap(npcManager);
+        for (var npcId in npcManager.npcList) {
+            if (!npcManager.npcList.hasOwnProperty(npcId)) {
+                continue;
+            }
+            this._emitDailyBroadcast(npcManager.npcList[npcId], options);
+        }
     },
 
     // ===== 内部辅助 =====
@@ -447,19 +679,71 @@ var NpcEconomyService = {
     },
 
     /**
-     * 每日统一广播：把当日所有走五档物品的档位摘要 emit 给电台。
-     * balanced 档也广播，用于电台说明价格/库存不变。自产自销物品 favorite 方向不广播。无日产 trading 不广播。
+     * 上次广播档位表（按 NPC 存档）。仅换挡时附带点价 基准→当前。
      */
-    _emitDailyBroadcast: function (npc) {
-        if (!npc.isUnlocked) {
+    _ensureLastBroadcastTiers: function (npc) {
+        if (!npc) {
+            return { favorite: {}, trading: {} };
+        }
+        if (!npc.economyLastTiers || typeof npc.economyLastTiers !== "object") {
+            npc.economyLastTiers = { favorite: {}, trading: {} };
+        }
+        if (!npc.economyLastTiers.favorite || typeof npc.economyLastTiers.favorite !== "object") {
+            npc.economyLastTiers.favorite = {};
+        }
+        if (!npc.economyLastTiers.trading || typeof npc.economyLastTiers.trading !== "object") {
+            npc.economyLastTiers.trading = {};
+        }
+        return npc.economyLastTiers;
+    },
+
+    _getLastBroadcastTier: function (npc, economyKind, itemId) {
+        var store = this._ensureLastBroadcastTiers(npc);
+        var bucket = economyKind === "trading" ? store.trading : store.favorite;
+        var key = String(itemId);
+        return bucket[key] || null;
+    },
+
+    _markBroadcastTiers: function (npc, favEntries, trdEntries) {
+        var store = this._ensureLastBroadcastTiers(npc);
+        (favEntries || []).forEach(function (entry) {
+            if (entry && entry.itemId != null && entry.tier) {
+                store.favorite[String(entry.itemId)] = entry.tier;
+            }
+        });
+        (trdEntries || []).forEach(function (entry) {
+            if (entry && entry.itemId != null && entry.tier) {
+                store.trading[String(entry.itemId)] = entry.tier;
+            }
+        });
+    },
+
+    _annotateTierChange: function (npc, entry, economyKind) {
+        if (!entry || entry.itemId == null || !entry.tier) {
+            return entry;
+        }
+        var previousTier = this._getLastBroadcastTier(npc, economyKind, entry.itemId);
+        entry.previousTier = previousTier || null;
+        // 仅当有昨日档位且与今日不同时算换挡；首日/无历史不算换挡
+        entry.tierChanged = !!(previousTier && previousTier !== entry.tier);
+        return entry;
+    },
+
+    /**
+     * 每日统一广播：把当日所有走五档物品的档位摘要 emit 给电台。
+     * balanced 档也广播。自产自销 favorite 不广播。无日产 trading 不广播。
+     * consumePool 合并为 1 条（代表 itemId = 池内首个 favorite 成员），避免金/杰夫刷屏。
+     */
+    _emitDailyBroadcast: function (npc, options) {
+        if (!npc || !npc.isUnlocked) {
             return;
         }
+        options = options || {};
         var emit = (typeof utils !== "undefined" && utils && utils.emitter) ? utils.emitter : null;
         if (!emit || typeof emit.emit !== "function") {
             return;
         }
-        // emitter 被 GameRuntime.setEmitter 替换后，RadioFeedService 可能还挂在旧 emitter 上；
-        // 广播前确保它已绑到当前 emitter，否则电台缓冲收不到消息
+        // emitter 被 GameRuntime.setEmitter 替换后，RadioFeedService 可能还挂在旧 emitter 上
         if (typeof RadioFeedService !== "undefined" && RadioFeedService
             && typeof RadioFeedService.bind === "function") {
             try { RadioFeedService.bind(); } catch (e) {}
@@ -467,6 +751,7 @@ var NpcEconomyService = {
         var gameDay = this.getCurrentGameDay();
         var selfTraded = this.getSelfTradedItemIds(npc);
         var self = this;
+        var seenPools = {};
 
         // favorite 方向
         var favIds = this._listFavoriteItemIds(npc);
@@ -476,24 +761,31 @@ var NpcEconomyService = {
                 return;
             }
             var eff = self._getEffectiveEntry(npc, id, "favorite");
-            var current, target;
+            var current, target, itemId;
             if (eff.consumePool) {
+                if (seenPools[eff.consumePool]) {
+                    return;
+                }
+                seenPools[eff.consumePool] = true;
                 var ps = self._getPoolState(npc, eff.consumePool, "favorite");
                 current = ps.currentStock;
                 target = ps.targetStock;
+                itemId = self._getPoolRepresentativeItemId(npc, eff.consumePool, id);
             } else if (eff.dailyConsume > 0) {
                 current = self._getStock(npc, id);
                 target = eff.targetStock || (eff.dailyConsume * self.TARGET_STOCK_CONSUME_RATIO);
+                itemId = parseInt(id, 10);
             } else {
                 return;
             }
             var tier = self._getTierLabel(current, target);
-            favEntries.push({
-                itemId: parseInt(id, 10),
+            favEntries.push(self._annotateTierChange(npc, {
+                itemId: itemId,
                 tier: tier,
                 currentStock: current,
-                targetStock: target
-            });
+                targetStock: target,
+                consumePool: eff.consumePool || null
+            }, "favorite"));
         });
 
         // trading 方向
@@ -507,24 +799,156 @@ var NpcEconomyService = {
             var current = self._getStock(npc, id);
             var target = eff.targetStock || (eff.dailyProduce * self.TARGET_STOCK_PRODUCE_RATIO);
             var tier = self._getTierLabel(current, target);
-            trdEntries.push({
+            trdEntries.push(self._annotateTierChange(npc, {
                 itemId: parseInt(id, 10),
                 tier: tier,
                 currentStock: current,
                 targetStock: target
-            });
+            }, "trading"));
         });
 
         if (favEntries.length === 0 && trdEntries.length === 0) {
             return;
         }
-        emit.emit(self.EVENT_DAILY_BROADCAST, {
+        var payload = {
             npcId: npc.id,
             gameDay: gameDay,
-            time: Date.now(),
+            // 游戏内时刻，供电台标题直接展示（禁止 Date.now 现实相对时间）
+            time: this.getCurrentGameTimeStr(),
             favorite: favEntries,
             trading: trdEntries
-        });
+        };
+        emit.emit(self.EVENT_DAILY_BROADCAST, payload);
+        if (options.writePlayerLog) {
+            self._writePlayerLogForBroadcast(payload);
+        }
+        // 记住今日档位，供次日判断是否换挡
+        self._markBroadcastTiers(npc, favEntries, trdEntries);
+    },
+
+    _resolveBroadcastText: function (npcId, itemId, tier, economyKind) {
+        var npcName = "NPC " + npcId;
+        var itemName = "#" + itemId;
+        try {
+            if (typeof stringUtil !== "undefined" && stringUtil) {
+                var npcStr = stringUtil.getString("npc_" + npcId);
+                if (npcStr && npcStr.name) {
+                    npcName = npcStr.name;
+                }
+                var itemStr = stringUtil.getString(parseInt(itemId, 10));
+                if (itemStr && itemStr.title) {
+                    itemName = itemStr.title;
+                }
+            }
+        } catch (e) {}
+
+        try {
+            if (typeof npcBroadcastConfig !== "undefined" && npcBroadcastConfig) {
+                var npcTexts = npcBroadcastConfig[npcId] || npcBroadcastConfig[String(npcId)];
+                if (npcTexts) {
+                    var dir = economyKind === "trading" ? npcTexts.trading : npcTexts.favorite;
+                    if (dir) {
+                        var itemTexts = dir[String(itemId)] || dir[itemId];
+                        if (itemTexts && itemTexts[tier]) {
+                            // 自定义文案多为第一人称，主日志也要带说话人
+                            return npcName + "：" + itemTexts[tier];
+                        }
+                    }
+                }
+            }
+        } catch (e2) {}
+
+        // 正文统一第一人称；说话人只作前缀（电台标题/主日志「名字：」）
+        var tierToDelta = {
+            very_low: 40, low: 20, balanced: 0, high: -20, very_high: -40
+        };
+        var deltaPercent = tierToDelta.hasOwnProperty(tier) ? tierToDelta[tier] : 0;
+        var body = "";
+        if (tier === "balanced") {
+            body = economyKind === "trading"
+                ? ("我的 " + itemName + " 库存稳定，卖价未变")
+                : ("我对 " + itemName + " 的收购价保持稳定");
+        } else {
+            var isUp = deltaPercent > 0;
+            var stringId = economyKind === "trading"
+                ? (isUp ? 1379 : 1380)
+                : (isUp ? 1377 : 1378);
+            try {
+                if (typeof stringUtil !== "undefined" && stringUtil) {
+                    var formatted = stringUtil.getString(stringId, itemName, Math.abs(deltaPercent));
+                    if (typeof formatted === "string" && formatted) {
+                        body = formatted;
+                    }
+                }
+            } catch (e3) {}
+            if (!body) {
+                body = "我的 " + itemName + " " + (isUp ? "+" : "-") + Math.abs(deltaPercent) + "%";
+            }
+        }
+        return npcName + "：" + body;
+    },
+
+    _writePlayerLogForBroadcast: function (payload) {
+        var player = null;
+        try {
+            if (typeof GameRuntime !== "undefined" && GameRuntime
+                && typeof GameRuntime.getPlayer === "function") {
+                player = GameRuntime.getPlayer();
+            }
+        } catch (e) {
+            player = null;
+        }
+        if (!player || !player.log || typeof player.log.addMsg !== "function") {
+            return;
+        }
+        var self = this;
+        var npc = null;
+        if (player.npcManager && typeof player.npcManager.getNPC === "function") {
+            npc = player.npcManager.getNPC(payload.npcId);
+        }
+        var writeList = function (list, kind) {
+            if (!list || !list.length) {
+                return;
+            }
+            list.forEach(function (item) {
+                if (!item || item.itemId == null || !item.tier) {
+                    return;
+                }
+                try {
+                    var text = self._resolveBroadcastText(payload.npcId, item.itemId, item.tier, kind);
+                    // 谈判专家：有天赋才加点价；换挡写 基准→当前，同档只写当前价
+                    if (self.canShowNegotiationPriceIntel() && npc) {
+                        var intel = self.getBroadcastPriceIntel(npc, item.itemId, kind);
+                        var shift = self.formatPriceShiftText(intel, kind, {
+                            tierChanged: !!item.tierChanged
+                        });
+                        if (shift) {
+                            text = text + "（" + shift + "）";
+                        }
+                    }
+                    player.log.addMsg(text);
+                } catch (e2) {
+                    if (typeof cc !== "undefined" && cc && typeof cc.error === "function") {
+                        cc.error("NpcEconomyService player log failed: " + e2);
+                    }
+                }
+            });
+        };
+        writeList(payload.favorite, "favorite");
+        writeList(payload.trading, "trading");
+    },
+
+    _getPoolRepresentativeItemId: function (npc, poolId, fallbackId) {
+        var override = (npc && npc.config && npc.config.economyOverride) ? npc.config.economyOverride : {};
+        var keys = Object.keys(override);
+        for (var i = 0; i < keys.length; i++) {
+            var itemId = keys[i];
+            var eff = this._getEffectiveEntry(npc, itemId, "favorite");
+            if (eff.consumePool === poolId) {
+                return parseInt(itemId, 10);
+            }
+        }
+        return parseInt(fallbackId, 10);
     },
 
     _getTierLabel: function (currentStock, targetStock) {

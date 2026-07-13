@@ -1065,6 +1065,12 @@ var DrinkTeaBuildAction = createTimedEffectBuildAction({
     }
 });
 
+// 沙发休息动作 10 的下标：3=烟草 1105061，4=手卷香烟 1105072
+var SMOKE_ACTION_INDEX_TOBACCO = 3;
+var SMOKE_ACTION_INDEX_CIGARETTE = 4;
+var SMOKE_ITEM_TOBACCO = 1105061;
+var SMOKE_ITEM_CIGARETTE = 1105072;
+
 var SmokeBuildAction = createTimedEffectBuildAction({
     className: "SmokeBuildAction",
     useCtorActionIndex: true,
@@ -1077,6 +1083,40 @@ var SmokeBuildAction = createTimedEffectBuildAction({
         default: 1371
     }
 });
+// 有烟草优先抽烟草，否则手卷香烟；都没有时仍指向烟草配置，缺料提示走 1375
+SmokeBuildAction.prototype.resolveConfigIndex = function (level) {
+    level = level >= 0 ? level : 0;
+    var levelConfigs = this.configs && this.configs[level];
+    if (!levelConfigs) {
+        return SMOKE_ACTION_INDEX_TOBACCO;
+    }
+    var hasItem = function (itemId) {
+        try {
+            var player = typeof GameRuntime !== "undefined" && GameRuntime
+                && typeof GameRuntime.getPlayer === "function"
+                ? GameRuntime.getPlayer() : null;
+            if (!player || !player.storage || typeof player.storage.getNumByItemId !== "function") {
+                return false;
+            }
+            return (Number(player.storage.getNumByItemId(itemId)) || 0) > 0;
+        } catch (e) {
+            return false;
+        }
+    };
+    if (levelConfigs[SMOKE_ACTION_INDEX_TOBACCO] && hasItem(SMOKE_ITEM_TOBACCO)) {
+        return SMOKE_ACTION_INDEX_TOBACCO;
+    }
+    if (levelConfigs[SMOKE_ACTION_INDEX_CIGARETTE] && hasItem(SMOKE_ITEM_CIGARETTE)) {
+        return SMOKE_ACTION_INDEX_CIGARETTE;
+    }
+    if (levelConfigs[SMOKE_ACTION_INDEX_TOBACCO]) {
+        return SMOKE_ACTION_INDEX_TOBACCO;
+    }
+    if (levelConfigs[SMOKE_ACTION_INDEX_CIGARETTE]) {
+        return SMOKE_ACTION_INDEX_CIGARETTE;
+    }
+    return this.index != null ? this.index : SMOKE_ACTION_INDEX_TOBACCO;
+};
 
 BuildActionTypeRegistry.register("rest", {
     create: function (options) {
@@ -1169,10 +1209,34 @@ var BuildActionFactory = {
     },
     createRestActions: function (bid, level, roleType) {
         var actions = [
-            this.createActionByType("rest", { bid: bid, level: level }),
-            this.createActionByType("smoke", { bid: bid, level: level, actionIndex: 4 })
+            this.createActionByType("rest", { bid: bid, level: level })
         ];
-        getBuildActionRoleRuntimeService().getRestActionTypes(roleType).forEach(function (actionType) {
+        // 角色策略只读 RoleRuntimeService 计划；烟草/香烟在 smoke 动作内按库存选
+        var plan = null;
+        var roleRuntime = getBuildActionRoleRuntimeService();
+        if (roleRuntime && typeof roleRuntime.getRestActionPlan === "function") {
+            plan = roleRuntime.getRestActionPlan(roleType);
+        } else if (roleRuntime) {
+            plan = {
+                includeSmoke: typeof roleRuntime.canSmoke !== "function" || roleRuntime.canSmoke(roleType),
+                extraActionTypes: typeof roleRuntime.getRestActionTypes === "function"
+                    ? roleRuntime.getRestActionTypes(roleType)
+                    : []
+            };
+        } else {
+            plan = { includeSmoke: true, extraActionTypes: [] };
+        }
+        if (plan.includeSmoke) {
+            var smoke = this.createActionByType("smoke", {
+                bid: bid,
+                level: level,
+                actionIndex: SMOKE_ACTION_INDEX_TOBACCO
+            });
+            if (smoke) {
+                actions.push(smoke);
+            }
+        }
+        (plan.extraActionTypes || []).forEach(function (actionType) {
             var action = this.createRestActionByType(actionType, bid, level);
             if (action) {
                 actions.push(action);

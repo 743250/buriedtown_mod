@@ -77,7 +77,7 @@ var RoleConfigTable = {
         unlockSites: [30, 32]
     },
 
-    // 雅子
+    // 雅子（女性：不可抽烟；休息只保留咖啡，不喝酒）
     4: {
         roleType: 4,
         exchangeId: 1002,
@@ -90,6 +90,8 @@ var RoleConfigTable = {
         selectionOrder: 2,
         npcId: 4,
         actionTags: ["yazi", "powered"],
+        gender: "female",
+        canSmoke: false,
         visitorNpcIds: [1, 6, 2, 3],
         visitorUnlockedNpcIds: [5],
         specialBuilds: [7, 19, 18],
@@ -102,7 +104,7 @@ var RoleConfigTable = {
             id: 18,
             levels: [0]
         },
-        restActionTypes: ["drink"],
+        restActionTypes: [],
         workSiteRepair: {
             lastTimeMinutes: 96 * 60,
             brokenProbability: 0.02,

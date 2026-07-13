@@ -207,22 +207,11 @@ var BattleEquipmentSystem = (function () {
             if (this.isCooldownActive(battleTime)) {
                 return false;
             }
-            if (this.usesSharedAttackCooldown()
-                && this.battlePlayer
-                && typeof this.battlePlayer.isInSharedAttackCooldown === "function"
-                && this.battlePlayer.isInSharedAttackCooldown(battleTime)) {
-                return false;
-            }
             cc.d(this.itemConfig.name + " action");
             if (this.beforeCd() === false) {
                 return false;
             }
             var cooldown = this.getCooldownDuration();
-            if (this.usesSharedAttackCooldown()
-                && this.battlePlayer
-                && typeof this.battlePlayer.enterSharedAttackCooldown === "function") {
-                this.battlePlayer.enterSharedAttackCooldown(cooldown, battleTime);
-            }
             this.cooldownEndsAt = addBattleTime(battleTime, cooldown);
             return true;
         },
@@ -245,9 +234,6 @@ var BattleEquipmentSystem = (function () {
             this.afterCd();
         },
         _action: function () {
-        },
-        usesSharedAttackCooldown: function () {
-            return false;
         },
         beforeCd: function () {
             return true;
@@ -322,9 +308,6 @@ var BattleEquipmentSystem = (function () {
     });
 
     var BattleWeapon = BattleEquipment.extend({
-        usesSharedAttackCooldown: function () {
-            return true;
-        },
         playEffect: function (soundName) {
             if (this.effectId) {
                 audioManager.stopEffect(this.effectId);
@@ -383,9 +366,6 @@ var BattleEquipmentSystem = (function () {
     });
 
     var BattleGun = BattleWeapon.extend({
-        usesSharedAttackCooldown: function () {
-            return true;
-        },
         ctor: function (id, battlePlayer) {
             this._super(id, battlePlayer);
             this.bulletConfig = utils.clone(itemConfig[BattleConst.BULLET_ID].effect_weapon);
