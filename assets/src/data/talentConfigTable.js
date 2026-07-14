@@ -13,11 +13,11 @@ var TalentConfigTable = {
         maxLevel: 3,
         effectType: 'weapon_broken_reduce',
         weaponBrokenMultiplierValues: [1, 0.8, 0.6, 0.4],
-        durableCraftChanceBonusValues: [0, 0.1, 0.2, 0.3],
+        durableCraftChanceBonusValues: [0, 0.05, 0.1, 0.15],
         tierEffectTextList: [
-            "你开始重拾维护技巧，武器损耗减少20%，制造耐久武器概率+10%",
-            "每件武器都像老朋友，你知道如何让它们更持久，损耗减少40%，制造耐久武器概率+20%",
-            "武器维护已成本能，即使在恶劣环境中也能保持装备完好，损耗减少60%，制造耐久武器概率+30%"
+            "你开始重拾维护技巧，武器损耗减少20%，制造耐久武器概率+5%",
+            "每件武器都像老朋友，你知道如何让它们更持久，损耗减少40%，制造耐久武器概率+10%",
+            "武器维护已成本能，即使在恶劣环境中也能保持装备完好，损耗减少60%，制造耐久武器概率+15%"
         ]
     },
 
