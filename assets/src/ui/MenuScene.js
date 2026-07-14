@@ -989,25 +989,6 @@ var MenuScene = BaseScene.extend({
             var settingLayer = new SettingLayer();
             this.addChild(settingLayer);
         }
-
-        // 简化测试按钮（先验证截图功能）
-        if (cc.sys.isNative && typeof window.SimpleScreenshotTest !== "undefined") {
-            var testBtn = new cc.MenuItemLabel(
-                new cc.LabelTTF("测试截图", "Arial", 18),
-                function() {
-                    cc.log("[MenuScene] Running simple screenshot test...");
-                    SimpleScreenshotTest.testScreenshot();
-                }
-            );
-            testBtn.setPosition(cc.winSize.width - 50, cc.winSize.height - 30);
-
-            var testMenu = new cc.Menu(testBtn);
-            testMenu.setPosition(0, 0);
-            this.addChild(testMenu, 9999);
-            testMenu.setName("dev_test_menu");
-
-            testBtn.getLabel().setColor(cc.color(255, 200, 0));
-        }
     },
     onExit: function () {
         this._super();

@@ -16,10 +16,7 @@ var jsList = [
     "src/util/memoryUtil.js",
     "src/util/attrHelper.js",
     "src/util/timerHelper.js",
-    "src/util/simpleScreenshotTest.js",
-    "src/util/captureLogger.js",
     "src/util/uiExporter.js",
-    "src/util/autoUICapture.js",
 
     "src/data/string/string.js",
     "src/data/blackList.js",
