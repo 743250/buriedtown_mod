@@ -101,14 +101,18 @@ function createStringUtil(stringMap) {
     };
 }
 
-function createSpriteFrameController(iconPlist, digItemPlist) {
+function createSpriteFrameController(iconPlist, digItemPlist, rootDir) {
     return {
         getSpriteFrameFromSpriteName: function (spriteName) {
             if (!spriteName) {
                 return null;
             }
             const normalized = spriteName.charAt(0) === "#" ? spriteName.substring(1) : spriteName;
-            if (gameData.hasSpriteFrame(iconPlist, normalized) || gameData.hasSpriteFrame(digItemPlist, normalized)) {
+            var standaloneDir = /^icon_/.test(normalized) ? "icon"
+                : (/^dig_item_/.test(normalized) ? "dig_item" : null);
+            if (gameData.hasSpriteFrame(iconPlist, normalized)
+                || gameData.hasSpriteFrame(digItemPlist, normalized)
+                || (standaloneDir && gameData.hasStandaloneSprite(rootDir, standaloneDir, normalized))) {
                 return { name: normalized };
             }
             return null;
@@ -154,7 +158,7 @@ function createRuntime(lang) {
 
     context.utils = createUtils(context.itemConfig, context.blackList);
     context.stringUtil = createStringUtil(context.string);
-    context.autoSpriteFrameController = createSpriteFrameController(itemAssets.iconPlist, itemAssets.digItemPlist);
+    context.autoSpriteFrameController = createSpriteFrameController(itemAssets.iconPlist, itemAssets.digItemPlist, rootDir);
     context.TalentService = {
         bindIAPCompatApi: function () {}
     };

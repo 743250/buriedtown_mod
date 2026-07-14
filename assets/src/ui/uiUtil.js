@@ -205,7 +205,6 @@ uiUtil.getDisplayItemId = function (itemId) {
             itemId = displayItemId;
         }
     }
-    if (itemId === 1301091) return 1301011;
     return itemId;
 };
 
@@ -1298,7 +1297,7 @@ uiUtil.showBuildActionDialog = function (bid, index, iconIndex) {
         if (bid == 10 && index == 2) {
             iconIndex = 0;
         }
-        if (bid == 10 && (index == 3 || index == 4 || index == 5)) {
+        if (bid == 10 && index == 5) {
             iconIndex = 1;
         }
     }

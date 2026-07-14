@@ -56,11 +56,15 @@ function validate(options) {
             return;
         }
 
-        if (!gameData.hasSpriteFrame(iconPlist, "icon_item_" + displayItemId + ".png")) {
-            pushIssue(uiIssues, itemId, "missing icon sprite: icon_item_" + displayItemId + ".png");
+        const iconName = "icon_item_" + displayItemId + ".png";
+        const detailName = "dig_item_" + displayItemId + ".png";
+        if (!gameData.hasSpriteFrame(iconPlist, iconName)
+            && !gameData.hasStandaloneSprite(context.rootDir, "icon", iconName)) {
+            pushIssue(uiIssues, itemId, "missing icon sprite: " + iconName);
         }
-        if (!gameData.hasSpriteFrame(digItemPlist, "dig_item_" + displayItemId + ".png")) {
-            pushIssue(uiIssues, itemId, "missing detail sprite: dig_item_" + displayItemId + ".png");
+        if (!gameData.hasSpriteFrame(digItemPlist, detailName)
+            && !gameData.hasStandaloneSprite(context.rootDir, "dig_item", detailName)) {
+            pushIssue(uiIssues, itemId, "missing detail sprite: " + detailName);
         }
     });
 

@@ -180,6 +180,7 @@ python3 tools/normalize-portrait.py normalize \
 3. 可能缺图的链路优先走 `ResourceFallback` / `SafetyHelper.safeLoadSprite`
 4. 不为"先显示出来"把错误资源硬编码进业务页
 5. 一图多义要克制；优先保持原有资源的使用语义
+6. Mod 新增内容缺图或临时复用旧图时，必须同步更新 `docs/mod-image-assets.md`；专属图落地后将对应条目标为“已替换”
 
 ---
 

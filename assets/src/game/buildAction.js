@@ -1074,7 +1074,6 @@ var SMOKE_ITEM_CIGARETTE = 1105072;
 var SmokeBuildAction = createTimedEffectBuildAction({
     className: "SmokeBuildAction",
     useCtorActionIndex: true,
-    iconIndex: 1,
     actionTextId: 1370,
     logMessageId: 1373,
     progressHintIds: {

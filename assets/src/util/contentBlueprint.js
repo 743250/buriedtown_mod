@@ -271,9 +271,6 @@ var ContentBlueprint = {
                 itemId = displayItemId;
             }
         }
-        if (itemId === 1301091) {
-            return 1301011;
-        }
         return itemId;
     },
     _getItemDisplayId: function (itemId) {

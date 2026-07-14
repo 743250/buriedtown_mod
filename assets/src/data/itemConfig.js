@@ -97,7 +97,6 @@ var itemConfig = {
     },
     "1102071": {
         "id": "1102071",
-        "displayItemId": "1102011",
         "weight": 2,
         "price": 2,
         "value": 2
@@ -286,7 +285,6 @@ var itemConfig = {
     },
     "1105072": {
         "id": "1105072",
-        "displayItemId": "1105051",
         "weight": 0.1,
         "price": 3,
         "value": 3

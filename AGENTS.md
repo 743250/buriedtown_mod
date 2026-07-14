@@ -93,6 +93,7 @@ node tools/run-smoke.js
 
 - 旧资源继续保留在 `res/*.plist + *.pvr.ccz`。
 - 新资源优先放提取目录，缺失时再回退到旧资源。
+- Mod 新增内容缺图或临时复用旧图时，必须同步更新 `docs/mod-image-assets.md`；专属图落地后将对应条目标为“已替换”。
 - 当前常用目录包括：
   - `assets/res/npc`
   - `assets/res/icon`

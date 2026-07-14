@@ -32,16 +32,17 @@ function getDisplayItemId(itemId, itemConfig) {
         }
     }
 
-    if (normalizedId === 1301091) {
-        return 1301011;
-    }
-
     return normalizedId;
+}
+
+function hasStandaloneSprite(rootDir, directory, spriteName) {
+    return fs.existsSync(path.join(rootDir || getRootDir(), "assets/res", directory, spriteName));
 }
 
 function loadItemValidationContext(rootDir) {
     const resolvedRootDir = rootDir || getRootDir();
     return {
+        rootDir: resolvedRootDir,
         itemConfig: loadVar(path.join(resolvedRootDir, "assets/src/data/itemConfig.js"), "itemConfig"),
         zhStrings: loadVar(path.join(resolvedRootDir, "assets/src/data/string/string_zh.js"), "string"),
         iconPlist: fs.readFileSync(path.join(resolvedRootDir, "assets/res/icon.plist"), "utf8"),
@@ -52,6 +53,7 @@ function loadItemValidationContext(rootDir) {
 module.exports = {
     getRootDir: getRootDir,
     getDisplayItemId: getDisplayItemId,
+    hasStandaloneSprite: hasStandaloneSprite,
     hasSpriteFrame: hasSpriteFrame,
     loadVar: loadVar,
     loadItemValidationContext: loadItemValidationContext
