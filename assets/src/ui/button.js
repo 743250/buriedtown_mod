@@ -528,12 +528,12 @@ var PayItemButton = Button.extend({
 });
 
 var SpriteButton = Button.extend({
-    ctor: function (size, normalName, pressedName, disableName) {
+    ctor: function (size, normalName, pressedName, disableName, swallowTouches) {
         var normal = autoSpriteFrameController.getSpriteFromSpriteName(normalName);
         if (size) {
-            this._super(size);
+            this._super(size, swallowTouches);
         } else {
-            this._super(normal.getContentSize());
+            this._super(normal.getContentSize(), swallowTouches);
         }
 
         normal.x = this.width / 2;
@@ -585,7 +585,17 @@ var SpriteButton = Button.extend({
     },
     onTouchMoved: function (touch) {
         this._super(touch);
-        this.animNormal();
+        if (this.isPressed && this.touchBeganPos
+            && cc.pDistanceSQ(this.touchBeganPos, touch.getLocation()) > 200) {
+            this.isPressed = false;
+            this.animNormal();
+            var pressed = this.getChildByName("pressed");
+            if (pressed) {
+                pressed.setVisible(false);
+            }
+        } else if (this.isPressed) {
+            this.animNormal();
+        }
     },
     animPressed: function () {
         this.runAction(cc.scaleTo(0.1, 1.2));
@@ -598,7 +608,8 @@ var SpriteButton = Button.extend({
 var ButtonAtChooseScene = Button.extend({
     ctor: function (spriteName, fallbackName) {
         var bg = autoSpriteFrameController.getSpriteFromSpriteName("icon_iap_bg.png");
-        this._super(bg.getContentSize());
+        // false: let parent ScrollView receive vertical drags started on talent cards
+        this._super(bg.getContentSize(), false);
         bg.x = this.width / 2;
         bg.y = this.height / 2 + 5;
         bg.setName("bg");
@@ -620,9 +631,10 @@ var ButtonAtChooseScene = Button.extend({
         sprite.setScale(0.9);
         this.addChild(sprite);
 
-        var info = new SpriteButton(cc.size(100, 100), 'icon_iap_info.png');
-        info.x = this.width - 27;
-        info.y = this.height - 27;
+        // Match icon_iap_info art size so the corner hot-zone does not eat scroll space.
+        var info = new SpriteButton(cc.size(48, 48), 'icon_iap_info.png', null, null, false);
+        info.x = this.width - 24;
+        info.y = this.height - 24;
         info.setName("info");
         this.addChild(info);
         info.setVisible(false);
@@ -639,7 +651,7 @@ var ButtonAtChooseScene = Button.extend({
         this.addChild(mark);
         mark.setVisible(false);
 
-        var lock = new LockButton(bg.getContentSize(), 'icon_iap_lock.png');
+        var lock = new LockButton(bg.getContentSize(), 'icon_iap_lock.png', false);
         lock.x = this.width / 2;
         lock.y = this.height / 2;
         lock.setName("lock");
@@ -680,6 +692,14 @@ var ButtonAtChooseScene = Button.extend({
         this.getChildByName("normal").setOpacity(this.normalOpacity);
         this._super(isInBound);
     },
+    onTouchMoved: function (touch) {
+        if (this.isPressed && this.touchBeganPos
+            && cc.pDistanceSQ(this.touchBeganPos, touch.getLocation()) > 200) {
+            this.isPressed = false;
+            this.getChildByName("bg").setOpacity(this.normalOpacity);
+            this.getChildByName("normal").setOpacity(this.normalOpacity);
+        }
+    },
     setChecked: function (checked) {
         this.checked = checked;
         this.getChildByName("mark").setVisible(this.checked);
@@ -699,8 +719,8 @@ var ButtonAtChooseScene = Button.extend({
 });
 
 var LockButton = SpriteButton.extend({
-    ctor: function (size, normalName) {
-        this._super(size, normalName);
+    ctor: function (size, normalName, swallowTouches) {
+        this._super(size, normalName, null, null, swallowTouches);
 
         var normal = this.getChildByName("normal");
         normal.x = 30;
