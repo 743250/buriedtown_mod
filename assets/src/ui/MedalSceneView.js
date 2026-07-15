@@ -45,22 +45,24 @@ var MedalUiTextMap = {
     }
 };
 
-var MedalUiTheme = {
-    background: cc.color(0, 0, 0, 255),
-    panel: cc.color(8, 8, 8, 255),
-    panelSoft: cc.color(18, 18, 18, 255),
-    progressTrack: cc.color(20, 20, 20, 255),
-    progressFill: cc.color(255, 255, 255, 255),
-    points: cc.color(236, 200, 74, 255),
-    border: cc.color(255, 255, 255, 196),
-    borderStrong: cc.color(255, 255, 255, 255),
-    divider: cc.color(255, 255, 255, 90),
-    text: cc.color(255, 255, 255, 255),
-    textSoft: cc.color(255, 255, 255, 220),
-    textMuted: cc.color(255, 255, 255, 180),
-    textFaint: cc.color(255, 255, 255, 120),
-    pressedFill: cc.color(255, 255, 255, 32)
-};
+var MedalUiTheme = (typeof UITheme !== "undefined" && UITheme && UITheme.preGame)
+    ? UITheme.preGame
+    : {
+        background: cc.color(0, 0, 0, 255),
+        panel: cc.color(8, 8, 8, 255),
+        panelSoft: cc.color(18, 18, 18, 255),
+        progressTrack: cc.color(20, 20, 20, 255),
+        progressFill: cc.color(255, 255, 255, 255),
+        points: cc.color(236, 200, 74, 255),
+        border: cc.color(255, 255, 255, 196),
+        borderStrong: cc.color(255, 255, 255, 255),
+        divider: cc.color(255, 255, 255, 90),
+        text: cc.color(255, 255, 255, 255),
+        textSoft: cc.color(255, 255, 255, 220),
+        textMuted: cc.color(255, 255, 255, 180),
+        textFaint: cc.color(255, 255, 255, 120),
+        pressedFill: cc.color(255, 255, 255, 32)
+    };
 
 function medalViewIsEnglish() {
     return cc.sys.localStorage.getItem("language") === cc.sys.LANGUAGE_ENGLISH;
@@ -182,67 +184,25 @@ function medalViewGetAchievementPoints() {
 
 function medalViewCreateOutlinePanel(size, opt) {
     opt = opt || {};
-
-    var node = new cc.Node();
-    node.setContentSize(size);
-    node.width = size.width;
-    node.height = size.height;
-
-    var fill = uiUtil.createColorRect(size, opt.fillColor || MedalUiTheme.panel, opt.fillOpacity === undefined ? 255 : opt.fillOpacity);
-    fill.setName("fill");
-    fill.setPosition(0, 0);
-    node.addChild(fill, -1);
-
-    var border = new cc.DrawNode();
-    border.setName("border");
-    border.drawRect(
-        cc.p(0, 0),
-        cc.p(size.width, size.height),
-        cc.color(0, 0, 0, 0),
-        opt.lineWidth || 1,
-        opt.borderColor || MedalUiTheme.border
-    );
-    node.addChild(border, 0);
-
-    node._fill = fill;
-    node._border = border;
-    return node;
+    return uiUtil.createPreGameOutlinePanel(size, {
+        fillColor: opt.fillColor || MedalUiTheme.panel,
+        fillOpacity: opt.fillOpacity,
+        borderColor: opt.borderColor || MedalUiTheme.border,
+        lineWidth: opt.lineWidth
+    });
 }
 
 function medalViewCreateOutlineButton(txt, target, cb, opt) {
     opt = opt || {};
-
-    var size = opt.size || cc.size(176, 52);
-    var btn = new ButtonWithPressed(size);
-    var panel = medalViewCreateOutlinePanel(size, {
+    return uiUtil.createPreGameOutlineButton(txt, target, cb, {
+        size: opt.size || MedalUiTheme.footerButtonSize || cc.size(190, 52),
+        fontSize: opt.fontSize || MedalUiTheme.footerButtonFontSize || 24,
         fillColor: opt.fillColor || MedalUiTheme.panel,
-        fillOpacity: opt.fillOpacity === undefined ? 255 : opt.fillOpacity,
+        fillOpacity: opt.fillOpacity,
         borderColor: opt.borderColor || MedalUiTheme.borderStrong,
-        lineWidth: opt.lineWidth || 1
+        lineWidth: opt.lineWidth,
+        textColor: opt.textColor || MedalUiTheme.text
     });
-    btn.addChild(panel, -2);
-
-    var label = new cc.LabelTTF(
-        txt || "",
-        uiUtil.fontFamily.normal,
-        opt.fontSize || 24,
-        cc.size(size.width - 14, 0),
-        cc.TEXT_ALIGNMENT_CENTER
-    );
-    label.setName("label");
-    label.setColor(opt.textColor || MedalUiTheme.text);
-    label.setPosition(size.width / 2, size.height / 2);
-    btn.addChild(label, 1);
-
-    btn.setLabelString = function (text) {
-        label.setString(text || "");
-    };
-
-    if (target && cb) {
-        btn.setClickListener(target, cb);
-    }
-
-    return btn;
 }
 
 function medalViewCreateTabButton(txt, target, cb) {
@@ -425,59 +385,41 @@ var MedalSceneView = cc.Node.extend({
         this.width = fullWidth;
         this.height = fullHeight;
 
-        var background = uiUtil.createColorRect(cc.size(fullWidth, fullHeight), MedalUiTheme.background, 255);
+        var background = uiUtil.createPreGameBackground(cc.size(fullWidth, fullHeight));
         this.addChild(background);
 
-        this._titleLabel = uiUtil.createLabel(medalViewText("title"), "title", {
-            width: 320,
-            fontSize: 36,
-            hAlignment: cc.TEXT_ALIGNMENT_CENTER,
-            anchorX: 0.5,
-            anchorY: 1,
-            color: MedalUiTheme.text
+        var header = uiUtil.createPreGameHeader({
+            parent: this,
+            width: fullWidth,
+            height: fullHeight,
+            titleText: medalViewText("title"),
+            showPoints: true,
+            pointsAlignRight: true,
+            zOrder: 2
         });
-        this._titleLabel.setPosition(this.width / 2, this.height - 24);
-        this.addChild(this._titleLabel);
-
-        this._pointsLabel = uiUtil.createLabel("", "body", {
-            width: 220,
-            fontSize: 20,
-            hAlignment: cc.TEXT_ALIGNMENT_RIGHT,
-            anchorX: 1,
-            anchorY: 0.5,
-            color: MedalUiTheme.points
-        });
-        this._pointsLabel.setPosition(this.width - 44, this.height - 54);
-        this.addChild(this._pointsLabel);
-
-        var headerLine = uiUtil.createColorRect(cc.size(560, 1), MedalUiTheme.divider, 180);
-        headerLine.setPosition((this.width - 560) / 2, this.height - 112);
-        this.addChild(headerLine);
+        this._titleLabel = header.title;
+        this._pointsLabel = header.points;
 
         this._buildTabs();
         this._buildScrollArea();
 
+        var footerY = MedalUiTheme.footerY || 62;
         var btnShop = medalViewCreateOutlineButton(medalViewText("shop"), this, function () {
             uiUtil.safeRunScene(function () {
                 return new ShopScene();
             });
-        }, {
-            size: cc.size(190, 52),
-            fontSize: 24
         });
-        btnShop.setPosition(this.width / 2 - 124, 62);
-        this.addChild(btnShop);
-
         var btnBack = medalViewCreateOutlineButton(stringUtil.getString(1193), this, function () {
             uiUtil.safeRunScene(function () {
                 return new MenuScene();
             });
-        }, {
-            size: cc.size(190, 52),
-            fontSize: 24
         });
-        btnBack.setPosition(this.width / 2 + 124, 62);
-        this.addChild(btnBack);
+        this.addChild(btnShop, 3);
+        this.addChild(btnBack, 3);
+        uiUtil.layoutPreGameFooter([btnShop, btnBack], {
+            width: fullWidth,
+            y: footerY
+        });
     },
 
     _buildTabs: function () {

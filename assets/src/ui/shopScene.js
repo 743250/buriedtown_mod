@@ -39,8 +39,16 @@ var ShopLayer = cc.Layer.extend({
         this._refreshAllPayNodes();
         this._refreshAllPayNodesDeferred();
     },
+    _getShopTitleText: function () {
+        var isEnglish = cc.sys.localStorage.getItem("language") === cc.sys.LANGUAGE_ENGLISH;
+        return isEnglish ? "Exchange" : "兑换商店";
+    },
     _refreshPointsLabel: function () {
         PurchaseUiHelper.refreshAchievementPointsLabel(this.pointsLabel);
+        if (this.pointsLabel && typeof this.pointsLabel.setColor === "function") {
+            var theme = uiUtil.getPreGameTheme() || {};
+            this.pointsLabel.setColor(theme.points || cc.color(236, 200, 74, 255));
+        }
     },
     _updateNodePrice: function (purchaseId, payNode) {
         PurchaseUiHelper.applyPayNodeState(purchaseId, payNode);
@@ -85,11 +93,23 @@ var ShopLayer = cc.Layer.extend({
         this._super();
         this._bindShopStateListener();
 
-        this.pointsLabel = new cc.LabelTTF("", uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_1);
-        this.pointsLabel.setAnchorPoint(0.5, 1);
-        this.pointsLabel.setPosition(cc.winSize.width / 2, cc.winSize.height - 12);
-        this.pointsLabel.setColor(cc.color(255, 140, 0, 255));
-        this.addChild(this.pointsLabel);
+        var fullWidth = cc.winSize.width;
+        var fullHeight = cc.winSize.height;
+        var theme = uiUtil.getPreGameTheme() || {};
+
+        var background = uiUtil.createPreGameBackground(cc.size(fullWidth, fullHeight));
+        this.addChild(background, 0);
+
+        var header = uiUtil.createPreGameHeader({
+            parent: this,
+            width: fullWidth,
+            height: fullHeight,
+            titleText: this._getShopTitleText(),
+            showPoints: true,
+            pointsAlignRight: true,
+            zOrder: 2
+        });
+        this.pointsLabel = header.points;
         this._refreshPointsLabel();
 
         this.nodeMap = {};
@@ -97,12 +117,12 @@ var ShopLayer = cc.Layer.extend({
         var NODE_HEIGHT = 249;
         var minPadding = 8;
         var columns = 2;
-        if (cc.winSize.width < (2 * NODE_WIDTH + minPadding * 3)) {
+        if (fullWidth < (2 * NODE_WIDTH + minPadding * 3)) {
             columns = 1;
         }
         var nodeScale = 1;
-        if (columns === 1 && cc.winSize.width < (NODE_WIDTH + minPadding * 2)) {
-            nodeScale = Math.max(0.82, (cc.winSize.width - minPadding * 2) / NODE_WIDTH);
+        if (columns === 1 && fullWidth < (NODE_WIDTH + minPadding * 2)) {
+            nodeScale = Math.max(0.82, (fullWidth - minPadding * 2) / NODE_WIDTH);
         }
         var scaledNodeWidth = Math.floor(NODE_WIDTH * nodeScale);
         var scaledNodeHeight = Math.floor(NODE_HEIGHT * nodeScale);
@@ -110,7 +130,7 @@ var ShopLayer = cc.Layer.extend({
         if (columns === 1) {
             widthPadding = 0;
         } else {
-            widthPadding = Math.max(minPadding, Math.floor((cc.winSize.width - 2 * scaledNodeWidth) / 3));
+            widthPadding = Math.max(minPadding, Math.floor((fullWidth - 2 * scaledNodeWidth) / 3));
         }
         var heightPadding = 10;
 
@@ -122,10 +142,9 @@ var ShopLayer = cc.Layer.extend({
 
         var totalHeight = scaledNodeHeight * row + (heightPadding * (row - 1));
 
-        var buttonBaseY = 60;
+        var buttonBaseY = theme.footerY || 62;
         var scrollBottomY = buttonBaseY + 58;
-        var headerBottomY = this.pointsLabel.y - this.pointsLabel.height - 18;
-        var scrollTopY = headerBottomY - 8;
+        var scrollTopY = (header.headerBottomY || (fullHeight - 112)) - 16;
         var scrollHeight = Math.max(NODE_HEIGHT + 20, scrollTopY - scrollBottomY);
 
         var mycontainer = new cc.Layer();
@@ -138,15 +157,15 @@ var ShopLayer = cc.Layer.extend({
         this._payHeightPadding = heightPadding;
         this._payTotalHeight = totalHeight;
         var viewWidth = columns === 1
-            ? Math.min(scaledNodeWidth, cc.winSize.width - minPadding * 2)
+            ? Math.min(scaledNodeWidth, fullWidth - minPadding * 2)
             : (scaledNodeWidth * columns + widthPadding * (columns - 1));
         var scrollView = new cc.ScrollView(cc.size(viewWidth, scrollHeight), mycontainer);
         scrollView.setDirection(cc.SCROLLVIEW_DIRECTION_VERTICAL);
         scrollView.setBounceable(false);
         scrollView.setClippingToBounds(true);
-        scrollView.x = Math.floor((cc.winSize.width - viewWidth) / 2);
+        scrollView.x = Math.floor((fullWidth - viewWidth) / 2);
         scrollView.y = scrollBottomY;
-        this.addChild(scrollView);
+        this.addChild(scrollView, 1);
         scrollView.setContentSize(scrollView.getViewSize().width, totalHeight);
         var offset = scrollView.getContentOffset();
         offset.y = scrollView.getViewSize().height - totalHeight;
@@ -155,25 +174,26 @@ var ShopLayer = cc.Layer.extend({
         var self = this;
         this._rebuildPayNodes();
 
-        var btn1 = uiUtil.createCommonBtnWhite(stringUtil.getString(1193), this, function () {
+        var btn1 = uiUtil.createPreGameOutlineButton(stringUtil.getString(1193), this, function () {
             if (self.opt) {
                 cc.director.popScene();
             } else {
                 cc.director.runScene(new MenuScene());
             }
         });
-        btn1.setPosition(cc.winSize.width / 4, buttonBaseY);
-        this.addChild(btn1);
+        this.addChild(btn1, 3);
         btn1.setName("btn_1");
+        this.btnBack = btn1;
 
-        var btnTest = uiUtil.createCommonBtnWhite("\u6d4b\u8bd5+100", this, function () {
+        var btnTest = uiUtil.createPreGameOutlineButton("\u6d4b\u8bd5+100", this, function () {
             Medal.addAchievementPoints(100);
             self._refreshPointsLabel();
         });
-        btnTest.setPosition(cc.winSize.width / 2, buttonBaseY);
-        this.addChild(btnTest);
+        btnTest.setVisible(false);
+        this.addChild(btnTest, 3);
+        this.btnTest = btnTest;
 
-        var btn2 = uiUtil.createCommonBtnWhite(stringUtil.getString(1212), this, function () {
+        var btn2 = uiUtil.createPreGameOutlineButton(stringUtil.getString(1212), this, function () {
             PurchaseService.restoreRemotePurchases(this, function (err, restoreResult) {
                 if (err || !restoreResult || !restoreResult.isSuccess) {
                     CommonUtil.showCommonDialog(stringUtil.getString(1219), stringUtil.getString(1030));
@@ -182,15 +202,17 @@ var ShopLayer = cc.Layer.extend({
                 self._refreshAllPayNodes();
             });
         });
-        btn2.setPosition(cc.winSize.width / 4 * 3, buttonBaseY);
-        this.addChild(btn2);
+        this.addChild(btn2, 3);
         btn2.setName("btn_2");
+        this.btnRestore = btn2;
 
         if (cc.sys.os == cc.sys.OS_ANDROID) {
-            btn1.setPosition(cc.winSize.width / 3, buttonBaseY);
-            btnTest.setPosition(cc.winSize.width / 3 * 2, buttonBaseY);
             btn2.setVisible(false);
         }
+
+        this._buttonBaseY = buttonBaseY;
+        this._layoutBottomButtons();
+        this._bindAchievementPointsSecretTap();
 
         var showPayDialogFromOuter = function () {
             if (!self.opt) {
@@ -207,8 +229,7 @@ var ShopLayer = cc.Layer.extend({
         };
         if (!remoteRefreshInfo.hasRemotePurchases) {
             btn2.setVisible(false);
-            btn1.setPosition(cc.winSize.width / 3, buttonBaseY);
-            btnTest.setPosition(cc.winSize.width / 3 * 2, buttonBaseY);
+            this._layoutBottomButtons();
         }
 
         if (remoteRefreshInfo.hasRemotePurchases) {
@@ -226,6 +247,56 @@ var ShopLayer = cc.Layer.extend({
             });
         }
         showPayDialogFromOuter();
+    },
+    _layoutBottomButtons: function () {
+        uiUtil.layoutPreGameFooter([this.btnBack, this.btnTest, this.btnRestore], {
+            width: cc.winSize.width,
+            y: this._buttonBaseY
+        });
+    },
+    _bindAchievementPointsSecretTap: function () {
+        if (!this.pointsLabel || this._pointsSecretListener) {
+            return;
+        }
+        var self = this;
+        this._pointsSecretTapCount = 0;
+        this._pointsSecretTapResetSec = 2;
+        this.pointsLabel.setLocalZOrder(20);
+
+        var listener = cc.EventListener.create({
+            event: cc.EventListener.TOUCH_ONE_BY_ONE,
+            swallowTouches: true,
+            onTouchBegan: function (touch, event) {
+                var target = event.getCurrentTarget();
+                if (!target || !target.isVisible()) {
+                    return false;
+                }
+                var location = target.convertToNodeSpace(touch.getLocation());
+                var size = target.getContentSize();
+                var rect = cc.rect(0, 0, size.width, size.height);
+                if (!cc.rectContainsPoint(rect, location)) {
+                    return false;
+                }
+                self._pointsSecretTapCount = (self._pointsSecretTapCount || 0) + 1;
+                if (self._pointsSecretTapCount >= 5) {
+                    self._pointsSecretTapCount = 0;
+                    if (self.btnTest && !self.btnTest.isVisible()) {
+                        self.btnTest.setVisible(true);
+                        self._layoutBottomButtons();
+                    }
+                }
+                if (typeof self.unschedule === "function" && typeof self.scheduleOnce === "function") {
+                    self.unschedule(self._resetPointsSecretTapCount);
+                    self.scheduleOnce(self._resetPointsSecretTapCount, self._pointsSecretTapResetSec);
+                }
+                return true;
+            }
+        });
+        this._pointsSecretListener = listener;
+        cc.eventManager.addListener(listener, this.pointsLabel);
+    },
+    _resetPointsSecretTapCount: function () {
+        this._pointsSecretTapCount = 0;
     },
     onPayResult: function (result) {
         if (result.isSuccess) {

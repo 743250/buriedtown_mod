@@ -1998,6 +1998,184 @@ uiUtil.createItemListSliders = function (itemList) {
     return tableView;
 };
 
+uiUtil.getPreGameTheme = function () {
+    return (typeof UITheme !== "undefined" && UITheme && UITheme.preGame) ? UITheme.preGame : null;
+};
+
+uiUtil.createPreGameBackground = function (size, opt) {
+    opt = opt || {};
+    var theme = uiUtil.getPreGameTheme() || {};
+    size = size || cc.size(cc.winSize.width, cc.winSize.height);
+    return uiUtil.createColorRect(
+        size,
+        opt.color || theme.background || cc.color(0, 0, 0, 255),
+        opt.opacity === undefined ? 255 : opt.opacity
+    );
+};
+
+uiUtil.createPreGameOutlinePanel = function (size, opt) {
+    opt = opt || {};
+    var theme = uiUtil.getPreGameTheme() || {};
+    var node = new cc.Node();
+    node.setContentSize(size);
+    node.width = size.width;
+    node.height = size.height;
+
+    var fill = uiUtil.createColorRect(
+        size,
+        opt.fillColor || theme.panel || cc.color(8, 8, 8, 255),
+        opt.fillOpacity === undefined ? 255 : opt.fillOpacity
+    );
+    fill.setName("fill");
+    fill.setPosition(0, 0);
+    node.addChild(fill, -1);
+
+    var border = new cc.DrawNode();
+    border.setName("border");
+    border.drawRect(
+        cc.p(0, 0),
+        cc.p(size.width, size.height),
+        cc.color(0, 0, 0, 0),
+        opt.lineWidth || 1,
+        opt.borderColor || theme.border || cc.color(255, 255, 255, 196)
+    );
+    node.addChild(border, 0);
+
+    node._fill = fill;
+    node._border = border;
+    return node;
+};
+
+uiUtil.createPreGameOutlineButton = function (txt, target, cb, opt) {
+    opt = opt || {};
+    var theme = uiUtil.getPreGameTheme() || {};
+    var size = opt.size || theme.footerButtonSize || cc.size(190, 52);
+    var fontSize = opt.fontSize || theme.footerButtonFontSize || 24;
+    var btn = new ButtonWithPressed(size);
+    var panel = uiUtil.createPreGameOutlinePanel(size, {
+        fillColor: opt.fillColor || theme.panel || cc.color(8, 8, 8, 255),
+        fillOpacity: opt.fillOpacity === undefined ? 255 : opt.fillOpacity,
+        borderColor: opt.borderColor || theme.borderStrong || cc.color(255, 255, 255, 255),
+        lineWidth: opt.lineWidth || 1
+    });
+    btn.addChild(panel, -2);
+
+    var label = new cc.LabelTTF(
+        txt || "",
+        uiUtil.fontFamily.normal,
+        fontSize,
+        cc.size(size.width - 14, 0),
+        cc.TEXT_ALIGNMENT_CENTER
+    );
+    label.setName("label");
+    label.setColor(opt.textColor || theme.text || cc.color(255, 255, 255, 255));
+    label.setPosition(size.width / 2, size.height / 2);
+    btn.addChild(label, 1);
+
+    btn.setLabelString = function (text) {
+        label.setString(text || "");
+    };
+
+    if (target && cb) {
+        btn.setClickListener(target, cb);
+    }
+    return btn;
+};
+
+uiUtil.createPreGameHeader = function (opt) {
+    opt = opt || {};
+    var theme = uiUtil.getPreGameTheme() || {};
+    var width = opt.width || cc.winSize.width;
+    var height = opt.height || cc.winSize.height;
+    var parent = opt.parent || null;
+    var zOrder = opt.zOrder === undefined ? 2 : opt.zOrder;
+    var titleY = height - (opt.titleYOffset || theme.headerTitleYOffset || 24);
+    var pointsY = height - (opt.pointsYOffset || theme.headerPointsYOffset || 54);
+    var dividerY = height - (opt.dividerYOffset || theme.headerDividerYOffset || 112);
+    var dividerWidth = opt.dividerWidth || Math.min(560, width - 80);
+    var result = {
+        title: null,
+        points: null,
+        divider: null,
+        headerBottomY: dividerY
+    };
+
+    if (opt.titleText !== undefined && opt.titleText !== null) {
+        result.title = uiUtil.createLabel(opt.titleText, "title", {
+            width: opt.titleWidth || 320,
+            fontSize: opt.titleFontSize || 36,
+            hAlignment: cc.TEXT_ALIGNMENT_CENTER,
+            anchorX: 0.5,
+            anchorY: 1,
+            color: opt.titleColor || theme.text || cc.color(255, 255, 255, 255)
+        });
+        result.title.setPosition(width / 2, titleY);
+        if (parent) {
+            parent.addChild(result.title, zOrder);
+        }
+    }
+
+    if (opt.showPoints) {
+        result.points = uiUtil.createLabel(opt.pointsText || "", "body", {
+            width: opt.pointsWidth || 220,
+            fontSize: opt.pointsFontSize || 20,
+            hAlignment: opt.pointsAlignRight === false ? cc.TEXT_ALIGNMENT_CENTER : cc.TEXT_ALIGNMENT_RIGHT,
+            anchorX: opt.pointsAlignRight === false ? 0.5 : 1,
+            anchorY: 0.5,
+            color: opt.pointsColor || theme.points || cc.color(236, 200, 74, 255)
+        });
+        if (opt.pointsAlignRight === false) {
+            result.points.setPosition(width / 2, pointsY);
+        } else {
+            result.points.setPosition(width - (opt.pointsRightPadding || 44), pointsY);
+        }
+        if (parent) {
+            parent.addChild(result.points, zOrder);
+        }
+    }
+
+    if (opt.showDivider !== false) {
+        result.divider = uiUtil.createColorRect(
+            cc.size(dividerWidth, 1),
+            opt.dividerColor || theme.divider || cc.color(255, 255, 255, 90),
+            opt.dividerOpacity === undefined ? 180 : opt.dividerOpacity
+        );
+        result.divider.setPosition((width - dividerWidth) / 2, dividerY);
+        if (parent) {
+            parent.addChild(result.divider, zOrder);
+        }
+    }
+
+    return result;
+};
+
+uiUtil.layoutPreGameFooter = function (buttons, opt) {
+    opt = opt || {};
+    var list = [];
+    var i;
+    for (i = 0; i < (buttons || []).length; i++) {
+        var btn = buttons[i];
+        if (!btn) {
+            continue;
+        }
+        if (typeof btn.isVisible === "function" && !btn.isVisible()) {
+            continue;
+        }
+        list.push(btn);
+    }
+    if (!list.length) {
+        return;
+    }
+
+    var theme = uiUtil.getPreGameTheme() || {};
+    var width = opt.width || cc.winSize.width;
+    var y = opt.y === undefined ? (theme.footerY || 62) : opt.y;
+    var count = list.length;
+    for (i = 0; i < count; i++) {
+        list[i].setPosition(width * (i + 1) / (count + 1), y);
+    }
+};
+
 uiUtil.showUnlockDialog = function (purchaseId) {
     if (typeof PurchaseUiHelper !== "undefined"
         && PurchaseUiHelper

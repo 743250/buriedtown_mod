@@ -106,6 +106,29 @@ var UITheme = {
             fontSize: 18
         }
     },
+    // Pre-game secondary pages (shop / medal / choose): dark survival-diary shell.
+    preGame: {
+        background: cc.color(0, 0, 0, 255),
+        panel: cc.color(8, 8, 8, 255),
+        panelSoft: cc.color(18, 18, 18, 255),
+        progressTrack: cc.color(20, 20, 20, 255),
+        progressFill: cc.color(255, 255, 255, 255),
+        points: cc.color(236, 200, 74, 255),
+        border: cc.color(255, 255, 255, 196),
+        borderStrong: cc.color(255, 255, 255, 255),
+        divider: cc.color(255, 255, 255, 90),
+        text: cc.color(255, 255, 255, 255),
+        textSoft: cc.color(255, 255, 255, 220),
+        textMuted: cc.color(255, 255, 255, 180),
+        textFaint: cc.color(255, 255, 255, 120),
+        pressedFill: cc.color(255, 255, 255, 32),
+        headerTitleYOffset: 24,
+        headerPointsYOffset: 54,
+        headerDividerYOffset: 112,
+        footerY: 62,
+        footerButtonSize: cc.size(190, 52),
+        footerButtonFontSize: 24
+    },
     getColor: function (colorName) {
         return this.colors[colorName] || cc.color.WHITE;
     }

@@ -37,15 +37,19 @@ var ChooseLayer = cc.Layer.extend({
         this._super();
         this._shopStateListener = null;
         var roleSelectionConfig = role.getRoleSelectionConfig();
+        var theme = uiUtil.getPreGameTheme() || {};
+        var textColor = theme.text || UITheme.colors.WHITE;
+
+        this.addChild(uiUtil.createPreGameBackground(cc.size(cc.winSize.width, cc.winSize.height)), 0);
 
         var titleRole = uiUtil.createLabel(stringUtil.getString(1310), "title", {
             anchorX: 0.5,
             anchorY: 0.5,
-            color: UITheme.colors.WHITE
+            color: textColor
         });
         titleRole.x = cc.winSize.width / 2;
         titleRole.y = cc.visibleRect.height - 46;
-        this.addChild(titleRole);
+        this.addChild(titleRole, 1);
 
         var sliderView = new SlideView(cc.size(600, 320));
         sliderView.x = cc.visibleRect.width / 2;
@@ -65,17 +69,17 @@ var ChooseLayer = cc.Layer.extend({
         var title = uiUtil.createLabel(stringUtil.getString(1217), "sectionTitle", {
             anchorX: 0.5,
             anchorY: 0.5,
-            color: UITheme.colors.WHITE
+            color: textColor
         });
         title.x = cc.winSize.width / 2;
         title.y = 744;
-        this.addChild(title);
+        this.addChild(title, 1);
 
         var NODE_WIDTH = 160;
         var NODE_HEIGHT = 200;
         var rowMaxNum = 3;
         var viewWidth = cc.winSize.width;
-        var scrollViewBottomY = 120;
+        var scrollViewBottomY = (theme.footerY || 62) + 58;
         var scrollViewTopY = title.y - 90;
         var viewHeight = scrollViewTopY - scrollViewBottomY;
         var widthPadding = (viewWidth - rowMaxNum * NODE_WIDTH ) / (rowMaxNum + 1);
@@ -236,14 +240,13 @@ var ChooseLayer = cc.Layer.extend({
             self.refreshTalentButtonCopy();
         };
 
-        var btn1 = uiUtil.createCommonBtnWhite(stringUtil.getString(1193), this, function () {
+        var btn1 = uiUtil.createPreGameOutlineButton(stringUtil.getString(1193), this, function () {
             cc.director.runScene(new MenuScene());
         });
-        btn1.setPosition(cc.winSize.width / 4, 60);
-        this.addChild(btn1);
+        this.addChild(btn1, 3);
         btn1.setName("btn_1");
 
-        var btn2 = uiUtil.createCommonBtnWhite(stringUtil.getString(1030), this, function () {
+        var btn2 = uiUtil.createPreGameOutlineButton(stringUtil.getString(1030), this, function () {
             if (cc.sys.isNative && cc.sys.os == cc.sys.OS_IOS) {
                 CommonUtil.afOnRegister();
             }
@@ -269,9 +272,12 @@ var ChooseLayer = cc.Layer.extend({
 
             cc.director.runScene(new StoryScene());
         });
-        btn2.setPosition(cc.winSize.width / 4 * 3, 60);
-        this.addChild(btn2);
+        this.addChild(btn2, 3);
         btn2.setName("btn_2");
+        uiUtil.layoutPreGameFooter([btn1, btn2], {
+            width: cc.winSize.width,
+            y: theme.footerY || 62
+        });
 
         return true;
     },

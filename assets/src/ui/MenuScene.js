@@ -442,7 +442,32 @@ var SaveSlotSelectLayer = cc.Layer.extend({
         var mask = new cc.LayerColor(cc.color(0, 0, 0, 220), cc.winSize.width, cc.winSize.height);
         this.addChild(mask);
 
-        var centerY = cc.winSize.height / 2 + 90;
+        var theme = uiUtil.getPreGameTheme() || {};
+        var titleText = this.mode === "continue" ? this.lang.continueTitle : this.lang.newTitle;
+        var subtitleText = this.mode === "continue" ? this.lang.continueSubtitle : this.lang.newSubtitle;
+        var title = uiUtil.createLabel(titleText, "title", {
+            width: Math.min(520, cc.winSize.width - 48),
+            fontSize: 30,
+            hAlignment: cc.TEXT_ALIGNMENT_CENTER,
+            anchorX: 0.5,
+            anchorY: 1,
+            color: theme.text || cc.color(255, 255, 255, 255)
+        });
+        title.setPosition(cc.winSize.width / 2, cc.winSize.height / 2 + 250);
+        this.addChild(title, 1);
+
+        var subtitle = uiUtil.createLabel(subtitleText, "meta", {
+            width: Math.min(480, cc.winSize.width - 64),
+            fontSize: 18,
+            hAlignment: cc.TEXT_ALIGNMENT_CENTER,
+            anchorX: 0.5,
+            anchorY: 1,
+            color: theme.textMuted || cc.color(255, 255, 255, 180)
+        });
+        subtitle.setPosition(cc.winSize.width / 2, title.y - 48);
+        this.addChild(subtitle, 1);
+
+        var centerY = cc.winSize.height / 2 + 70;
         this._slotButtons = [];
         for (var slot = 1; slot <= Record.SLOT_COUNT; slot++) {
             var btn = this._createSlotButton(slot);
@@ -715,7 +740,23 @@ var SettingLayer = cc.Layer.extend({
         var self = this;
         this.addChild(new cc.LayerColor(cc.color(0, 0, 0, 220)));
 
+        var theme = uiUtil.getPreGameTheme() || {};
+        var settingsTitleText = cc.sys.localStorage.getItem("language") === cc.sys.LANGUAGE_ENGLISH
+            ? "Settings"
+            : "设置";
+        var settingTitle = uiUtil.createLabel(settingsTitleText, "title", {
+            width: 320,
+            fontSize: 32,
+            hAlignment: cc.TEXT_ALIGNMENT_CENTER,
+            anchorX: 0.5,
+            anchorY: 1,
+            color: theme.text || cc.color(255, 255, 255, 255)
+        });
+        settingTitle.setPosition(cc.winSize.width / 2, cc.winSize.height - 80);
+        this.addChild(settingTitle, 1);
+
         this.label_music = new cc.LabelTTF(stringUtil.getString(1248), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
+        this.label_music.setColor(theme.textSoft || cc.color(255, 255, 255, 220));
         this.label_music.setPosition(cc.winSize.width / 2, 950);
         this.addChild(this.label_music);
 
@@ -734,7 +775,8 @@ var SettingLayer = cc.Layer.extend({
 
 
         this.label_lan = new cc.LabelTTF(stringUtil.getString(1251), uiUtil.fontFamily.normal, uiUtil.fontSize.COMMON_2);
-        this.label_lan.setPosition(cc.winSize.width / 2, 750);
+        this.label_lan.setColor(theme.textSoft || cc.color(255, 255, 255, 220));
+        this.label_lan.setPosition(cc.winSize.width / 2, 780);
         this.addChild(this.label_lan);
 
         this.btn_lan = new SettingButton("", true);
@@ -742,7 +784,7 @@ var SettingLayer = cc.Layer.extend({
         if (!this.lan)
             this.lan = cc.sys.language;
         this.btn_lan.setTitle(stringName[this.lan]);
-        this.btn_lan.setPosition(cc.winSize.width / 2, 750);
+        this.btn_lan.setPosition(cc.winSize.width / 2, 730);
         this.addChild(this.btn_lan);
         this.btn_lan.setClickListener(this, function (sender) {
             self.openLanguageSelector();
