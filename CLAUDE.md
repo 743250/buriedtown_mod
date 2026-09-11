@@ -1,7 +1,24 @@
 # BuriedTown 项目说明（CLAUDE.md）
 
-本文件是项目级协作说明，给 Claude Code 在本仓库工作时使用。
-仓库内另有 `AGENTS.md` 给其它 AI 编程工具使用，两份文档目标接近但口径独立维护，本文件以本文件为准。
+---
+
+## 0. 工具使用约定（最先读）
+
+### skill
+
+- 完成一次改动（尤其动过 §5 高风险入口）后，运行 `/simplify` 审查本次改动。
+- 涉及提交/PR 前，运行 `/security-review` 检查安全问题（需在 git 仓库内）。
+- 做完一批内容扩展后用 `/review` 通读整体改动。
+
+### 子代理
+
+- **派出去**：跨文件搜证（如查某配置在所有 UI/服务层的引用）、按既定规则批量改文案/数值、跑 `tools/run-smoke.js` / `tools/validate-content.js` 并汇总、对照 `ContentBlueprint` 检查清单验证一致性。
+- **自己做**：内容/机制设计、数值平衡、UI 架构决策、高风险入口（§5）改动本身。
+- 子代理回来**必须核验**：读 diff、跑 smoke / 校验，不盲信"已完成"。
+
+### MCP
+
+- 验证 UI 改动时用 Playwright MCP：起本地运行时页面后 `browser_navigate` → `browser_snapshot` → 按需交互，检查节点树、缺图和布局（对应 §10.3 的 UI 可视化流程）。
 
 ---
 

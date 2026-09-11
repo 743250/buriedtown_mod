@@ -80,8 +80,18 @@ var TimerManager = cc.Class.extend({
         var self = this;
         this.callbackList.forEach(function (cb) {
             cb.process(dtTime);
-            if (self.time >= cb.getEndTime()) {
+            // 一次 dtTime 可能跨过多个 internalTime 周期：用局部 effectiveEndTime 逐周期触发，
+            // 真实周期推进交给 endCallbackList 的 reset() 一次性完成，避免与 reset 重复推进
+            var guard = 0;
+            var effectiveEndTime = cb.getEndTime();
+            while (self.time >= effectiveEndTime && guard++ < 256) {
                 cb.end();
+                effectiveEndTime += cb.internalTime;
+                if (cb.repeat <= 0) {
+                    break;
+                }
+            }
+            if (guard > 0) {
                 self.endCallbackList.push(cb);
             }
         });
@@ -130,12 +140,10 @@ var TimerManager = cc.Class.extend({
         var newTimeScale = time / realTime;
 
         if (this.isAccelerated) {
-            // 如果已在加速，延长加速时间或使用更快的速度
+            // 已在加速：只延长加速结束时间，不放大 timeScale。
+            // 若按 newTimeScale 取更大值，多个长耗时动作叠加会导致时间流速暴涨（几秒过一天）致死。
             if (newEndTime > this.accelerateEndTime) {
                 this.accelerateEndTime = newEndTime;
-            }
-            if (newTimeScale > this.timeScale) {
-                this.timeScale = newTimeScale;
             }
             cc.e("timer accelerate extended: endTime=" + this.accelerateEndTime + ", timeScale=" + this.timeScale);
         } else {

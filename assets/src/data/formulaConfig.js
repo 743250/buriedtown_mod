@@ -134,7 +134,21 @@ var formulaConfig = {
             "num": 6
         }],
         "makeTime": 30,
-        "placedTime": [540]
+        "placedTime": [540],
+        "runtimeRule": {"hideWhenPowerEnabledForTags": ["powered"]}
+    },
+    "1201062": {
+        "id": "1201062",
+        "produce": [{
+            "itemId": 1101061,
+            "num": 24,
+            "minNum": 20,
+            "maxNum": 28
+        }],
+        "cost": [],
+        "makeTime": 30,
+        "placedTime": [540],
+        "runtimeRule": {"includeAnyTags": ["powered"], "requirePoweredWorksite": true, "requirePowerEnabled": true}
     },
     "1201071": {
         "id": "1201071",
@@ -644,7 +658,23 @@ var formulaConfig = {
             "num": 8
         }],
         "makeTime": 30,
-        "runtimeRule": {"excludeAnyTags": ["luo"]},
+        "runtimeRule": {"excludeAnyTags": ["luo"], "hideWhenPowerEnabledForTags": ["powered"]},
+        "placedTime": [60]
+    },
+    "1205034": {
+        "id": "1205034",
+        "produce": [{
+            "itemId": 1105033,
+            "num": 4,
+            "minNum": 3,
+            "maxNum": 5
+        }],
+        "cost": [{
+            "itemId": 1105022,
+            "num": 8
+        }],
+        "makeTime": 30,
+        "runtimeRule": {"excludeAnyTags": ["luo"], "includeAnyTags": ["powered"], "requirePoweredWorksite": true, "requirePowerEnabled": true},
         "placedTime": [60]
     },
     "1205042": {

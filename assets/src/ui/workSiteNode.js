@@ -103,7 +103,22 @@ var WorkSiteNode = BottomFrameNode.extend({
             this.site.getMaintenanceValue(),
             this.site.getMaintenanceMax()
         );
-        return powerStatus + "\n" + maintenance;
+        var powerLine = "";
+        var runtimePlayer = getWorkSiteRuntimePlayer();
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.getPowerGridViewModel === "function"
+            && runtimePlayer) {
+            var viewModel = RoleRuntimeService.getPowerGridViewModel(runtimePlayer);
+            if (viewModel.generation > 0) {
+                powerLine = "\n" + stringUtil.getString(
+                    viewModel.overloaded ? "power_grid_overload_status" : "power_grid_status",
+                    viewModel.load,
+                    viewModel.generation
+                );
+            }
+        }
+        return powerStatus + "\n" + maintenance + powerLine;
     },
     _buildCostItems: function (items) {
         var clonedItems = utils.clone(items);

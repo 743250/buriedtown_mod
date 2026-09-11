@@ -227,7 +227,8 @@ var RoleRuntimeService = {
             battleModifiers: {
                 precisePenalty: !!battleModifiers.precisePenalty,
                 homeDefenseMode: battleModifiers.homeDefenseMode || defaultConfig.battleModifiers.homeDefenseMode
-            }
+            },
+            powerGrid: config.powerGrid || defaultConfig.powerGrid || {}
         };
     },
 
@@ -290,6 +291,79 @@ var RoleRuntimeService = {
         return this.getRuntimeConfig(roleType).workSiteRepair;
     },
 
+    getPowerGridConfig: function (roleType) {
+        return this.getRuntimeConfig(roleType).powerGrid || {};
+    },
+
+    getCurrentPowerLoad: function (player) {
+        var room = player && player.room;
+        if (!room || typeof room.forEach !== "function") {
+            return 0;
+        }
+        var load = 0;
+        room.forEach(function (build) {
+            if (!build || typeof build._getPowerCost !== "function") {
+                return;
+            }
+            var powerCost = build._getPowerCost();
+            if (powerCost <= 0) {
+                return;
+            }
+            var config = build.currentConfig;
+            if (config && config.autoPower) {
+                // 自动耗电建筑（如厨房灶台）：发电厂有电即计入，无手动开关
+                if (typeof build._isWorkSitePowered === "function" && build._isWorkSitePowered()) {
+                    load += powerCost;
+                }
+            } else if (typeof build.isPowerEnabled === "function" && build.isPowerEnabled()) {
+                // 依赖发电厂供电的开关建筑（如电炉）：停电时不耗电
+                if (config && config.requirePoweredWorksite
+                    && typeof build._isWorkSitePowered === "function"
+                    && !build._isWorkSitePowered()) {
+                    return;
+                }
+                load += powerCost;
+            }
+        });
+        return load;
+    },
+
+    getPowerGridOverloadState: function (player) {
+        var viewModel = this.getPowerGridViewModel(player);
+        return {
+            overloaded: viewModel.overloaded,
+            decayPerHour: viewModel.overloadDecayPerHour,
+            brokenProbability: viewModel.overloadBrokenProbability
+        };
+    },
+
+    getPowerGridViewModel: function (player) {
+        var roleType = player ? player.roleType : undefined;
+        var runtimeConfig = this.getRuntimeConfig(roleType);
+        var config = runtimeConfig.powerGrid || {};
+        var generation = Number(config.generation) || 0;
+        if (!(generation > 0)) {
+            return {
+                generation: 0,
+                load: 0,
+                overloaded: false,
+                overloadDecayPerHour: 0,
+                overloadBrokenProbability: 0
+            };
+        }
+        var load = this.getCurrentPowerLoad(player);
+        var overloaded = load > generation;
+        var baseDecayPerHour = Math.max(0, Number(runtimeConfig.workSiteRepair.maintenanceDecayPerHour) || 0);
+        var multiplier = overloaded ? (Number(config.overloadDecayMultiplier) || 3) : 1;
+        return {
+            generation: generation,
+            load: load,
+            overloaded: overloaded,
+            overloadDecayPerHour: overloaded ? baseDecayPerHour * multiplier : 0,
+            overloadBrokenProbability: overloaded ? (Number(config.overloadBrokenProbability) || 0) : 0
+        };
+    },
+
     getActionTags: function (roleType) {
         return this.getRuntimeConfig(roleType).actionTags;
     },
@@ -337,11 +411,18 @@ var RoleRuntimeService = {
             mergedRule.hideWhenPoweredWorksiteForTags,
             extraRule.hideWhenPoweredWorksiteForTags
         );
+        mergedRule.hideWhenPowerEnabledForTags = this._appendUniqueList(
+            mergedRule.hideWhenPowerEnabledForTags,
+            extraRule.hideWhenPowerEnabledForTags
+        );
         mergedRule.hideWhenOwnedItems = this._appendUniqueList(mergedRule.hideWhenOwnedItems, extraRule.hideWhenOwnedItems);
         mergedRule.requireOwnedItems = this._appendUniqueList(mergedRule.requireOwnedItems, extraRule.requireOwnedItems);
 
         if (extraRule.requirePoweredWorksite) {
             mergedRule.requirePoweredWorksite = true;
+        }
+        if (extraRule.requirePowerEnabled) {
+            mergedRule.requirePowerEnabled = true;
         }
         if (extraRule.purchaseLock) {
             mergedRule.purchaseLock = extraRule.purchaseLock;
@@ -440,9 +521,17 @@ var RoleRuntimeService = {
         if (rule.requirePoweredWorksite && !context.isWorkSitePowered) {
             return false;
         }
+        if (rule.requirePowerEnabled && !context.isPowerEnabled) {
+            return false;
+        }
         if (rule.hideWhenPoweredWorksiteForTags
             && context.isWorkSitePowered
             && this._hasAnyTag(roleTags, rule.hideWhenPoweredWorksiteForTags)) {
+            return false;
+        }
+        if (rule.hideWhenPowerEnabledForTags
+            && context.isPowerEnabled
+            && this._hasAnyTag(roleTags, rule.hideWhenPowerEnabledForTags)) {
             return false;
         }
         if (rule.hideWhenOwnedItems && this._hasAnyOwnedItem(context, rule.hideWhenOwnedItems)) {

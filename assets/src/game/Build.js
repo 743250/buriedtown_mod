@@ -54,6 +54,7 @@ var Build = cc.Class.extend({
         this.initBuildActions();
         this.activeBtnKeys = [];
         this.activeBtnIndex = -2;
+        this.powerEnabled = false;
 
         this.restore(saveObj);
     },
@@ -91,7 +92,8 @@ var Build = cc.Class.extend({
             level: this.level,
             saveActions: saveActions,
             activeBtnKeys: this.activeBtnKeys.slice(),
-            activeBtnIndex: this.activeBtnIndex
+            activeBtnIndex: this.activeBtnIndex,
+            powerEnabled: !!this.powerEnabled
         };
     },
     _getActionStateKey: function (action) {
@@ -171,7 +173,21 @@ var Build = cc.Class.extend({
                 action.restore(saveObj);
             }, this);
             this._restoreActiveBtnKeys(opt);
+            this.powerEnabled = !!opt.powerEnabled;
         }
+    },
+    _getPowerCost: function () {
+        return this.currentConfig ? (Number(this.currentConfig.powerCost) || 0) : 0;
+    },
+    isPowerEnabled: function () {
+        return !!this.powerEnabled && this._getPowerCost() > 0;
+    },
+    setPowerEnabled: function (enabled) {
+        if (this._getPowerCost() <= 0) {
+            return false;
+        }
+        this.powerEnabled = !!enabled;
+        return true;
     },
     getConcurrentActionLimit: function () {
         var configuredLimit = this.currentConfig && parseInt(this.currentConfig.concurrentActionLimit, 10);
@@ -191,6 +207,7 @@ var Build = cc.Class.extend({
         var self = this;
         return {
             isWorkSitePowered: this._isWorkSitePowered(),
+            isPowerEnabled: this.isPowerEnabled(),
             hasStorageItem: function (itemId) {
                 return self._hasStorageItem(itemId);
             }
@@ -285,7 +302,12 @@ var Build = cc.Class.extend({
     getBuildActions: function () {
         var runtimePlayer = getBuildRuntimePlayer();
         var context = this._buildActionFilterContext();
+        var self = this;
         return this.actions.filter(function (action) {
+            // 需要建筑达某等级才显示的动作（如通电开关仅 L2 出现）；未达隐藏而非显示锁定
+            if (action.hideBelowBuildLevel !== undefined && self.level < action.hideBelowBuildLevel) {
+                return false;
+            }
             return RoleRuntimeService.applyBuildActionRuntimeState(action, runtimePlayer.roleType, context);
         });
     },

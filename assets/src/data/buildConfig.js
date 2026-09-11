@@ -154,7 +154,9 @@ var buildConfig = {
             "bid": 1,
             "level": 0
         },
-        "produceList": [1203063, 1203064, 1203022, 1203023]
+        "produceList": [1203063, 1203064, 1203022, 1203023],
+        "powerCost": 2000,
+        "autoPower": true
     }, {
         "id": 4,
         "cost": [{
@@ -175,7 +177,9 @@ var buildConfig = {
             "bid": 1,
             "level": 1
         },
-        "produceList": [1203052, 1203053, 1203033, 1203034]
+        "produceList": [1203052, 1203053, 1203033, 1203034],
+        "powerCost": 2000,
+        "autoPower": true
     }, {
         "id": 4,
         "cost": [{
@@ -200,6 +204,8 @@ var buildConfig = {
             "level": 2
         },
         "produceList": [1203074, 1203075],
+        "powerCost": 2000,
+        "autoPower": true,
         "formulaModifier": {
             "makeTimeDelta": -10,
             "costDeltaMap": {
@@ -271,6 +277,29 @@ var buildConfig = {
             "level": 1
         },
         "produceList": [1205033, 1201071]
+    }, {
+        "id": 6,
+        "cost": [{
+            "itemId": 1101021,
+            "num": 10
+        }, {
+            "itemId": 1101031,
+            "num": 2
+        }, {
+            "itemId": 1101041,
+            "num": 6
+        }, {
+            "itemId": 1101051,
+            "num": 8
+        }],
+        "createTime": 60,
+        "condition": {
+            "bid": 1,
+            "level": 2
+        },
+        "produceList": [1201062, 1205034],
+        "powerCost": 1500,
+        "requirePoweredWorksite": true
     }],
     "7": [{
         "id": 7,
@@ -600,6 +629,7 @@ var buildConfig = {
     "18": [{
         "id": 18,
         "requirePoweredWorksite": true,
+        "powerCost": 1500,
         "cost": [{
             "itemId": 1101011,
             "num": 1

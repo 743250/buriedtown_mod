@@ -192,7 +192,7 @@ T 版借鉴原则（保留）：只借鉴“功能独立打包”，不回迁 UI
 验证入口：
 ```bash
 node tools/validate-content.js all --lang zh
-node tools/validate-content.js all --lang en
+# 当前没有 string_en.js；恢复英文资源后再启用 --lang en
 node tools/run-smoke.js runtime-boundaries startup
 ```
 
@@ -257,7 +257,7 @@ Hook 使用原则：
     - 站点链：`node tools/validate-content.js site-links --lang zh`
 - `pre-push`（承担"重护栏"）：
   - `node tools/validate-content.js all --lang zh`
-  - `node tools/validate-content.js all --lang en`
+  - 英文资源恢复后再运行 `node tools/validate-content.js all --lang en`
   - `node tools/run-smoke.js runtime-boundaries startup`
 - **opt-in 重护栏**（避免 pre-commit 拖慢提交体验）：
   - 改到高风险入口（§5）时**显式**跑：`BT_PRECOMMIT_SMOKE=1 git commit ...`

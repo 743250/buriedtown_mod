@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const contentValidator = require("./lib/content-validator");
 const itemUiValidator = require("./lib/validate-item-ui");
 
@@ -15,7 +17,7 @@ function printHelp() {
     console.log("");
     console.log("Options:");
     console.log("  --id 1001,1002         Restrict validation to ids.");
-    console.log("  --lang zh|en|both      Language used for string-based checks. Default: both.");
+    console.log("  --lang zh|en|both      Language used for string checks. English requires string_en.js.");
     console.log("  --strict-text          Treat item-ui text warnings as errors.");
     console.log("  --json                 Print machine-readable JSON.");
 }
@@ -111,6 +113,10 @@ function parseArgs(argv) {
     return parsed;
 }
 
+function hasLanguageResource(lang) {
+    return fs.existsSync(path.join(__dirname, "..", "assets", "src", "data", "string", "string_" + lang + ".js"));
+}
+
 function runAll(parsed) {
     return [
         itemUiValidator.validate({
@@ -179,6 +185,11 @@ function main() {
     if (parsed.lang !== "zh" && parsed.lang !== "en" && parsed.lang !== "both") {
         console.error("Invalid --lang: " + parsed.lang);
         process.exit(1);
+    }
+    if (parsed.lang === "en" && !hasLanguageResource("en")) {
+        console.error("English content validation is unavailable: assets/src/data/string/string_en.js is not present.");
+        console.error("Use --lang zh. Re-enable English validation only after the English resource is restored.");
+        process.exit(2);
     }
 
     if (parsed.command === "item-ui") {

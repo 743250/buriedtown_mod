@@ -949,75 +949,103 @@ var getBuildActionCostText = function (cost) {
     }).join("、");
 };
 
-var DogAutoFeedBuildAction = BuildAction.extend({
-    ctor: function (bid) {
-        this._super(bid);
-        this.actionKey = this.bid + ":auto_feed";
-        this.needBuild = {bid: this.id, level: 0};
-    },
+var ToggleBuildAction = BuildAction.extend({
+    // 子类提供：_isToggleEnabled() / _setToggleEnabled() / _getToggleHint()
+    // _setToggleEnabled 返回 true 表示已自行存档，基类不再重复 saveAll
     clickIcon: function () {
         uiUtil.showBuildActionDialog(this.bid, 1, 0);
     },
     clickAction1: function () {
-        var runtimePlayer = GameRuntime.getPlayer();
-        var enabled = !runtimePlayer.dog.isAutoFeedEnabled();
-        runtimePlayer.dog.setAutoFeedEnabled(enabled);
-        if (!(enabled && runtimePlayer.dog.tryAutoFeed(runtimePlayer))) {
+        var saved = this._setToggleEnabled(!this._isToggleEnabled());
+        if (!saved) {
             GameRuntime.getRecord().saveAll();
         }
         this._sendUpdageSignal();
     },
     _getUpdateViewInfo: function () {
-        var runtimePlayer = GameRuntime.getPlayer();
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
-        var cost = runtimePlayer.dog.getFeedCost();
-        var isEnabled = runtimePlayer.dog.isAutoFeedEnabled();
-        var hint = isEnabled
-            ? stringUtil.getString("dog_auto_feed_enabled_hint", getBuildActionCostText(cost))
-            : stringUtil.getString("dog_auto_feed_disabled_hint", getBuildActionCostText(cost));
-
+        var isEnabled = this._isToggleEnabled();
         return {
-            iconName: iconName,
-            hint: hint,
+            iconName: "#build_action_" + this.id + "_0" + ".png",
+            hint: this._getToggleHint(isEnabled),
             hintColor: cc.color.WHITE,
-            items: this._buildCostItems(cost),
+            items: null,
             action1: stringUtil.getString(isEnabled ? 1250 : 1249),
             percentage: 0
         };
     }
 });
 
-var TrapAutoSetBuildAction = BuildAction.extend({
+var DogAutoFeedBuildAction = ToggleBuildAction.extend({
+    ctor: function (bid) {
+        this._super(bid);
+        this.actionKey = this.bid + ":auto_feed";
+        this.needBuild = {bid: this.id, level: 0};
+    },
+    _isToggleEnabled: function () {
+        return GameRuntime.getPlayer().dog.isAutoFeedEnabled();
+    },
+    _setToggleEnabled: function (enabled) {
+        var runtimePlayer = GameRuntime.getPlayer();
+        runtimePlayer.dog.setAutoFeedEnabled(enabled);
+        if (!(enabled && runtimePlayer.dog.tryAutoFeed(runtimePlayer))) {
+            GameRuntime.getRecord().saveAll();
+        }
+        return true;
+    },
+    _getToggleHint: function (isEnabled) {
+        var cost = GameRuntime.getPlayer().dog.getFeedCost();
+        return stringUtil.getString(
+            isEnabled ? "dog_auto_feed_enabled_hint" : "dog_auto_feed_disabled_hint",
+            getBuildActionCostText(cost)
+        );
+    }
+});
+
+var TrapAutoSetBuildAction = ToggleBuildAction.extend({
     ctor: function (bid, trapAction) {
         this._super(bid);
         this.actionKey = this.bid + ":auto_set";
         this.needBuild = {bid: this.id, level: 0};
         this.trapAction = trapAction;
     },
-    clickIcon: function () {
-        uiUtil.showBuildActionDialog(this.bid, 1, 0);
+    _isToggleEnabled: function () {
+        return this.trapAction.isAutoSetEnabled();
     },
-    clickAction1: function () {
-        var enabled = !this.trapAction.isAutoSetEnabled();
+    _setToggleEnabled: function (enabled) {
         this.trapAction.setAutoSetEnabled(enabled);
-        GameRuntime.getRecord().saveAll();
-        this._sendUpdageSignal();
     },
-    _getUpdateViewInfo: function () {
-        var iconName = "#build_action_" + this.id + "_0" + ".png";
+    _getToggleHint: function (isEnabled) {
         var cost = this.trapAction.getAutoSetCost();
-        var hint = this.trapAction.isAutoSetEnabled()
-            ? stringUtil.getString("trap_auto_set_enabled_hint", getBuildActionCostText(cost))
-            : stringUtil.getString("trap_auto_set_disabled_hint", getBuildActionCostText(cost));
+        return stringUtil.getString(
+            isEnabled ? "trap_auto_set_enabled_hint" : "trap_auto_set_disabled_hint",
+            getBuildActionCostText(cost)
+        );
+    }
+});
 
-        return {
-            iconName: iconName,
-            hint: hint,
-            hintColor: cc.color.WHITE,
-            items: this._buildCostItems(cost),
-            action1: stringUtil.getString(this.trapAction.isAutoSetEnabled() ? 1250 : 1249),
-            percentage: 0
-        };
+var PowerToggleBuildAction = ToggleBuildAction.extend({
+    ctor: function (bid, requiredLevel) {
+        this._super(bid);
+        this.actionKey = this.bid + ":power_toggle";
+        requiredLevel = Number(requiredLevel);
+        // 开关动作不做锁定提示，只通过 hideBelowBuildLevel 在未达等级时隐藏
+        this.needBuild = null;
+        this.hideBelowBuildLevel = isFinite(requiredLevel) ? requiredLevel : 0;
+    },
+    _isToggleEnabled: function () {
+        var build = this.build || GameRuntime.getPlayer().room.getBuild(this.bid);
+        return !!(build && typeof build.isPowerEnabled === "function" && build.isPowerEnabled());
+    },
+    _setToggleEnabled: function (enabled) {
+        var build = this.build || GameRuntime.getPlayer().room.getBuild(this.bid);
+        if (build && typeof build.setPowerEnabled === "function") {
+            build.setPowerEnabled(enabled);
+        }
+    },
+    _getToggleHint: function (isEnabled) {
+        return stringUtil.getString(
+            isEnabled ? "power_toggle_enabled_hint" : "power_toggle_disabled_hint"
+        );
     }
 });
 
@@ -1473,5 +1501,25 @@ BuildActionFactory.registerBuildActionGroup(12, {
 BuildActionFactory.registerBuildActionGroup(17, {
     createActions: function (options) {
         return [this.createActionByType("bomb", { bid: options.bid })];
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(6, {
+    createActions: function (options) {
+        var formulaActions = this.createFormulaActions(options.bid);
+        formulaActions.unshift(new PowerToggleBuildAction(options.bid, 2));
+        return formulaActions;
+    }
+});
+
+BuildActionFactory.registerBuildActionGroup(18, {
+    createActions: function (options) {
+        var formulaActions = this.createFormulaActions(options.bid);
+        formulaActions.unshift(new PowerToggleBuildAction(options.bid, 0));
+        return formulaActions;
+    },
+    // 电炉开关关闭时建筑视为非活动 → 取暖停（与 bonfire 先例一致）
+    isBuildActive: function (build) {
+        return typeof build.isPowerEnabled === "function" && build.isPowerEnabled();
     }
 });

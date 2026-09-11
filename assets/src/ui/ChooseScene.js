@@ -84,8 +84,8 @@ var ChooseLayer = cc.Layer.extend({
         var viewHeight = scrollViewTopY - scrollViewBottomY;
         var widthPadding = (viewWidth - rowMaxNum * NODE_WIDTH ) / (rowMaxNum + 1);
         var heightPadding = 15;
-        // Name labels are rendered above each button; reserve top space to avoid clipping on first row.
-        var talentNameTopPadding = 36;
+        // Name labels sit above each button (btn.height + 5, maxH 36); reserve top space so row 0 is not clipped.
+        var talentNameTopPadding = 48;
         var data = TalentService.getTalentPurchaseIdList();
         var rowCount = Math.ceil(data.length / rowMaxNum);
         var totalHeight = NODE_HEIGHT * rowCount + (heightPadding * (rowCount - 1)) + talentNameTopPadding;

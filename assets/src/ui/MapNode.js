@@ -64,7 +64,7 @@ var MapNode = BottomFrameNode.extend({
             {
                 anchorX: 1,
                 anchorY: 1,
-                color: cc.color(255, 238, 170, 255)
+                color: UITheme.colors.POWER_NORMAL
             }
         );
         powerHint.setPosition(this.bgRect.width - 24, this.bgRect.height - 20);
@@ -81,11 +81,34 @@ var MapNode = BottomFrameNode.extend({
             powerHint.setVisible(false);
             return;
         }
+        var runtimePlayer = getMapNodeRuntimePlayer();
         var isPowered = isMapWorkSitePowered();
-        powerHint.setString(
-            stringUtil.getString(isPowered ? "worksite_power_active" : "worksite_power_inactive")
-            || (isPowered ? "宸查€氱數" : "已停电")
-        );
+        var text, color;
+        if (!isPowered) {
+            text = stringUtil.getString("worksite_power_inactive") || "已停电";
+            color = UITheme.colors.POWER_NORMAL;
+        } else {
+            var viewModel = (typeof RoleRuntimeService !== "undefined"
+                && RoleRuntimeService
+                && typeof RoleRuntimeService.getPowerGridViewModel === "function")
+                ? RoleRuntimeService.getPowerGridViewModel(runtimePlayer)
+                : null;
+            if (viewModel && viewModel.generation > 0) {
+                text = stringUtil.getString(
+                    viewModel.overloaded ? "power_grid_overload_status" : "power_grid_status",
+                    viewModel.load,
+                    viewModel.generation
+                );
+                color = viewModel.overloaded
+                    ? UITheme.colors.POWER_OVERLOAD
+                    : UITheme.colors.POWER_NORMAL;
+            } else {
+                text = stringUtil.getString("worksite_power_active") || "已通电";
+                color = UITheme.colors.POWER_NORMAL;
+            }
+        }
+        powerHint.setString(text);
+        powerHint.setColor(color);
         powerHint.setVisible(true);
     },
     onEnter: function () {

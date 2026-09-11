@@ -565,12 +565,29 @@ var WorkSite = Site.extend({
         }
         return changed;
     },
+    _getPowerGridOverloadState: function () {
+        if (typeof RoleRuntimeService !== "undefined"
+            && RoleRuntimeService
+            && typeof RoleRuntimeService.getPowerGridOverloadState === "function") {
+            return RoleRuntimeService.getPowerGridOverloadState(GameRuntime.getPlayer());
+        }
+        return null;
+    },
     checkActive: function () {
-        cc.log("checkActive " + this.isActive);
         if (this.isActive) {
             var repairConfig = this._getRepairConfig();
             var maintenanceDecayPerHour = Math.max(0, Number(repairConfig.maintenanceDecayPerHour) || 0);
             var brokenProbability = Math.max(0, Number(repairConfig.brokenProbability) || 0);
+            // 过载时加速维修值衰减、提高停电概率（雅子发电功率机制）
+            var overloadState = this._getPowerGridOverloadState();
+            if (overloadState && overloadState.overloaded) {
+                if (overloadState.decayPerHour > 0) {
+                    maintenanceDecayPerHour = Math.max(maintenanceDecayPerHour, overloadState.decayPerHour);
+                }
+                if (overloadState.brokenProbability > 0) {
+                    brokenProbability = Math.max(brokenProbability, overloadState.brokenProbability);
+                }
+            }
             var maintenanceBefore = this.getMaintenanceValue();
             var runtimeTimer = GameRuntime.getTimer();
             var currentTime = (runtimeTimer && isFinite(Number(runtimeTimer.time)))

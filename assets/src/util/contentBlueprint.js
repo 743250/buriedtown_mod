@@ -414,9 +414,11 @@ var ContentBlueprint = {
                 "includeAnyTags",
                 "excludeAnyTags",
                 "hideWhenPoweredWorksiteForTags",
+                "hideWhenPowerEnabledForTags",
                 "hideWhenOwnedItems",
                 "requireOwnedItems",
                 "requirePoweredWorksite",
+                "requirePowerEnabled",
                 "purchaseLock"
             ])) {
             return false;
@@ -441,6 +443,12 @@ var ContentBlueprint = {
                 return false;
             }
         }
+        if (runtimeRule.hideWhenPowerEnabledForTags !== undefined) {
+            hasAnyRule = true;
+            if (!ContentBlueprint._hasValidStringList(runtimeRule.hideWhenPowerEnabledForTags)) {
+                return false;
+            }
+        }
         if (runtimeRule.hideWhenOwnedItems !== undefined) {
             hasAnyRule = true;
             if (!ContentBlueprint._hasValidResolvableItemIdList(runtimeRule.hideWhenOwnedItems)) {
@@ -456,6 +464,12 @@ var ContentBlueprint = {
         if (runtimeRule.requirePoweredWorksite !== undefined) {
             hasAnyRule = true;
             if (typeof runtimeRule.requirePoweredWorksite !== "boolean") {
+                return false;
+            }
+        }
+        if (runtimeRule.requirePowerEnabled !== undefined) {
+            hasAnyRule = true;
+            if (typeof runtimeRule.requirePowerEnabled !== "boolean") {
                 return false;
             }
         }

@@ -54,6 +54,9 @@ var RoleConfigTable = {
         visitorUnlockedNpcIds: [5],
         unlockSites: [51, 52],
         restActionTypes: ["drink_tea"],
+        buildLevelCaps: {
+            6: 1
+        },
         attrModifiers: {
             hungerDecay: 0.75
         }
@@ -74,7 +77,10 @@ var RoleConfigTable = {
         actionTags: ["jie"],
         visitorNpcIds: [1, 4, 2, 6],
         visitorUnlockedNpcIds: [5],
-        unlockSites: [30, 32]
+        unlockSites: [30, 32],
+        buildLevelCaps: {
+            6: 1
+        }
     },
 
     // 雅子（女性：不可抽烟；休息只保留咖啡，不喝酒）
@@ -111,6 +117,11 @@ var RoleConfigTable = {
             maintenanceMax: 100,
             maintenanceDecayPerHour: 1
         },
+        powerGrid: {
+            generation: 4000,
+            overloadDecayMultiplier: 3,
+            overloadBrokenProbability: 0.15
+        },
         unlockSites: [204, 43, 41],
         battleModifiers: {
             homeDefenseMode: "dog_only"
@@ -134,7 +145,10 @@ var RoleConfigTable = {
         visitorUnlockedNpcIds: [5],
         siteNpcUnlocksEnabled: false,
         unlockSites: [61, 14, 301],
-        specialItems: [1305044]
+        specialItems: [1305044],
+        buildLevelCaps: {
+            6: 1
+        }
     },
 
     // 陌生人
@@ -153,7 +167,10 @@ var RoleConfigTable = {
         visitorNpcIds: [1, 4, 2, 3],
         visitorUnlockedNpcIds: [5],
         specialBuilds: [7, 8, 5, 9],
-        unlockSites: [203]
+        unlockSites: [203],
+        buildLevelCaps: {
+            6: 1
+        }
     },
 
     // 测试人物(KING)
@@ -221,6 +238,9 @@ var RoleConfigTable = {
                 {itemId: 1101021, num: 4},
                 {itemId: 1101031, num: 2}
             ]
+        },
+        buildLevelCaps: {
+            6: 1
         }
     }
 };

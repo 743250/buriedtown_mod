@@ -21,7 +21,10 @@ var UITheme = {
         MASK_DARK: cc.color(0, 0, 0, 155),
         MASK_DARKER: cc.color(0, 0, 0, 200),
 
-        BG_TRANSPARENT: cc.color(0, 0, 0, 0)
+        BG_TRANSPARENT: cc.color(0, 0, 0, 0),
+
+        POWER_NORMAL: cc.color(255, 255, 255, 255),
+        POWER_OVERLOAD: cc.color(255, 60, 60, 255)
     },
     statusColors: {
         warning: cc.color(72, 72, 72, 255),

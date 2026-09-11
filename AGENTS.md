@@ -2,6 +2,13 @@
 
 本文件是仓库级协作说明，作为后续维护、重构和内容扩展的统一入口。
 
+## 运行环境（codex 必读）
+
+- 本仓库位于 Termux + proot Ubuntu 环境下（Android 手机）。
+- 跑 npm/node/python 前先 `env -u NODE_OPTIONS`（NODE_OPTIONS 指向不存在的 retry-patch.js 会崩）。
+- 临时文件写 `~/.hxc_tmp/`（宿主 /tmp 不可写）。
+- 校验工具用 `node tools/...` 直接跑；涉及 proot 专属命令才需 `proot-distro login ubuntu26`。
+
 ## 项目概览
 
 - 这是一个以 `assets/src/jsList.js` 为装配入口的旧版 JS 游戏项目，当前工作重点是“边扩内容，边做结构收口”。
@@ -10,6 +17,16 @@
   - 新功能优先复用已有 service / manager / router / state
   - 不继续往旧核心里堆一次性 helper 和临时分支
 - 终端在 Windows PowerShell 下读取中文文档时可能出现乱码；必要时按 UTF-8 重新读取。
+
+## Git 工作副本状态（2026-08-14）
+
+- 当前分支：`main`；当前提交：`c68b193`，与本地 `origin/main` 一致。
+- 已修复旧 `installed-rootfs` 删除造成的 Git 对象断链；主分支 96 个提交可读，
+  `git fsck --no-reflogs` 返回成功。
+- 修复前后的 `git status --porcelain -z` 完全一致；现有 26 项未提交改动属于
+  活跃开发内容，禁止 clean、reset、checkout 覆盖或批量还原。
+- 旧断链对象和临时拉取仓库已删除；失效 stash 说明与修复前后状态快照保存在
+  `~/.hxc_tmp/buriedtown-git-broken-20260814/`，仅约 3KB。
 
 ## 主要目录
 
@@ -146,7 +163,7 @@ python3 tools/normalize-portrait.py normalize --input assets/res/贝尔.png --ou
 
 - `assets/src/data/itemConfig.js`: `weight / price / value / effect`
 - `assets/src/data/string/string_zh.js`: `title / des`
-- `assets/src/data/string/string_en.js`: `title / des`
+- 当前没有 `string_en.js`；未来恢复英文资源时再补对应 `title / des`
 - `res/icon.plist`: 图标资源或复用映射
 - `assets/src/ui/uiUtil.js`: 显示 ID、图标映射
 - `assets/src/ui/equipNode.js`: 装备页展示路径
@@ -182,7 +199,7 @@ if (!result.valid) {
 - `assets/src/game/IAPPackage.js`: 天赋列表与效果函数
 - `assets/src/game/medal.js`: 1 / 2 / 3 级兑换配置
 - `assets/src/data/string/string_zh.js`
-- `assets/src/data/string/string_en.js`
+- 英文资源恢复后再同步 `string_en.js`
 - 实际生效调用点
 - 三级奖励发放逻辑
 

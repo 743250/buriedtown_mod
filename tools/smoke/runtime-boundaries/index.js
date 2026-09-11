@@ -19,6 +19,7 @@ const CHECKS = []
     .concat(require("./checks/purchase-core"))
     .concat(require("./checks/role-talent-ui"))
     .concat(require("./checks/player-persistence"))
+    .concat(require("./checks/power-grid"))
     .concat(require("./checks/load-chain"));
 
 function runChecks() {

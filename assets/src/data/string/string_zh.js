@@ -79,6 +79,10 @@ var string = {
     "worksite_small_maintenance": "小型检修(%s分)",
     "worksite_large_maintenance": "大型检修(%s分)",
     "worksite_small_maintenance_hint": "仅在通电时可进行小型检修",
+    "power_toggle_enabled_hint": "已通电，使用电力配方。注意：总功率超过发电量会加速损耗发电厂。",
+    "power_toggle_disabled_hint": "已断电，使用传统配方。开启后可通过电力配方生产。",
+    "power_grid_status": "电网 %sW/%sW",
+    "power_grid_overload_status": "电网 %sW/%sW 过载",
     "1024": "无",
     "1025": "重量:",
     "1026": "余量:",
@@ -488,7 +492,7 @@ var string = {
     },
     "1101022": {
         "title": "金属矿石",
-        "des": "含有较多杂质的矿石，可以冶炼变成各种金属材料(这里套用金属材料的图凑合下)。"
+        "des": "含有较多杂质的矿石，可冶炼成金属材料。"
     },
     "1101031": {
         "title": "柔性材料",
@@ -805,6 +809,10 @@ var string = {
     "6_1": {
         "title": "恒温蒸馏器",
         "des": "对酒进行蒸馏，取得较高浓度的酒精。"
+    },
+    "6_2": {
+        "title": "电用蒸馏器",
+        "des": "接入电网的蒸馏器，可以通电解锁电力配方，无需消耗燃料。注意：总功率超过发电量会加速损耗发电厂。"
     },
     "7_0": {
         "title": "酒窖",
